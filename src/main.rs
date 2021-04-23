@@ -2,6 +2,7 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
+use maud::{html, DOCTYPE};
 use std::{convert::Infallible, future::Future};
 use std::{fmt::Display, net::SocketAddr};
 
@@ -26,7 +27,20 @@ async fn run(server: impl Future<Output = Result<(), impl Display>>) {
 }
 
 async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    Ok(Response::new(Body::from("<h1>hello world</h1>")))
+    let body = html! {
+        (DOCTYPE)
+        html {
+            head {
+                title {
+                    "foo"
+                }
+            }
+            body {
+                h1 { "hello world" }
+            }
+        }
+    };
+    Ok(Response::new(Body::from(body.into_string())))
 }
 
 #[cfg(test)]

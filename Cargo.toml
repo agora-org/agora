@@ -5,6 +5,7 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
+maud = "0.22.2"
 [dependencies.hyper]
 version = "0.14.7"
 features = ["server"]
