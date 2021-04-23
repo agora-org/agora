@@ -7,14 +7,16 @@ use std::{fmt::Display, net::SocketAddr};
 
 #[tokio::main]
 async fn main() {
-    run(setup().1).await
+    run(setup(Some(8080)).1).await
 }
 
-fn setup() -> (u16, impl Future<Output = Result<(), impl Display>>) {
-    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
+fn setup(port: Option<u16>) -> (u16, impl Future<Output = Result<(), impl Display>>) {
+    let addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
     let make_service = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
     let server = Server::bind(&addr).serve(make_service);
-    (server.local_addr().port(), server)
+    let port = server.local_addr().port();
+    eprintln!("listening on port {}", port);
+    (port, server)
 }
 
 async fn run(server: impl Future<Output = Result<(), impl Display>>) {
@@ -41,7 +43,7 @@ mod tests {
             .build()
             .unwrap()
             .block_on(async {
-                let (port, server) = setup();
+                let (port, server) = setup(None);
                 let join_handle = tokio::spawn(run(server));
                 test(port).await;
                 join_handle.abort();
