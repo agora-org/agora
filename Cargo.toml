@@ -5,3 +5,13 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
+[dependencies.hyper]
+version = "0.14.7"
+features = ["server"]
+
+[dependencies.tokio]
+version = "1.5.0"
+features = ["rt", "rt-multi-thread", "macros"]
+
+[dev-dependencies]
+reqwest = "0.11.3"
