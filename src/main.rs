@@ -31,19 +31,25 @@ async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
 mod tests {
     use super::*;
 
-    async fn test<Function, F>(test: Function)
+    fn test<Function, F>(test: Function)
     where
         Function: FnOnce(u16) -> F,
         F: Future<Output = ()>,
     {
-        let (port, server) = setup();
-        let join_handle = tokio::spawn(run(server));
-        test(port).await;
-        join_handle.abort();
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let (port, server) = setup();
+                let join_handle = tokio::spawn(run(server));
+                test(port).await;
+                join_handle.abort();
+            });
     }
 
-    #[tokio::test]
-    async fn index_route_status_code_is_200() {
+    #[test]
+    fn index_route_status_code_is_200() {
         test(|port| async move {
             assert_eq!(
                 reqwest::get(format!("http://localhost:{}", port))
@@ -52,12 +58,11 @@ mod tests {
                     .status(),
                 200
             )
-        })
-        .await;
+        });
     }
 
-    #[tokio::test]
-    async fn index_route_contains_hello_world() {
+    #[test]
+    fn index_route_contains_hello_world() {
         test(|port| async move {
             let haystack = reqwest::get(format!("http://localhost:{}", port))
                 .await
@@ -72,7 +77,6 @@ mod tests {
                 haystack,
                 needle
             );
-        })
-        .await;
+        });
     }
 }
