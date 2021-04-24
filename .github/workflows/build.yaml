@@ -70,6 +70,7 @@ jobs:
         rustup --version
         cargo --version
         cargo clippy --version
+        cargo fmt --version
 
     - name: Build
       run: cargo build --all --verbose
