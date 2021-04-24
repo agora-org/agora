@@ -61,6 +61,9 @@ jobs:
           target
         key: cargo-${{ env.CACHE_KEY }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
 
+    - name: Install Clippy
+      run: rustup component add clippy
+
     - name: Info
       run: |
         rustup --version
