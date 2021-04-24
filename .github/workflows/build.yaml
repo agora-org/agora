@@ -66,10 +66,10 @@ jobs:
         cargo fmt --version
 
     - name: Build
-      run: cargo build --all --verbose
+      run: cargo build --all
 
     - name: Test
-      run: cargo test --all --verbose
+      run: cargo test --all
 
     - name: Clippy
       run: cargo clippy --all
