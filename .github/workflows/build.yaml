@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  push:
+    branches:
+    - master
+    tags:
+    - '*'
+  pull_request:
+    branches:
+    - master
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Increment this key to invalidate the cache.
+  CACHE_KEY: 0
+
+jobs:
+  all:
+    name: All
+
+    strategy:
+      matrix:
+        os:
+        - macos-latest
+        - ubuntu-latest
+        - windows-latest
+        include:
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-musl
+        - os: macos-latest
+          target: x86_64-apple-darwin
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+
+    runs-on: ${{matrix.os}}
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+    - uses: actions/checkout@v2
+
+    # An issue with BSD Tar causes sporadic failures on macOS.
+    # c.f https://github.com/actions/cache/issues/403
+    - name: Install GNU Tar
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install gnu-tar
+        echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
+
+    - name: Cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: cargo-${{ env.CACHE_KEY }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Info
+      run: |
+        rustup --version
+        cargo --version
+        cargo clippy --version
+
+    - name: Build
+      run: cargo build --all --verbose
+
+    - name: Test
+      run: cargo test --all --verbose
+
+    - name: Clippy
+      run: cargo clippy --all
+
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
