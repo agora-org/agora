@@ -11,7 +11,7 @@ use std::{
 
 #[tokio::main]
 async fn main() {
-  let server = ConnectionHandler::bind(&env::current_dir().unwrap(), Some(8080)).unwrap();
+  let server = ConnectionHandler::bind(&env::current_dir().unwrap(), Some(8080));
 
   run(server).await
 }
@@ -29,7 +29,7 @@ struct ConnectionHandler {
 }
 
 impl ConnectionHandler {
-  fn bind(working_directory: &Path, port: Option<u16>) -> io::Result<ConnectionHandlerServer> {
+  fn bind(working_directory: &Path, port: Option<u16>) -> ConnectionHandlerServer {
     let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
 
     let connection_handler = Self {
@@ -42,7 +42,7 @@ impl ConnectionHandler {
 
     eprintln!("Listening on port {}", port);
 
-    Ok(server)
+    server
   }
 }
 
@@ -121,7 +121,7 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let server = ConnectionHandler::bind(&tempdir.path(), None).unwrap();
+        let server = ConnectionHandler::bind(&tempdir.path(), None);
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(run(server));
         test(port, tempdir.path().to_owned()).await;
