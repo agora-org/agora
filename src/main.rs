@@ -1,11 +1,13 @@
-use request_handler::{RequestHandler, RequestHandlerServer};
-use std::env;
+use request_handler::{stderr, RequestHandler, RequestHandlerServer, Stderr};
+use std::{env, sync::Arc};
+use tokio::sync::Mutex;
 
 mod request_handler;
 
 #[tokio::main]
 async fn main() {
-  let server = RequestHandler::bind(&env::current_dir().unwrap(), Some(8080)).unwrap();
+  let stderr = Arc::new(Mutex::new(Box::new(stderr())));
+  let server = RequestHandler::bind(&stderr, &env::current_dir().unwrap(), Some(8080)).unwrap();
   run(server).await
 }
 
@@ -19,9 +21,12 @@ async fn run(server: RequestHandlerServer) {
 mod tests {
   use super::*;
   use futures::future::Future;
-  use std::{io, path::PathBuf};
+  use std::{
+    io::{self, Cursor},
+    path::PathBuf,
+  };
 
-  fn test<Function, F>(test: Function)
+  fn test<Function, F>(test: Function) -> String
   where
     Function: FnOnce(u16, PathBuf) -> F,
     F: Future<Output = ()>,
@@ -30,17 +35,21 @@ mod tests {
     let www = tempdir.path().join("www");
     std::fs::create_dir(&www).unwrap();
 
+    let stderr = Arc::new(Mutex::new(Box::new(Cursor::new(vec![]))));
+    let stderr_clone = stderr.clone();
+
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let server = RequestHandler::bind(&tempdir.path(), None).unwrap();
+        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), None).unwrap();
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(run(server));
         test(port, tempdir.path().to_owned()).await;
         join_handle.abort();
-      });
+        String::from_utf8(stderr.lock().await.clone().into_inner()).unwrap()
+      })
   }
 
   #[track_caller]
@@ -115,13 +124,14 @@ mod tests {
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
     let tempdir = tempfile::tempdir().unwrap();
+    let stderr: Arc<Mutex<Box<Stderr>>> = Arc::new(Mutex::new(Box::new(Cursor::new(vec![]))));
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
         assert_eq!(
-          RequestHandler::bind(&tempdir.path(), None)
+          RequestHandler::bind(&stderr, &tempdir.path(), None)
             .unwrap_err()
             .kind(),
           io::ErrorKind::NotFound
@@ -143,6 +153,14 @@ mod tests {
   }
 
   #[test]
-  #[ignore]
-  fn errors_in_request_handling_are_printed_to_stderr() {}
+  fn errors_in_request_handling_are_printed_to_stderr() {
+    let stderr = test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::remove_dir(www).unwrap();
+      reqwest::get(format!("http://localhost:{}", port))
+        .await
+        .unwrap();
+    });
+    assert_eq!(stderr, "No such file or directory (os error 2): `www`\n")
+  }
 }
