@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+export RUSTFLAGS="--deny warnings"
+
+cargo build --all
+cargo test --all
+cargo clippy --all
+cargo fmt --all -- --check

@@ -31,9 +31,6 @@ jobs:
 
     runs-on: ${{matrix.os}}
 
-    env:
-      RUSTFLAGS: "--deny warnings"
-
     steps:
     - uses: actions/checkout@v2
 
@@ -65,14 +62,5 @@ jobs:
         cargo clippy --version
         cargo fmt --version
 
-    - name: Build
-      run: cargo build --all
-
-    - name: Test
-      run: cargo test --all
-
-    - name: Clippy
-      run: cargo clippy --all
-
-    - name: Check Formatting
-      run: cargo fmt --all -- --check
+    - name: CI
+      run: ./bin/ci
