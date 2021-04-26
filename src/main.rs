@@ -3,9 +3,7 @@ use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Respons
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
-  env, fs,
-  future::Future,
-  io,
+  env, fs, io,
   net::SocketAddr,
   path::{Path, PathBuf},
   task::{Context, Poll},
@@ -108,6 +106,8 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  use future::Future;
 
   fn test<Function, F>(test: Function)
   where
