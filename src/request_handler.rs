@@ -1,17 +1,31 @@
 use futures::future::{self, Ready};
-use hyper::{service::Service, Body, Request, Response};
+use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, Server};
 use maud::{html, DOCTYPE};
 use std::{
   fs, io,
-  path::PathBuf,
+  net::SocketAddr,
+  path::{Path, PathBuf},
   task::{Context, Poll},
 };
+use tower::make::Shared;
 
+pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
+
+#[derive(Clone)]
 pub(crate) struct RequestHandler {
   pub(crate) working_directory: PathBuf,
 }
 
 impl RequestHandler {
+  pub(crate) fn bind(working_directory: &Path, port: Option<u16>) -> RequestHandlerServer {
+    let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
+    let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
+      working_directory: working_directory.to_owned(),
+    }));
+    eprintln!("Listening on port {}", server.local_addr().port());
+    server
+  }
+
   fn response(&self) -> io::Result<Response<Body>> {
     let body = html! {
       (DOCTYPE)

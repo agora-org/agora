@@ -1,17 +1,15 @@
-use crate::connection_handler::ConnectionHandler;
-use connection_handler::ConnectionHandlerServer;
+use request_handler::{RequestHandler, RequestHandlerServer};
 use std::env;
 
-mod connection_handler;
 mod request_handler;
 
 #[tokio::main]
 async fn main() {
-  let server = ConnectionHandler::bind(&env::current_dir().unwrap(), Some(8080));
+  let server = RequestHandler::bind(&env::current_dir().unwrap(), Some(8080));
   run(server).await
 }
 
-async fn run(server: ConnectionHandlerServer) {
+async fn run(server: RequestHandlerServer) {
   if let Err(e) = server.await {
     eprintln!("server error: {}", e);
   }
@@ -35,7 +33,7 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let server = ConnectionHandler::bind(&tempdir.path(), None);
+        let server = RequestHandler::bind(&tempdir.path(), None);
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(run(server));
         test(port, tempdir.path().to_owned()).await;
