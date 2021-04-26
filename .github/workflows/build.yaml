@@ -16,7 +16,7 @@ defaults:
 
 env:
   # Increment this key to invalidate the cache.
-  CACHE_KEY: 0
+  CACHE_KEY: 1
 
 jobs:
   all:
