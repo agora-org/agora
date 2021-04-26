@@ -1,7 +1,10 @@
 use futures::future::{self, Ready};
-use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, Server};
+use hyper::{
+  server::conn::AddrIncoming, service::Service, Body, Request, Response, Server, StatusCode,
+};
 use maud::{html, DOCTYPE};
 use std::{
+  convert::Infallible,
   fs, io,
   net::SocketAddr,
   path::{Path, PathBuf},
@@ -30,7 +33,17 @@ impl RequestHandler {
     Ok(server)
   }
 
-  fn response(&self) -> io::Result<Response<Body>> {
+  fn response(&self) -> Response<Body> {
+    match self.list_www() {
+      Ok(response) => response,
+      Err(_error) => Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(Body::empty())
+        .unwrap(),
+    }
+  }
+
+  fn list_www(&self) -> io::Result<Response<Body>> {
     let body = html! {
       (DOCTYPE)
       html {
@@ -54,7 +67,7 @@ impl RequestHandler {
 
 impl Service<Request<Body>> for RequestHandler {
   type Response = Response<Body>;
-  type Error = io::Error;
+  type Error = Infallible;
   type Future = Ready<Result<Self::Response, Self::Error>>;
 
   fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -62,6 +75,6 @@ impl Service<Request<Body>> for RequestHandler {
   }
 
   fn call(&mut self, _: Request<Body>) -> Self::Future {
-    future::ready(self.response())
+    future::ready(Ok(self.response()))
   }
 }

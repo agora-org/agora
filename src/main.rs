@@ -81,7 +81,7 @@ mod tests {
   }
 
   #[test]
-  fn test_listing_contains_file() {
+  fn listing_contains_file() {
     test(|port, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
       let haystack = reqwest::get(format!("http://localhost:{}", port))
@@ -96,7 +96,7 @@ mod tests {
   }
 
   #[test]
-  fn test_listing_contains_multiple_files() {
+  fn listing_contains_multiple_files() {
     test(|port, dir| async move {
       let www = dir.join("www");
       std::fs::write(www.join("a.txt"), "").unwrap();
@@ -113,7 +113,7 @@ mod tests {
   }
 
   #[test]
-  fn test_server_aborts_when_directory_does_not_exist() {
+  fn server_aborts_when_directory_does_not_exist() {
     let tempdir = tempfile::tempdir().unwrap();
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
@@ -130,8 +130,17 @@ mod tests {
   }
 
   #[test]
-  #[ignore]
-  fn errors_in_request_handling_cause_500_status_codes() {}
+  fn errors_in_request_handling_cause_500_status_codes() {
+    test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::remove_dir(www).unwrap();
+      let status = reqwest::get(format!("http://localhost:{}", port))
+        .await
+        .unwrap()
+        .status();
+      assert_eq!(status, 500);
+    });
+  }
 
   #[test]
   #[ignore]
