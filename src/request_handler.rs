@@ -11,19 +11,23 @@ use tower::make::Shared;
 
 pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) working_directory: PathBuf,
 }
 
 impl RequestHandler {
-  pub(crate) fn bind(working_directory: &Path, port: Option<u16>) -> RequestHandlerServer {
+  pub(crate) fn bind(
+    working_directory: &Path,
+    port: Option<u16>,
+  ) -> io::Result<RequestHandlerServer> {
+    fs::read_dir(working_directory.join("www"))?;
     let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
     let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
       working_directory: working_directory.to_owned(),
     }));
     eprintln!("Listening on port {}", server.local_addr().port());
-    server
+    Ok(server)
   }
 
   fn response(&self) -> io::Result<Response<Body>> {
