@@ -63,4 +63,4 @@ jobs:
         cargo fmt --version
 
     - name: CI
-      run: ./bin/ci.sh
+      run: ./bin/ci
