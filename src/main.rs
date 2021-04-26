@@ -186,4 +186,22 @@ mod tests {
       assert_contains(&haystack, needle);
     });
   }
+
+  #[test]
+  fn test_listing_contains_multiple_files() {
+    test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::create_dir(&www).unwrap();
+      std::fs::write(www.join("a.txt"), "").unwrap();
+      std::fs::write(www.join("b.txt"), "").unwrap();
+      let haystack = reqwest::get(format!("http://localhost:{}", port))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+      assert_contains(&haystack, "a.txt");
+      assert_contains(&haystack, "b.txt");
+    });
+  }
 }
