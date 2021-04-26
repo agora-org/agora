@@ -1,46 +1,108 @@
-use hyper::{
-  service::{make_service_fn, service_fn},
-  Body, Request, Response, Server,
-};
+use futures::future::{self, Ready};
+use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, Server};
 use maud::{html, DOCTYPE};
-use std::{convert::Infallible, future::Future};
-use std::{fmt::Display, net::SocketAddr};
+use std::{
+  convert::Infallible,
+  env, fs,
+  future::Future,
+  io,
+  net::SocketAddr,
+  path::{Path, PathBuf},
+  task::{Context, Poll},
+};
 
 #[tokio::main]
 async fn main() {
-  run(setup(Some(8080)).1).await
+  let server = ConnectionHandler::bind(&env::current_dir().unwrap(), Some(8080)).unwrap();
+
+  run(server).await
 }
 
-fn setup(port: Option<u16>) -> (u16, impl Future<Output = Result<(), impl Display>>) {
-  let addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
-  let make_service = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
-  let server = Server::bind(&addr).serve(make_service);
-  let port = server.local_addr().port();
-  eprintln!("listening on port {}", port);
-  (port, server)
-}
-
-async fn run(server: impl Future<Output = Result<(), impl Display>>) {
+async fn run(server: ConnectionHandlerServer) {
   if let Err(e) = server.await {
     eprintln!("server error: {}", e);
   }
 }
 
-async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-  let body = html! {
+type ConnectionHandlerServer = Server<AddrIncoming, ConnectionHandler>;
+
+struct ConnectionHandler {
+  working_directory: PathBuf,
+}
+
+impl ConnectionHandler {
+  fn bind(working_directory: &Path, port: Option<u16>) -> io::Result<ConnectionHandlerServer> {
+    let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
+
+    let connection_handler = Self {
+      working_directory: working_directory.to_owned(),
+    };
+
+    let server = Server::bind(&socket_addr).serve(connection_handler);
+
+    let port = server.local_addr().port();
+
+    eprintln!("Listening on port {}", port);
+
+    Ok(server)
+  }
+}
+
+impl<T> Service<T> for ConnectionHandler {
+  type Response = RequestHandler;
+  type Error = Infallible;
+  type Future = Ready<Result<Self::Response, Self::Error>>;
+
+  fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    Ok(()).into()
+  }
+
+  fn call(&mut self, _: T) -> Self::Future {
+    future::ok(RequestHandler {
+      working_directory: self.working_directory.clone(),
+    })
+  }
+}
+
+struct RequestHandler {
+  working_directory: PathBuf,
+}
+
+impl RequestHandler {
+  fn response(&self) -> io::Result<Response<Body>> {
+    let body = html! {
       (DOCTYPE)
       html {
-          head {
-              title {
-                  "foo"
-              }
+        head {
+          title {
+            "foo"
           }
-          body {
-              h1 { "hello world" }
+        }
+        body {
+          @for result in fs::read_dir(self.working_directory.join("www"))? {
+            (result?.file_name().to_string_lossy())
+            br;
           }
+        }
       }
-  };
-  Ok(Response::new(Body::from(body.into_string())))
+    };
+
+    Ok(Response::new(Body::from(body.into_string())))
+  }
+}
+
+impl Service<Request<Body>> for RequestHandler {
+  type Response = Response<Body>;
+  type Error = io::Error;
+  type Future = Ready<Result<Self::Response, Self::Error>>;
+
+  fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    Ok(()).into()
+  }
+
+  fn call(&mut self, _: Request<Body>) -> Self::Future {
+    future::ready(self.response())
+  }
 }
 
 #[cfg(test)]
@@ -49,24 +111,39 @@ mod tests {
 
   fn test<Function, F>(test: Function)
   where
-    Function: FnOnce(u16) -> F,
+    Function: FnOnce(u16, PathBuf) -> F,
     F: Future<Output = ()>,
   {
+    let tempdir = tempfile::tempdir().unwrap();
+
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let (port, server) = setup(None);
+        let server = ConnectionHandler::bind(&tempdir.path(), None).unwrap();
+        let port = server.local_addr().port();
         let join_handle = tokio::spawn(run(server));
-        test(port).await;
+        test(port, tempdir.path().to_owned()).await;
         join_handle.abort();
       });
   }
 
+  #[track_caller]
+  fn assert_contains(haystack: &str, needle: &str) {
+    assert!(
+      haystack.contains(needle),
+      "\n{} does not contain {}\n",
+      haystack,
+      needle
+    );
+  }
+
   #[test]
   fn index_route_status_code_is_200() {
-    test(|port| async move {
+    test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::create_dir(&www).unwrap();
       assert_eq!(
         reqwest::get(format!("http://localhost:{}", port))
           .await
@@ -78,21 +155,35 @@ mod tests {
   }
 
   #[test]
-  fn index_route_contains_hello_world() {
-    test(|port| async move {
+  fn index_route_contains_title() {
+    test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::create_dir(&www).unwrap();
       let haystack = reqwest::get(format!("http://localhost:{}", port))
         .await
         .unwrap()
         .text()
         .await
         .unwrap();
-      let needle = "<h1>hello world</h1>";
-      assert!(
-        haystack.contains(needle),
-        "\n{} does not contain {}\n",
-        haystack,
-        needle
-      );
+      let needle = "<title>foo</title>";
+      assert_contains(&haystack, needle);
+    });
+  }
+
+  #[test]
+  fn test_listing_contains_file() {
+    test(|port, dir| async move {
+      let www = dir.join("www");
+      std::fs::create_dir(&www).unwrap();
+      std::fs::write(www.join("some-test-file.txt"), "").unwrap();
+      let haystack = reqwest::get(format!("http://localhost:{}", port))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+      let needle = "some-test-file.txt";
+      assert_contains(&haystack, needle);
     });
   }
 }

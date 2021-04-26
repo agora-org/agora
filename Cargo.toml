@@ -6,6 +6,8 @@ edition = "2018"
 
 [dependencies]
 maud = "0.22.2"
+tempfile = "3.2.0"
+futures = "0.3.14"
 
 [dependencies.hyper]
 version = "0.14.7"
