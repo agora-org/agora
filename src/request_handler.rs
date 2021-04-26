@@ -55,7 +55,7 @@ impl RequestHandler {
   }
 
   async fn response(self) -> Response<Body> {
-    match self.list_www() {
+    match self.list_www().await {
       Ok(response) => response,
       Err(error) => {
         writeln!(self.stderr.lock().await, "{}", error).unwrap();
@@ -67,7 +67,10 @@ impl RequestHandler {
     }
   }
 
-  fn list_www(&self) -> Result<Response<Body>, String> {
+  async fn list_www(&self) -> Result<Response<Body>, String> {
+    let mut read_dir = tokio::fs::read_dir(self.working_directory.join("www"))
+      .await
+      .map_err(|error| format!("{}: `www`", error))?;
     let body = html! {
       (DOCTYPE)
       html {
@@ -77,8 +80,8 @@ impl RequestHandler {
           }
         }
         body {
-          @for result in fs::read_dir(self.working_directory.join("www")).map_err(|error|format!("{}: `www`",error))? {
-            (result.map_err(|error|format!("{}: `www`",error))?.file_name().to_string_lossy())
+          @while let Some(entry) = read_dir.next_entry().await.map_err(|error|format!("{}: `www`",error))? {
+            (entry.file_name().to_string_lossy())
             br;
           }
         }

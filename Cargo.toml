@@ -19,7 +19,7 @@ features = ["server"]
 
 [dependencies.tokio]
 version = "1.5.0"
-features = ["rt", "rt-multi-thread", "macros"]
+features = ["rt", "rt-multi-thread", "macros", "fs"]
 
 [dev-dependencies]
 reqwest = "0.11.3"
