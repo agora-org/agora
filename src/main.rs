@@ -1,18 +1,13 @@
-use futures::future::{self, Ready};
-use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, Server};
-use maud::{html, DOCTYPE};
-use std::{
-  convert::Infallible,
-  env, fs, io,
-  net::SocketAddr,
-  path::{Path, PathBuf},
-  task::{Context, Poll},
-};
+use crate::connection_handler::ConnectionHandler;
+use connection_handler::ConnectionHandlerServer;
+use std::env;
+
+mod connection_handler;
+mod request_handler;
 
 #[tokio::main]
 async fn main() {
   let server = ConnectionHandler::bind(&env::current_dir().unwrap(), Some(8080));
-
   run(server).await
 }
 
@@ -22,92 +17,11 @@ async fn run(server: ConnectionHandlerServer) {
   }
 }
 
-type ConnectionHandlerServer = Server<AddrIncoming, ConnectionHandler>;
-
-struct ConnectionHandler {
-  working_directory: PathBuf,
-}
-
-impl ConnectionHandler {
-  fn bind(working_directory: &Path, port: Option<u16>) -> ConnectionHandlerServer {
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
-
-    let connection_handler = Self {
-      working_directory: working_directory.to_owned(),
-    };
-
-    let server = Server::bind(&socket_addr).serve(connection_handler);
-
-    let port = server.local_addr().port();
-
-    eprintln!("Listening on port {}", port);
-
-    server
-  }
-}
-
-impl<T> Service<T> for ConnectionHandler {
-  type Response = RequestHandler;
-  type Error = Infallible;
-  type Future = Ready<Result<Self::Response, Self::Error>>;
-
-  fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-    Ok(()).into()
-  }
-
-  fn call(&mut self, _: T) -> Self::Future {
-    future::ok(RequestHandler {
-      working_directory: self.working_directory.clone(),
-    })
-  }
-}
-
-struct RequestHandler {
-  working_directory: PathBuf,
-}
-
-impl RequestHandler {
-  fn response(&self) -> io::Result<Response<Body>> {
-    let body = html! {
-      (DOCTYPE)
-      html {
-        head {
-          title {
-            "foo"
-          }
-        }
-        body {
-          @for result in fs::read_dir(self.working_directory.join("www"))? {
-            (result?.file_name().to_string_lossy())
-            br;
-          }
-        }
-      }
-    };
-
-    Ok(Response::new(Body::from(body.into_string())))
-  }
-}
-
-impl Service<Request<Body>> for RequestHandler {
-  type Response = Response<Body>;
-  type Error = io::Error;
-  type Future = Ready<Result<Self::Response, Self::Error>>;
-
-  fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-    Ok(()).into()
-  }
-
-  fn call(&mut self, _: Request<Body>) -> Self::Future {
-    future::ready(self.response())
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
-
-  use future::Future;
+  use futures::future::Future;
+  use std::path::PathBuf;
 
   fn test<Function, F>(test: Function)
   where
