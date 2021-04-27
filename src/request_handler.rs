@@ -98,11 +98,7 @@ impl Service<Request<Body>> for RequestHandler {
 mod tests {
   use super::*;
   use futures::future::Future;
-  use std::{
-    io::Cursor,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-  };
+  use std::path::PathBuf;
 
   fn test<Function, F>(test: Function) -> String
   where
@@ -113,7 +109,7 @@ mod tests {
     let www = tempdir.path().join("www");
     std::fs::create_dir(&www).unwrap();
 
-    let stderr = Arc::new(Mutex::new(Cursor::new(vec![])));
+    let stderr = Stderr::test();
     let stderr_clone = stderr.clone();
 
     tokio::runtime::Builder::new_current_thread()
@@ -121,13 +117,12 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let server =
-          RequestHandler::bind(&Stderr::Test(stderr_clone), &tempdir.path(), None).unwrap();
+        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), None).unwrap();
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
         test(port, tempdir.path().to_owned()).await;
         join_handle.abort();
-        String::from_utf8(stderr.lock().unwrap().clone().into_inner()).unwrap()
+        stderr.contents()
       })
   }
 
@@ -203,7 +198,7 @@ mod tests {
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
     let tempdir = tempfile::tempdir().unwrap();
-    let stderr = Stderr::Test(Arc::new(Mutex::new(Cursor::new(vec![]))));
+    let stderr = Stderr::test();
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
