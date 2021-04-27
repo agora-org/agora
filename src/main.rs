@@ -6,6 +6,9 @@ mod environment;
 mod request_handler;
 mod stderr;
 
+#[cfg(test)]
+mod test_utils;
+
 #[tokio::main]
 async fn main() {
   if let Err(error) = run().await {
@@ -16,13 +19,13 @@ async fn main() {
 
 async fn run() -> Result<()> {
   let environment = Environment::production()?;
-  let server = Server::bind(&environment)?;
+  let server = Server::setup(&environment)?;
   server.run().await
 }
 
 #[cfg(test)]
 mod tests {
-  use crate::request_handler::tests::test_with_arguments;
+  use crate::test_utils::test_with_arguments;
   use std::net::TcpListener;
 
   #[test]

@@ -5,7 +5,6 @@ use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Respons
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
-  ffi::OsString,
   fmt::Debug,
   fs,
   io::Write,
@@ -22,7 +21,7 @@ pub(crate) struct Server {
 }
 
 impl Server {
-  pub(crate) fn bind(environment: &Environment) -> Result<Self> {
+  pub(crate) fn setup(environment: &Environment) -> Result<Self> {
     let arguments = Arguments::from_iter_safe(&environment.arguments)?;
 
     fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
@@ -31,12 +30,17 @@ impl Server {
       stderr: environment.stderr.clone(),
       working_directory: environment.working_directory.to_owned(),
     }));
+
     eprintln!("Listening on port {}", inner.local_addr().port());
     Ok(Self { inner })
   }
 
   pub(crate) async fn run(self) -> Result<()> {
     Ok(self.inner.await?)
+  }
+
+  pub(crate) fn port(&self) -> u16 {
+    self.inner.local_addr().port()
   }
 }
 
@@ -106,43 +110,7 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
-  use futures::future::Future;
-  use std::path::PathBuf;
-
-  pub(crate) fn test<Function, F>(test: Function) -> String
-  where
-    Function: FnOnce(u16, PathBuf) -> F,
-    F: Future<Output = ()>,
-  {
-    test_with_arguments(&[], test)
-  }
-
-  pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
-  where
-    Function: FnOnce(u16, PathBuf) -> F,
-    F: Future<Output = ()>,
-  {
-    let mut environment = Environment::test();
-    environment
-      .arguments
-      .extend(args.iter().cloned().map(OsString::from));
-
-    let www = environment.tempdir.path().join("www");
-    std::fs::create_dir(&www).unwrap();
-
-    tokio::runtime::Builder::new_current_thread()
-      .enable_all()
-      .build()
-      .unwrap()
-      .block_on(async {
-        let server = Server::bind(&environment).unwrap();
-        let port = server.inner.local_addr().port();
-        let join_handle = tokio::spawn(async { server.run().await.unwrap() });
-        f(port, environment.tempdir.path().to_owned()).await;
-        join_handle.abort();
-        environment.stderr.contents()
-      })
-  }
+  use crate::test_utils::test;
 
   #[track_caller]
   fn assert_contains(haystack: &str, needle: &str) {
@@ -222,7 +190,7 @@ pub(crate) mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let error = format!("{:?}", Server::bind(&environment).unwrap_err());
+        let error = format!("{:?}", Server::setup(&environment).unwrap_err());
         assert_contains(&error, "cannot access `www`");
         assert_contains(&error, "Caused by:");
       });
