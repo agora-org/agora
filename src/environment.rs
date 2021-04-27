@@ -6,10 +6,12 @@ use structopt::StructOpt;
 #[cfg(test)]
 use tempfile::TempDir;
 
+const DEFAULT_PORT: &str = if cfg!(test) { "0" } else { "8080" };
+
 #[derive(StructOpt)]
 pub(crate) struct Arguments {
-  #[structopt(long)]
-  pub(crate) port: Option<u16>,
+  #[structopt(long, default_value = DEFAULT_PORT)]
+  pub(crate) port: u16,
 }
 
 pub(crate) struct Environment {
@@ -31,6 +33,7 @@ impl Environment {
     })
   }
 
+  #[cfg(test)]
   pub(crate) fn test() -> Self {
     let tempdir = tempfile::Builder::new()
       .prefix("foo-test")

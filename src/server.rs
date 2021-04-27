@@ -14,7 +14,7 @@ impl Server {
     let arguments = environment.arguments()?;
 
     fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
+    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port));
     let inner =
       hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(&environment)));
 
@@ -26,6 +26,7 @@ impl Server {
     Ok(self.inner.await?)
   }
 
+  #[cfg(test)]
   pub(crate) fn port(&self) -> u16 {
     self.inner.local_addr().port()
   }
