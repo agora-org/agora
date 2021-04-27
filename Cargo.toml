@@ -5,7 +5,13 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0.40"
+futures = "0.3.14"
 maud = "0.22.2"
+
+[dependencies.tower]
+version = "0.4.6"
+features = ["make"]
 
 [dependencies.hyper]
 version = "0.14.7"
@@ -13,7 +19,8 @@ features = ["server"]
 
 [dependencies.tokio]
 version = "1.5.0"
-features = ["rt", "rt-multi-thread", "macros"]
+features = ["rt", "rt-multi-thread", "macros", "fs"]
 
 [dev-dependencies]
 reqwest = "0.11.3"
+tempfile = "3.2.0"
