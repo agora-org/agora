@@ -1,6 +1,8 @@
-use crate::request_handler::{run_server, Environment, RequestHandler};
+use crate::request_handler::{run_server, RequestHandler};
 use anyhow::Result;
+use environment::Environment;
 
+mod environment;
 mod request_handler;
 mod stderr;
 
@@ -14,7 +16,7 @@ async fn main() {
 
 async fn run() -> Result<()> {
   let environment = Environment::production()?;
-  let server = RequestHandler::bind(environment)?;
+  let server = RequestHandler::bind(&environment)?;
   run_server(server).await
 }
 
@@ -30,7 +32,7 @@ mod tests {
     let port_str = port.as_str();
     drop(listener);
 
-    let args = &["foo", "--port", port_str];
+    let args = &["--port", port_str];
 
     test_with_arguments(args, |_port, _dir| async move {
       assert_eq!(
