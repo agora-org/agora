@@ -1,9 +1,7 @@
 use crate::{environment::Environment, stderr::Stderr};
 use anyhow::{Context, Result};
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{
-  server::conn::AddrIncoming, service::Service, Body, Request, Response, Server, StatusCode,
-};
+use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
@@ -18,10 +16,28 @@ use std::{
 use structopt::StructOpt;
 use tower::make::Shared;
 
-pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
+#[derive(Debug)]
+pub(crate) struct Server {
+  inner: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+}
 
-pub(crate) async fn run_server(server: RequestHandlerServer) -> Result<()> {
-  Ok(server.await?)
+impl Server {
+  pub(crate) fn bind(environment: &Environment) -> Result<Self> {
+    let arguments = Arguments::from_iter_safe(&environment.arguments)?;
+
+    fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
+    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
+    let inner = hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
+      stderr: environment.stderr.clone(),
+      working_directory: environment.working_directory.to_owned(),
+    }));
+    eprintln!("Listening on port {}", inner.local_addr().port());
+    Ok(Self { inner })
+  }
+
+  pub(crate) async fn run(self) -> Result<()> {
+    Ok(self.inner.await?)
+  }
 }
 
 #[derive(StructOpt)]
@@ -37,19 +53,6 @@ pub(crate) struct RequestHandler {
 }
 
 impl RequestHandler {
-  pub(crate) fn bind(environment: &Environment) -> Result<RequestHandlerServer> {
-    let arguments = Arguments::from_iter_safe(&environment.arguments)?;
-
-    fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
-    let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
-      stderr: environment.stderr.clone(),
-      working_directory: environment.working_directory.to_owned(),
-    }));
-    eprintln!("Listening on port {}", server.local_addr().port());
-    Ok(server)
-  }
-
   async fn response(mut self) -> Response<Body> {
     match self.list_www().await.context("cannot access `www`") {
       Ok(response) => response,
@@ -132,9 +135,9 @@ pub(crate) mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let server = RequestHandler::bind(&environment).unwrap();
-        let port = server.local_addr().port();
-        let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
+        let server = Server::bind(&environment).unwrap();
+        let port = server.inner.local_addr().port();
+        let join_handle = tokio::spawn(async { server.run().await.unwrap() });
         f(port, environment.tempdir.path().to_owned()).await;
         join_handle.abort();
         environment.stderr.contents()
@@ -219,7 +222,7 @@ pub(crate) mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let error = format!("{:?}", RequestHandler::bind(&environment).unwrap_err());
+        let error = format!("{:?}", Server::bind(&environment).unwrap_err());
         assert_contains(&error, "cannot access `www`");
         assert_contains(&error, "Caused by:");
       });

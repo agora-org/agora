@@ -1,4 +1,4 @@
-use crate::request_handler::{run_server, RequestHandler};
+use crate::request_handler::Server;
 use anyhow::Result;
 use environment::Environment;
 
@@ -16,8 +16,8 @@ async fn main() {
 
 async fn run() -> Result<()> {
   let environment = Environment::production()?;
-  let server = RequestHandler::bind(&environment)?;
-  run_server(server).await
+  let server = Server::bind(&environment)?;
+  server.run().await
 }
 
 #[cfg(test)]
