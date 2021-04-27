@@ -3,44 +3,58 @@ use hyper::{
   server::conn::AddrIncoming, service::Service, Body, Request, Response, Server, StatusCode,
 };
 use maud::{html, DOCTYPE};
-use std::fmt::Debug;
-#[cfg(test)]
-use std::io::Cursor;
 use std::{
   convert::Infallible,
+  fmt::Debug,
   fs,
-  io::{self, Write},
+  io::{self, Cursor, Write},
   net::SocketAddr,
   path::{Path, PathBuf},
-  sync::Arc,
+  sync::{Arc, Mutex},
   task::{Context, Poll},
 };
-use tokio::sync::Mutex;
 use tower::make::Shared;
 
-#[cfg(test)]
-pub(crate) type Stderr = Cursor<Vec<u8>>;
-#[cfg(not(test))]
-pub(crate) type Stderr = std::io::Stderr;
+#[derive(Clone, Debug)]
+pub(crate) enum Stderr {
+  #[allow(dead_code)]
+  Test(Arc<Mutex<Cursor<Vec<u8>>>>),
+  Production,
+}
 
-pub(crate) fn stderr() -> Stderr {
-  #[cfg(test)]
-  return Cursor::new(vec![]);
-  #[cfg(not(test))]
-  return std::io::stderr();
+impl Stderr {
+  pub fn production() -> Stderr {
+    Stderr::Production
+  }
+}
+
+impl Write for Stderr {
+  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+    match self {
+      Stderr::Production => std::io::stderr().write(buf),
+      Stderr::Test(arc) => arc.lock().unwrap().write(buf),
+    }
+  }
+
+  fn flush(&mut self) -> io::Result<()> {
+    match self {
+      Stderr::Production => std::io::stderr().flush(),
+      Stderr::Test(arc) => arc.lock().unwrap().flush(),
+    }
+  }
 }
 
 pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
-  stderr: Arc<Mutex<Box<Stderr>>>,
+  stderr: Stderr,
   pub(crate) working_directory: PathBuf,
 }
 
 impl RequestHandler {
   pub(crate) fn bind(
-    stderr: &Arc<Mutex<Box<Stderr>>>,
+    stderr: &Stderr,
     working_directory: &Path,
     port: Option<u16>,
   ) -> io::Result<RequestHandlerServer> {
@@ -54,11 +68,11 @@ impl RequestHandler {
     Ok(server)
   }
 
-  async fn response(self) -> Response<Body> {
+  async fn response(mut self) -> Response<Body> {
     match self.list_www().await {
       Ok(response) => response,
       Err(error) => {
-        writeln!(self.stderr.lock().await, "{}", error).unwrap();
+        writeln!(self.stderr, "{}", error).unwrap();
         Response::builder()
           .status(StatusCode::INTERNAL_SERVER_ERROR)
           .body(Body::empty())
