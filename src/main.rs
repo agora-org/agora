@@ -18,6 +18,32 @@ async fn main() {
 
 async fn run() -> Result<()> {
   let stderr = Stderr::production();
-  let server = RequestHandler::bind(&stderr, &env::current_dir()?, Some(8080))?;
+  let server = RequestHandler::bind(&stderr, &env::current_dir()?, env::args())?;
   run_server(server).await
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::request_handler::tests::test_with_arguments;
+  use std::net::TcpListener;
+
+  #[test]
+  fn configure_port() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port().to_string();
+    let port_str = port.as_str();
+    drop(listener);
+
+    let args = &["foo", "--port", port_str];
+
+    test_with_arguments(args, |_port, _dir| async move {
+      assert_eq!(
+        reqwest::get(format!("http://localhost:{}", port_str))
+          .await
+          .unwrap()
+          .status(),
+        200
+      )
+    });
+  }
 }

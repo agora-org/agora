@@ -7,6 +7,7 @@ use hyper::{
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
+  ffi::OsString,
   fmt::Debug,
   fs,
   io::Write,
@@ -14,12 +15,19 @@ use std::{
   path::{Path, PathBuf},
   task::{self, Poll},
 };
+use structopt::StructOpt;
 use tower::make::Shared;
 
 pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
 
 pub(crate) async fn run_server(server: RequestHandlerServer) -> Result<()> {
   Ok(server.await?)
+}
+
+#[derive(StructOpt)]
+struct Arguments {
+  #[structopt(long)]
+  port: Option<u16>,
 }
 
 #[derive(Clone, Debug)]
@@ -29,13 +37,19 @@ pub(crate) struct RequestHandler {
 }
 
 impl RequestHandler {
-  pub(crate) fn bind(
+  pub(crate) fn bind<I, S>(
     stderr: &Stderr,
     working_directory: &Path,
-    port: Option<u16>,
-  ) -> Result<RequestHandlerServer> {
+    args: I,
+  ) -> Result<RequestHandlerServer>
+  where
+    I: IntoIterator<Item = S>,
+    S: Into<OsString> + Clone,
+  {
+    let arguments = Arguments::from_iter_safe(args)?;
+
     fs::read_dir(working_directory.join("www")).context("cannot access `www`")?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
+    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
     let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
       stderr: stderr.clone(),
       working_directory: working_directory.to_owned(),
@@ -95,12 +109,20 @@ impl Service<Request<Body>> for RequestHandler {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
   use super::*;
   use futures::future::Future;
   use std::path::PathBuf;
 
-  fn test<Function, F>(test: Function) -> String
+  pub(crate) fn test<Function, F>(test: Function) -> String
+  where
+    Function: FnOnce(u16, PathBuf) -> F,
+    F: Future<Output = ()>,
+  {
+    test_with_arguments(&["foo"], test)
+  }
+
+  pub(crate) fn test_with_arguments<Function, F>(args: &[&str], test: Function) -> String
   where
     Function: FnOnce(u16, PathBuf) -> F,
     F: Future<Output = ()>,
@@ -117,7 +139,7 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), None).unwrap();
+        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), args).unwrap();
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
         test(port, tempdir.path().to_owned()).await;
@@ -206,7 +228,7 @@ mod tests {
       .block_on(async {
         let error = format!(
           "{:?}",
-          RequestHandler::bind(&stderr, &tempdir.path(), None).unwrap_err()
+          RequestHandler::bind(&stderr, &tempdir.path(), &["foo"]).unwrap_err()
         );
         assert_contains(&error, "cannot access `www`");
         assert_contains(&error, "Caused by:");
