@@ -6,12 +6,9 @@ mod request_handler;
 
 #[tokio::main]
 async fn main() {
-  match run().await {
-    Ok(()) => {}
-    Err(error) => {
-      eprintln!("{:?}", error);
-      std::process::exit(1);
-    }
+  if let Err(error) = run().await {
+    eprintln!("{:?}", error);
+    std::process::exit(1);
   }
 }
 
