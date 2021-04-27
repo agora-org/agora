@@ -141,7 +141,7 @@ mod tests {
           RequestHandler::bind(&stderr, &tempdir.path(), None).unwrap_err()
         );
         assert_contains(&error, "cannot access `www`");
-        assert_contains(&error, "No such file or directory (os error 2)");
+        assert_contains(&error, "Caused by:");
       });
   }
 
@@ -168,6 +168,6 @@ mod tests {
         .unwrap();
     });
     assert_contains(&stderr, "cannot access `www`");
-    assert_contains(&stderr, "No such file or directory (os error 2)");
+    assert_contains(&stderr, "Caused by:");
   }
 }
