@@ -1,8 +1,12 @@
+use crate::{
+  request_handler::{run_server, RequestHandler},
+  stderr::Stderr,
+};
 use anyhow::Result;
-use request_handler::{run_server, RequestHandler, Stderr};
 use std::env;
 
 mod request_handler;
+mod stderr;
 
 #[tokio::main]
 async fn main() {

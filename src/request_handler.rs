@@ -1,3 +1,4 @@
+use crate::stderr::Stderr;
 use anyhow::{Context, Result};
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{
@@ -8,42 +9,12 @@ use std::{
   convert::Infallible,
   fmt::Debug,
   fs,
-  io::{self, Cursor, Write},
+  io::Write,
   net::SocketAddr,
   path::{Path, PathBuf},
-  sync::{Arc, Mutex},
   task::{self, Poll},
 };
 use tower::make::Shared;
-
-#[derive(Clone, Debug)]
-pub(crate) enum Stderr {
-  #[allow(dead_code)]
-  Test(Arc<Mutex<Cursor<Vec<u8>>>>),
-  Production,
-}
-
-impl Stderr {
-  pub fn production() -> Stderr {
-    Stderr::Production
-  }
-}
-
-impl Write for Stderr {
-  fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-    match self {
-      Stderr::Production => std::io::stderr().write(buf),
-      Stderr::Test(arc) => arc.lock().unwrap().write(buf),
-    }
-  }
-
-  fn flush(&mut self) -> io::Result<()> {
-    match self {
-      Stderr::Production => std::io::stderr().flush(),
-      Stderr::Test(arc) => arc.lock().unwrap().flush(),
-    }
-  }
-}
 
 pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
 
