@@ -1,9 +1,5 @@
-use crate::{
-  request_handler::{run_server, RequestHandler},
-  stderr::Stderr,
-};
+use crate::request_handler::{run_server, Environment, RequestHandler};
 use anyhow::Result;
-use std::env;
 
 mod request_handler;
 mod stderr;
@@ -17,8 +13,8 @@ async fn main() {
 }
 
 async fn run() -> Result<()> {
-  let stderr = Stderr::production();
-  let server = RequestHandler::bind(&stderr, &env::current_dir()?, env::args())?;
+  let environment = Environment::production()?;
+  let server = RequestHandler::bind(environment)?;
   run_server(server).await
 }
 

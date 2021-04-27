@@ -7,12 +7,13 @@ use hyper::{
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
+  env,
   ffi::OsString,
   fmt::Debug,
   fs,
   io::Write,
   net::SocketAddr,
-  path::{Path, PathBuf},
+  path::PathBuf,
   task::{self, Poll},
 };
 use structopt::StructOpt;
@@ -36,23 +37,31 @@ pub(crate) struct RequestHandler {
   pub(crate) working_directory: PathBuf,
 }
 
-impl RequestHandler {
-  pub(crate) fn bind<I, S>(
-    stderr: &Stderr,
-    working_directory: &Path,
-    args: I,
-  ) -> Result<RequestHandlerServer>
-  where
-    I: IntoIterator<Item = S>,
-    S: Into<OsString> + Clone,
-  {
-    let arguments = Arguments::from_iter_safe(args)?;
+pub(crate) struct Environment {
+  pub(crate) arguments: Vec<OsString>,
+  pub(crate) working_directory: PathBuf,
+  pub(crate) stderr: Stderr,
+}
 
-    fs::read_dir(working_directory.join("www")).context("cannot access `www`")?;
+impl Environment {
+  pub(crate) fn production() -> Result<Self> {
+    Ok(Environment {
+      arguments: env::args_os().into_iter().collect(),
+      stderr: Stderr::production(),
+      working_directory: env::current_dir()?,
+    })
+  }
+}
+
+impl RequestHandler {
+  pub(crate) fn bind(environment: Environment) -> Result<RequestHandlerServer> {
+    let arguments = Arguments::from_iter_safe(environment.arguments)?;
+
+    fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
     let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
     let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
-      stderr: stderr.clone(),
-      working_directory: working_directory.to_owned(),
+      stderr: environment.stderr.clone(),
+      working_directory: environment.working_directory.to_owned(),
     }));
     eprintln!("Listening on port {}", server.local_addr().port());
     Ok(server)
@@ -131,15 +140,20 @@ pub(crate) mod tests {
     let www = tempdir.path().join("www");
     std::fs::create_dir(&www).unwrap();
 
-    let stderr = Stderr::test();
-    let stderr_clone = stderr.clone();
+    let environment = Environment {
+      arguments: args.iter().cloned().map(OsString::from).collect(),
+      stderr: Stderr::test(),
+      working_directory: tempdir.path().to_owned(),
+    };
+
+    let stderr = environment.stderr.clone();
 
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), args).unwrap();
+        let server = RequestHandler::bind(environment).unwrap();
         let port = server.local_addr().port();
         let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
         test(port, tempdir.path().to_owned()).await;
@@ -220,16 +234,18 @@ pub(crate) mod tests {
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
     let tempdir = tempfile::tempdir().unwrap();
-    let stderr = Stderr::test();
+    let environment = Environment {
+      arguments: vec!["foo".into()],
+      stderr: Stderr::test(),
+      working_directory: tempdir.path().to_owned(),
+    };
+
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let error = format!(
-          "{:?}",
-          RequestHandler::bind(&stderr, &tempdir.path(), &["foo"]).unwrap_err()
-        );
+        let error = format!("{:?}", RequestHandler::bind(environment).unwrap_err());
         assert_contains(&error, "cannot access `www`");
         assert_contains(&error, "Caused by:");
       });
