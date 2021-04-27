@@ -9,7 +9,7 @@ async fn main() {
   match run().await {
     Ok(()) => {}
     Err(error) => {
-      eprintln!("{}", error);
+      eprintln!("{:?}", error);
       std::process::exit(1);
     }
   }
@@ -26,7 +26,7 @@ mod tests {
   use super::*;
   use futures::future::Future;
   use std::{
-    io::{self, Cursor},
+    io::Cursor,
     path::PathBuf,
     sync::{Arc, Mutex},
   };
@@ -62,7 +62,7 @@ mod tests {
   fn assert_contains(haystack: &str, needle: &str) {
     assert!(
       haystack.contains(needle),
-      "\n{} does not contain {}\n",
+      "\n{:?} does not contain {:?}\n",
       haystack,
       needle
     );
@@ -136,12 +136,12 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        assert_eq!(
-          RequestHandler::bind(&stderr, &tempdir.path(), None)
-            .unwrap_err()
-            .kind(),
-          io::ErrorKind::NotFound
+        let error = format!(
+          "{:?}",
+          RequestHandler::bind(&stderr, &tempdir.path(), None).unwrap_err()
         );
+        assert_contains(&error, "cannot access `www`");
+        assert_contains(&error, "No such file or directory (os error 2)");
       });
   }
 
@@ -167,6 +167,7 @@ mod tests {
         .await
         .unwrap();
     });
-    assert_eq!(stderr, "No such file or directory (os error 2): `www`\n")
+    assert_contains(&stderr, "cannot access `www`");
+    assert_contains(&stderr, "No such file or directory (os error 2)");
   }
 }
