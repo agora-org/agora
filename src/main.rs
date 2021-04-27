@@ -1,9 +1,10 @@
-use crate::request_handler::Server;
+use crate::server::Server;
 use anyhow::Result;
 use environment::Environment;
 
 mod environment;
 mod request_handler;
+mod server;
 mod stderr;
 
 #[cfg(test)]

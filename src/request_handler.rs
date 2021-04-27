@@ -1,62 +1,30 @@
 use crate::{environment::Environment, stderr::Stderr};
 use anyhow::{Context, Result};
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{server::conn::AddrIncoming, service::Service, Body, Request, Response, StatusCode};
+use hyper::{service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
   fmt::Debug,
-  fs,
   io::Write,
-  net::SocketAddr,
   path::PathBuf,
   task::{self, Poll},
 };
-use structopt::StructOpt;
-use tower::make::Shared;
-
-#[derive(Debug)]
-pub(crate) struct Server {
-  inner: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
-}
-
-impl Server {
-  pub(crate) fn setup(environment: &Environment) -> Result<Self> {
-    let arguments = Arguments::from_iter_safe(&environment.arguments)?;
-
-    fs::read_dir(environment.working_directory.join("www")).context("cannot access `www`")?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port.unwrap_or(0)));
-    let inner = hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
-      stderr: environment.stderr.clone(),
-      working_directory: environment.working_directory.to_owned(),
-    }));
-
-    eprintln!("Listening on port {}", inner.local_addr().port());
-    Ok(Self { inner })
-  }
-
-  pub(crate) async fn run(self) -> Result<()> {
-    Ok(self.inner.await?)
-  }
-
-  pub(crate) fn port(&self) -> u16 {
-    self.inner.local_addr().port()
-  }
-}
-
-#[derive(StructOpt)]
-struct Arguments {
-  #[structopt(long)]
-  port: Option<u16>,
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
-  stderr: Stderr,
+  pub(crate) stderr: Stderr,
   pub(crate) working_directory: PathBuf,
 }
 
 impl RequestHandler {
+  pub(crate) fn new(environment: &Environment) -> Self {
+    Self {
+      stderr: environment.stderr.clone(),
+      working_directory: environment.working_directory.to_owned(),
+    }
+  }
+
   async fn response(mut self) -> Response<Body> {
     match self.list_www().await.context("cannot access `www`") {
       Ok(response) => response,
@@ -110,7 +78,7 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
-  use crate::test_utils::test;
+  use crate::{server::Server, test_utils::test};
 
   #[track_caller]
   fn assert_contains(haystack: &str, needle: &str) {

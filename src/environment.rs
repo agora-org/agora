@@ -1,9 +1,16 @@
 use crate::stderr::Stderr;
 use anyhow::Result;
 use std::{env, ffi::OsString, path::PathBuf};
+use structopt::StructOpt;
 
 #[cfg(test)]
 use tempfile::TempDir;
+
+#[derive(StructOpt)]
+pub(crate) struct Arguments {
+  #[structopt(long)]
+  pub(crate) port: Option<u16>,
+}
 
 pub(crate) struct Environment {
   pub(crate) arguments: Vec<OsString>,
@@ -36,5 +43,9 @@ impl Environment {
       working_directory: tempdir.path().to_owned(),
       tempdir,
     }
+  }
+
+  pub(crate) fn arguments(&self) -> Result<Arguments> {
+    Ok(Arguments::from_iter_safe(&self.arguments)?)
   }
 }

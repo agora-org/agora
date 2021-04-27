@@ -1,4 +1,4 @@
-use crate::{environment::Environment, request_handler::Server};
+use crate::{environment::Environment, server::Server};
 use std::{ffi::OsString, future::Future, path::PathBuf};
 
 pub(crate) fn test<Function, F>(test: Function) -> String
