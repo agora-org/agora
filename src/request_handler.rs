@@ -1,3 +1,4 @@
+use anyhow::Result;
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{
   server::conn::AddrIncoming, service::Service, Body, Request, Response, Server, StatusCode,
@@ -45,6 +46,10 @@ impl Write for Stderr {
 }
 
 pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
+
+pub(crate) async fn run_server(server: RequestHandlerServer) -> Result<()> {
+  Ok(server.await?)
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {

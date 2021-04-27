@@ -1,19 +1,24 @@
-use request_handler::{RequestHandler, RequestHandlerServer, Stderr};
+use anyhow::Result;
+use request_handler::{run_server, RequestHandler, Stderr};
 use std::env;
 
 mod request_handler;
 
 #[tokio::main]
 async fn main() {
-  let stderr = Stderr::production();
-  let server = RequestHandler::bind(&stderr, &env::current_dir().unwrap(), Some(8080)).unwrap();
-  run(server).await
+  match run().await {
+    Ok(()) => {}
+    Err(error) => {
+      eprintln!("{}", error);
+      std::process::exit(1);
+    }
+  }
 }
 
-async fn run(server: RequestHandlerServer) {
-  if let Err(e) = server.await {
-    eprintln!("server error: {}", e);
-  }
+async fn run() -> Result<()> {
+  let stderr = Stderr::production();
+  let server = RequestHandler::bind(&stderr, &env::current_dir()?, Some(8080))?;
+  run_server(server).await
 }
 
 #[cfg(test)]
@@ -46,7 +51,7 @@ mod tests {
         let server =
           RequestHandler::bind(&Stderr::Test(stderr_clone), &tempdir.path(), None).unwrap();
         let port = server.local_addr().port();
-        let join_handle = tokio::spawn(run(server));
+        let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
         test(port, tempdir.path().to_owned()).await;
         join_handle.abort();
         String::from_utf8(stderr.lock().unwrap().clone().into_inner()).unwrap()
