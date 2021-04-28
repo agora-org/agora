@@ -19,7 +19,7 @@ where
     .arguments
     .extend(args.iter().cloned().map(OsString::from));
 
-  let www = environment.tempdir.path().join("www");
+  let www = environment.working_directory.join("www");
   std::fs::create_dir(&www).unwrap();
 
   tokio::runtime::Builder::new_current_thread()
@@ -30,7 +30,7 @@ where
       let server = Server::setup(&environment).unwrap();
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      f(port, environment.tempdir.path().to_owned()).await;
+      f(port, environment.working_directory.clone()).await;
       join_handle.abort();
       environment.stderr.contents()
     })

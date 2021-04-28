@@ -19,7 +19,7 @@ pub(crate) struct Environment {
   pub(crate) working_directory: PathBuf,
   pub(crate) stderr: Stderr,
   #[cfg(test)]
-  pub(crate) tempdir: TempDir,
+  _working_directory_tempdir: TempDir,
 }
 
 impl Environment {
@@ -29,7 +29,7 @@ impl Environment {
       stderr: Stderr::production(),
       working_directory: env::current_dir()?,
       #[cfg(test)]
-      tempdir: TempDir::new().unwrap(),
+      _working_directory_tempdir: TempDir::new().unwrap(),
     })
   }
 
@@ -44,7 +44,7 @@ impl Environment {
       arguments: vec!["foo".into()],
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
-      tempdir,
+      _working_directory_tempdir: tempdir,
     }
   }
 
