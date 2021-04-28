@@ -1,12 +1,12 @@
 use crate::{environment::Environment, server::Server};
 use std::{ffi::OsString, future::Future, path::PathBuf};
 
-pub(crate) fn test<Function, F>(test: Function) -> String
+pub(crate) fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(u16, PathBuf) -> F,
   F: Future<Output = ()>,
 {
-  test_with_arguments(&[], test)
+  test_with_arguments(&[], f)
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
