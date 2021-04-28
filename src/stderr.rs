@@ -1,10 +1,12 @@
-#[cfg(test)]
-use std::io::Cursor;
-#[cfg(test)]
-use std::sync::{Arc, Mutex};
 use std::{
   fmt::Debug,
   io::{self, Write},
+};
+
+#[cfg(test)]
+use std::{
+  io::Cursor,
+  sync::{Arc, Mutex},
 };
 
 #[derive(Clone, Debug)]
