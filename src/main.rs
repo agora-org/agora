@@ -31,16 +31,19 @@ mod tests {
 
   #[test]
   fn configure_port() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = listener.local_addr().unwrap().port().to_string();
-    let port_str = port.as_str();
-    drop(listener);
+    let free_port = {
+      TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+    };
 
-    let args = &["--port", port_str];
+    let args = &["--port", &free_port.to_string()];
 
     test_with_arguments(args, |_port, _dir| async move {
       assert_eq!(
-        reqwest::get(format!("http://localhost:{}", port_str))
+        reqwest::get(format!("http://localhost:{}", free_port))
           .await
           .unwrap()
           .status(),
