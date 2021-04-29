@@ -61,8 +61,9 @@ impl RequestHandler {
         }
         body {
           @while let Some(entry) = read_dir.next_entry().await? {
-            a download href=(format!("./{}", entry.file_name().to_string_lossy())) {
-              (entry.file_name().to_string_lossy())
+            @let file_name = entry.file_name().to_string_lossy().into_owned();
+            a download href=(format!("./{}", file_name)) {
+              (file_name)
             }
             br;
           }
