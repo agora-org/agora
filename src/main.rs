@@ -1,12 +1,14 @@
-use crate::{
-  request_handler::{run_server, RequestHandler},
-  stderr::Stderr,
-};
+use crate::server::Server;
 use anyhow::Result;
-use std::env;
+use environment::Environment;
 
+mod environment;
 mod request_handler;
+mod server;
 mod stderr;
+
+#[cfg(test)]
+mod test_utils;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +19,36 @@ async fn main() {
 }
 
 async fn run() -> Result<()> {
-  let stderr = Stderr::production();
-  let server = RequestHandler::bind(&stderr, &env::current_dir()?, Some(8080))?;
-  run_server(server).await
+  let environment = Environment::production()?;
+  let server = Server::setup(&environment)?;
+  server.run().await
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::test_utils::test_with_arguments;
+  use std::net::TcpListener;
+
+  #[test]
+  fn configure_port() {
+    let free_port = {
+      TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+    };
+
+    let args = &["--port", &free_port.to_string()];
+
+    test_with_arguments(args, |_port, _dir| async move {
+      assert_eq!(
+        reqwest::get(format!("http://localhost:{}", free_port))
+          .await
+          .unwrap()
+          .status(),
+        200
+      )
+    });
+  }
 }

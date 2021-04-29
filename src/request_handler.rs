@@ -1,47 +1,28 @@
-use crate::stderr::Stderr;
+use crate::{environment::Environment, stderr::Stderr};
 use anyhow::{Context, Result};
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{
-  server::conn::AddrIncoming, service::Service, Body, Request, Response, Server, StatusCode,
-};
+use hyper::{service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
   fmt::Debug,
-  fs,
   io::Write,
-  net::SocketAddr,
-  path::{Path, PathBuf},
+  path::PathBuf,
   task::{self, Poll},
 };
-use tower::make::Shared;
-
-pub(crate) type RequestHandlerServer = Server<AddrIncoming, Shared<RequestHandler>>;
-
-pub(crate) async fn run_server(server: RequestHandlerServer) -> Result<()> {
-  Ok(server.await?)
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
-  stderr: Stderr,
+  pub(crate) stderr: Stderr,
   pub(crate) working_directory: PathBuf,
 }
 
 impl RequestHandler {
-  pub(crate) fn bind(
-    stderr: &Stderr,
-    working_directory: &Path,
-    port: Option<u16>,
-  ) -> Result<RequestHandlerServer> {
-    fs::read_dir(working_directory.join("www")).context("cannot access `www`")?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], port.unwrap_or(0)));
-    let server = Server::bind(&socket_addr).serve(Shared::new(RequestHandler {
-      stderr: stderr.clone(),
-      working_directory: working_directory.to_owned(),
-    }));
-    eprintln!("Listening on port {}", server.local_addr().port());
-    Ok(server)
+  pub(crate) fn new(environment: &Environment) -> Self {
+    Self {
+      stderr: environment.stderr.clone(),
+      working_directory: environment.working_directory.to_owned(),
+    }
   }
 
   async fn response(mut self) -> Response<Body> {
@@ -95,36 +76,9 @@ impl Service<Request<Body>> for RequestHandler {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
   use super::*;
-  use futures::future::Future;
-  use std::path::PathBuf;
-
-  fn test<Function, F>(test: Function) -> String
-  where
-    Function: FnOnce(u16, PathBuf) -> F,
-    F: Future<Output = ()>,
-  {
-    let tempdir = tempfile::tempdir().unwrap();
-    let www = tempdir.path().join("www");
-    std::fs::create_dir(&www).unwrap();
-
-    let stderr = Stderr::test();
-    let stderr_clone = stderr.clone();
-
-    tokio::runtime::Builder::new_current_thread()
-      .enable_all()
-      .build()
-      .unwrap()
-      .block_on(async {
-        let server = RequestHandler::bind(&stderr_clone, &tempdir.path(), None).unwrap();
-        let port = server.local_addr().port();
-        let join_handle = tokio::spawn(async { run_server(server).await.unwrap() });
-        test(port, tempdir.path().to_owned()).await;
-        join_handle.abort();
-        stderr.contents()
-      })
-  }
+  use crate::{server::Server, test_utils::test};
 
   #[track_caller]
   fn assert_contains(haystack: &str, needle: &str) {
@@ -197,17 +151,14 @@ mod tests {
 
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
-    let tempdir = tempfile::tempdir().unwrap();
-    let stderr = Stderr::test();
+    let environment = Environment::test();
+
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let error = format!(
-          "{:?}",
-          RequestHandler::bind(&stderr, &tempdir.path(), None).unwrap_err()
-        );
+        let error = format!("{:?}", Server::setup(&environment).unwrap_err());
         assert_contains(&error, "cannot access `www`");
         assert_contains(&error, "Caused by:");
       });
