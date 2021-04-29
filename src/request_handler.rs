@@ -1,6 +1,8 @@
-use crate::error::Result;
-use crate::error::{self, Error};
-use crate::{environment::Environment, stderr::Stderr};
+use crate::{
+  environment::Environment,
+  error::{self, Error, Result},
+  stderr::Stderr,
+};
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{service::Service, Body, Request, Response, Uri};
 use maud::{html, DOCTYPE};
