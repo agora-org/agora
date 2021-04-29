@@ -1,5 +1,5 @@
 use crate::{environment::Environment, stderr::Stderr};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
@@ -7,7 +7,7 @@ use std::{
   convert::Infallible,
   fmt::Debug,
   io::Write,
-  path::PathBuf,
+  path::{Component, Path, PathBuf},
   task::{self, Poll},
 };
 
@@ -42,7 +42,7 @@ impl RequestHandler {
     dbg!(request.uri().path());
     match request.uri().path() {
       "/" => self.list_www().await.context("cannot access `www`"),
-      file_path => self.serve_file(file_path).await,
+      uri_path => self.serve_file(&FilePath::from_uri_path(uri_path)?).await,
     }
   }
 
@@ -70,14 +70,41 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn serve_file(&self, file_path: &str) -> Result<Response<Body>> {
+  async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
     // todo: stream files
-    let file_contents = tokio::fs::read(dbg!(self
-      .working_directory
-      .join("www")
-      .join(file_path.trim_start_matches('/'))))
-    .await?;
+    let file_contents =
+      tokio::fs::read(dbg!(self.working_directory.join("www").join(file_path))).await?;
     Ok(Response::new(Body::from(file_contents)))
+  }
+}
+
+#[derive(Debug)]
+struct FilePath {
+  inner: String,
+}
+
+impl FilePath {
+  fn from_uri_path(path: &str) -> Result<Self> {
+    let path = path
+      .strip_prefix('/')
+      .ok_or_else(|| anyhow!("Invalid path: `{}`", path))?;
+
+    for component in Path::new(path).components() {
+      match component {
+        Component::Normal(_) => {}
+        _ => bail!("Invalid path: `{}`", path),
+      }
+    }
+
+    Ok(Self {
+      inner: path.to_owned(),
+    })
+  }
+}
+
+impl AsRef<Path> for FilePath {
+  fn as_ref(&self) -> &Path {
+    self.inner.as_ref()
   }
 }
 
@@ -120,20 +147,13 @@ pub(crate) mod tests {
 
   #[test]
   fn index_route_status_code_is_200() {
-    test(
-      |url, _dir| async move { assert_eq!(reqwest::get(url.as_str()).await.unwrap().status(), 200) },
-    );
+    test(|url, _dir| async move { assert_eq!(reqwest::get(url).await.unwrap().status(), 200) });
   }
 
   #[test]
   fn index_route_contains_title() {
     test(|url, _dir| async move {
-      let haystack = reqwest::get(url.as_str())
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+      let haystack = reqwest::get(url).await.unwrap().text().await.unwrap();
       let needle = "<title>foo</title>";
       assert_contains(&haystack, needle);
     });
@@ -159,7 +179,7 @@ pub(crate) mod tests {
     test(|url, dir| async move {
       let www = dir.join("www");
       std::fs::remove_dir(www).unwrap();
-      let status = reqwest::get(url.as_str()).await.unwrap().status();
+      let status = reqwest::get(url).await.unwrap().status();
       assert_eq!(status, 500);
     });
   }
@@ -169,7 +189,7 @@ pub(crate) mod tests {
     let stderr = test(|url, dir| async move {
       let www = dir.join("www");
       std::fs::remove_dir(www).unwrap();
-      reqwest::get(url.as_str()).await.unwrap();
+      reqwest::get(url).await.unwrap();
     });
     assert_contains(&stderr, "cannot access `www`");
     assert_contains(&stderr, "Caused by:");
@@ -177,7 +197,7 @@ pub(crate) mod tests {
 
   async fn get_html(url: &Url) -> Html {
     Html::parse_document(
-      &reqwest::get(url.as_str())
+      &reqwest::get(url.clone())
         .await
         .unwrap()
         .text()
@@ -239,4 +259,25 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_access_outside_of_www() {}
+
+  #[test]
+  fn disallow_parent_path_component() {
+    // todo: This is tricky because `Url::from_str` will remove `..` path
+    // components, so we can't use `reqwest`, or anything that uses `Url`
+    // to exercise a get of paths containing `..`
+  }
+
+  #[test]
+  fn disallow_empty_path_component() {
+    test(|url, _dir| async move {
+      assert_eq!(
+        reqwest::get(format!("{}//bar.txt", url))
+          .await
+          .unwrap()
+          .status(),
+        // TODO: This should return `400`
+        StatusCode::INTERNAL_SERVER_ERROR
+      )
+    });
+  }
 }
