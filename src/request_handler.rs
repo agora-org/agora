@@ -139,6 +139,12 @@ impl FilePath {
       }
     }
 
+    for component in path.split('/') {
+      if component.is_empty() {
+        return Err(Error::InvalidPath { uri: uri.clone() });
+      }
+    }
+
     Ok(Self {
       inner: path.to_owned(),
     })
@@ -288,9 +294,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  fn disallow_access_outside_of_www() {}
-
-  #[test]
   fn disallow_parent_path_component() {
     let stderr = test(|url, _dir| async move {
       let mut stream = TcpStream::connect(format!("localhost:{}", url.port().unwrap()))
@@ -309,7 +312,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[ignore]
   fn disallow_empty_path_component() {
     test(|url, _dir| async move {
       assert_eq!(
