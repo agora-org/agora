@@ -66,7 +66,7 @@ impl RequestHandler {
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    dbg!(request.uri().path());
+    request.uri().path();
     match request.uri().path() {
       "/" => self.list_www().await.context(WwwIo),
       _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
@@ -98,7 +98,6 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
-    // todo: stream files
     let file_contents = tokio::fs::read(self.working_directory.join("www").join(file_path))
       .await
       .context(FileIo)?;
@@ -132,8 +131,8 @@ impl FilePath {
       .strip_prefix('/')
       .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })?;
 
-    for component in Path::new(dbg!(path)).components() {
-      match dbg!(component) {
+    for component in Path::new(path).components() {
+      match component {
         Component::Normal(_) => {}
         _ => return Err(Error::InvalidPath { uri: uri.clone() }),
       }
@@ -276,7 +275,7 @@ pub(crate) mod tests {
       let html = get_html(&url).await;
       guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
       assert_eq!(a.inner_html(), "some-test-file.txt");
-      assert_eq!(dbg!(a.value().attr("download")), Some(""));
+      assert_eq!(a.value().attr("download"), Some(""));
     });
   }
 
@@ -287,7 +286,7 @@ pub(crate) mod tests {
       let html = get_html(&url).await;
       guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
       let file_url = a.value().attr("href").unwrap();
-      let file_url = dbg!(url.join(file_url).unwrap());
+      let file_url = url.join(file_url).unwrap();
       let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
       assert_eq!(file_contents, "contents");
     });
