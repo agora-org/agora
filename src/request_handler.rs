@@ -1,7 +1,7 @@
 use crate::{environment::Environment, stderr::Stderr};
 use anyhow::{anyhow, bail, Context, Result};
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{service::Service, Body, Request, Response, StatusCode};
+use hyper::{service::Service, Body, Request, Response, StatusCode, Uri};
 use maud::{html, DOCTYPE};
 use std::{
   convert::Infallible,
@@ -42,7 +42,7 @@ impl RequestHandler {
     dbg!(request.uri().path());
     match request.uri().path() {
       "/" => self.list_www().await.context("cannot access `www`"),
-      uri_path => self.serve_file(&FilePath::from_uri_path(uri_path)?).await,
+      _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
     }
   }
 
@@ -84,15 +84,16 @@ struct FilePath {
 }
 
 impl FilePath {
-  fn from_uri_path(path: &str) -> Result<Self> {
-    let path = path
+  fn from_uri(uri: &Uri) -> Result<Self> {
+    let path = uri
+      .path()
       .strip_prefix('/')
-      .ok_or_else(|| anyhow!("Invalid path: `{}`", path))?;
+      .ok_or_else(|| anyhow!("URI contains invalid path: `{}`", uri))?;
 
     for component in Path::new(path).components() {
       match component {
         Component::Normal(_) => {}
-        _ => bail!("Invalid path: `{}`", path),
+        _ => bail!("URI contains invalid path: `{}`", uri),
       }
     }
 
