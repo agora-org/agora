@@ -99,7 +99,7 @@ impl RequestHandler {
 
   async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
     // todo: stream files
-    let file_contents = tokio::fs::read(dbg!(self.working_directory.join("www").join(file_path)))
+    let file_contents = tokio::fs::read(self.working_directory.join("www").join(file_path))
       .await
       .context(FileIo)?;
     Ok(Response::new(Body::from(file_contents)))
@@ -127,12 +127,12 @@ struct FilePath {
 
 impl FilePath {
   fn from_uri(uri: &Uri) -> Result<Self> {
-    let path = dbg!(uri)
+    let path = uri
       .path()
       .strip_prefix('/')
       .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })?;
 
-    for component in Path::new(path).components() {
+    for component in Path::new(dbg!(path)).components() {
       match dbg!(component) {
         Component::Normal(_) => {}
         _ => return Err(Error::InvalidPath { uri: uri.clone() }),
@@ -159,6 +159,11 @@ pub(crate) mod tests {
   use pretty_assertions::assert_eq;
   use reqwest::Url;
   use scraper::{ElementRef, Html, Selector};
+  use std::str;
+  use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+  };
 
   #[track_caller]
   fn assert_contains(haystack: &str, needle: &str) {
@@ -287,9 +292,19 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_parent_path_component() {
-    // todo: This is tricky because `Url::from_str` will remove `..` path
-    // components, so we can't use `reqwest`, or anything that uses `Url`
-    // to exercise a get of paths containing `..`
+    test(|url, _dir| async move {
+      let mut stream = TcpStream::connect(format!("localhost:{}", url.port().unwrap()))
+        .await
+        .unwrap();
+      stream
+        .write_all(b"GET /foo/../bar.txt HTTP/1.1\n\n")
+        .await
+        .unwrap();
+      let response = &mut [0; 1024];
+      let bytes = stream.read(response).await.unwrap();
+      let response = str::from_utf8(&response[..bytes]).unwrap();
+      assert_contains(&response, "HTTP/1.1 400 Bad Request");
+    });
   }
 
   #[test]
@@ -297,7 +312,7 @@ pub(crate) mod tests {
   fn disallow_empty_path_component() {
     test(|url, _dir| async move {
       assert_eq!(
-        reqwest::get(dbg!(format!("{}foo//bar.txt", url)))
+        reqwest::get(format!("{}foo//bar.txt", url))
           .await
           .unwrap()
           .status(),
@@ -310,7 +325,7 @@ pub(crate) mod tests {
   fn disallow_absolute_path() {
     let stderr = test(|url, _dir| async move {
       assert_eq!(
-        reqwest::get(dbg!(format!("{}/foo.txt", url)))
+        reqwest::get(format!("{}/foo.txt", url))
           .await
           .unwrap()
           .status(),
