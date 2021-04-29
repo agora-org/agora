@@ -287,7 +287,7 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_empty_path_component() {
-    test(|url, _dir| async move {
+    let stderr = test(|url, _dir| async move {
       assert_eq!(
         reqwest::get(format!("{}foo//bar.txt", url))
           .await
@@ -296,6 +296,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
+    assert_contains(&stderr, &format!("Invalid URL file path: /foo//bar.txt"));
   }
 
   #[test]
