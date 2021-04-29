@@ -43,7 +43,6 @@ impl RequestHandler {
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    request.uri().path();
     match request.uri().path() {
       "/" => self.list_www().await.context(error::WwwIo),
       _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
