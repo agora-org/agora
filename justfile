@@ -1,4 +1,4 @@
-all: build test clippy fmt-check
+all: build test clippy fmt-check forbid
 
 build:
   cargo build --all
@@ -12,3 +12,6 @@ clippy:
 fmt-check:
   cargo fmt --all -- --check
   @echo formatting check done
+
+forbid:
+  ./bin/forbid
