@@ -1,15 +1,42 @@
 use crate::{environment::Environment, stderr::Stderr};
-use anyhow::{anyhow, bail, Context, Result};
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{service::Service, Body, Request, Response, StatusCode, Uri};
 use maud::{html, DOCTYPE};
+use snafu::{ResultExt, Snafu};
 use std::{
   convert::Infallible,
   fmt::Debug,
-  io::Write,
+  io::{self, Write},
   path::{Component, Path, PathBuf},
   task::{self, Poll},
 };
+
+type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[derive(Debug, Snafu)]
+enum Error {
+  #[snafu(display("IO error accessing `www`: {}", source))]
+  WwwIo {
+    source: io::Error,
+  },
+  FileIo {
+    source: io::Error,
+  },
+  #[snafu(display("Invalid URL file path: {}", uri))]
+  InvalidPath {
+    uri: Uri,
+  },
+}
+
+impl Error {
+  fn status(&self) -> StatusCode {
+    use Error::*;
+    match self {
+      WwwIo { .. } | FileIo { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      InvalidPath { .. } => StatusCode::BAD_REQUEST,
+    }
+  }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
@@ -25,28 +52,28 @@ impl RequestHandler {
     }
   }
 
-  async fn response_without_errors(mut self, request: Request<Body>) -> Response<Body> {
-    match self.response(request).await {
+  async fn response(mut self, request: Request<Body>) -> Response<Body> {
+    match self.dispatch(request).await {
       Ok(response) => response,
       Err(error) => {
-        writeln!(self.stderr, "{:?}", error).unwrap();
+        writeln!(self.stderr, "{}", error).unwrap();
         Response::builder()
-          .status(StatusCode::INTERNAL_SERVER_ERROR)
+          .status(error.status())
           .body(Body::empty())
           .unwrap()
       }
     }
   }
 
-  async fn response(&self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     dbg!(request.uri().path());
     match request.uri().path() {
-      "/" => self.list_www().await.context("cannot access `www`"),
+      "/" => self.list_www().await.context(WwwIo),
       _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
     }
   }
 
-  async fn list_www(&self) -> Result<Response<Body>> {
+  async fn list_www(&self) -> io::Result<Response<Body>> {
     let mut read_dir = tokio::fs::read_dir(self.working_directory.join("www")).await?;
     let body = html! {
       (DOCTYPE)
@@ -72,40 +99,10 @@ impl RequestHandler {
 
   async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
     // todo: stream files
-    let file_contents =
-      tokio::fs::read(dbg!(self.working_directory.join("www").join(file_path))).await?;
+    let file_contents = tokio::fs::read(dbg!(self.working_directory.join("www").join(file_path)))
+      .await
+      .context(FileIo)?;
     Ok(Response::new(Body::from(file_contents)))
-  }
-}
-
-#[derive(Debug)]
-struct FilePath {
-  inner: String,
-}
-
-impl FilePath {
-  fn from_uri(uri: &Uri) -> Result<Self> {
-    let path = uri
-      .path()
-      .strip_prefix('/')
-      .ok_or_else(|| anyhow!("URI contains invalid path: `{}`", uri))?;
-
-    for component in Path::new(path).components() {
-      match component {
-        Component::Normal(_) => {}
-        _ => bail!("URI contains invalid path: `{}`", uri),
-      }
-    }
-
-    Ok(Self {
-      inner: path.to_owned(),
-    })
-  }
-}
-
-impl AsRef<Path> for FilePath {
-  fn as_ref(&self) -> &Path {
-    self.inner.as_ref()
   }
 }
 
@@ -119,11 +116,38 @@ impl Service<Request<Body>> for RequestHandler {
   }
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
-    self
-      .clone()
-      .response_without_errors(request)
-      .map(Ok)
-      .boxed()
+    self.clone().response(request).map(Ok).boxed()
+  }
+}
+
+#[derive(Debug)]
+struct FilePath {
+  inner: String,
+}
+
+impl FilePath {
+  fn from_uri(uri: &Uri) -> Result<Self> {
+    let path = dbg!(uri)
+      .path()
+      .strip_prefix('/')
+      .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })?;
+
+    for component in Path::new(path).components() {
+      match dbg!(component) {
+        Component::Normal(_) => {}
+        _ => return Err(Error::InvalidPath { uri: uri.clone() }),
+      }
+    }
+
+    Ok(Self {
+      inner: path.to_owned(),
+    })
+  }
+}
+
+impl AsRef<Path> for FilePath {
+  fn as_ref(&self) -> &Path {
+    self.inner.as_ref()
   }
 }
 
@@ -192,8 +216,8 @@ pub(crate) mod tests {
       std::fs::remove_dir(www).unwrap();
       reqwest::get(url).await.unwrap();
     });
-    assert_contains(&stderr, "cannot access `www`");
-    assert_contains(&stderr, "Caused by:");
+    assert_contains(&stderr, "IO error accessing `www`: ");
+    assert_contains(&stderr, "No such file or directory");
   }
 
   async fn get_html(url: &Url) -> Html {
@@ -269,16 +293,30 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[ignore]
   fn disallow_empty_path_component() {
     test(|url, _dir| async move {
       assert_eq!(
-        reqwest::get(format!("{}//bar.txt", url))
+        reqwest::get(dbg!(format!("{}foo//bar.txt", url)))
           .await
           .unwrap()
           .status(),
-        // TODO: This should return `400`
-        StatusCode::INTERNAL_SERVER_ERROR
+        StatusCode::BAD_REQUEST
       )
     });
+  }
+
+  #[test]
+  fn disallow_absolute_path() {
+    let stderr = test(|url, _dir| async move {
+      assert_eq!(
+        reqwest::get(dbg!(format!("{}/foo.txt", url)))
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::BAD_REQUEST
+      )
+    });
+    assert_contains(&stderr, &format!("Invalid URL file path: //foo.txt"));
   }
 }
