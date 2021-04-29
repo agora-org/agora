@@ -76,3 +76,9 @@ jobs:
 
     - name: Check Formatting
       run: cargo fmt --all -- --check
+
+    - name: Check for Forbidden Words
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get install ripgrep
+        ./bin/forbid
