@@ -5,7 +5,6 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0.40"
 futures = "0.3.14"
 maud = "0.22.2"
 structopt = "0.3.21"

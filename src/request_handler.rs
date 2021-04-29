@@ -1,8 +1,10 @@
+use crate::error::Result;
+use crate::error::{self, Error};
 use crate::{environment::Environment, stderr::Stderr};
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{service::Service, Body, Request, Response, StatusCode, Uri};
+use hyper::{service::Service, Body, Request, Response, Uri};
 use maud::{html, DOCTYPE};
-use snafu::{ResultExt, Snafu};
+use snafu::ResultExt;
 use std::{
   convert::Infallible,
   fmt::Debug,
@@ -10,33 +12,6 @@ use std::{
   path::{Component, Path, PathBuf},
   task::{self, Poll},
 };
-
-type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[derive(Debug, Snafu)]
-enum Error {
-  #[snafu(display("IO error accessing `www`: {}", source))]
-  WwwIo {
-    source: io::Error,
-  },
-  FileIo {
-    source: io::Error,
-  },
-  #[snafu(display("Invalid URL file path: {}", uri))]
-  InvalidPath {
-    uri: Uri,
-  },
-}
-
-impl Error {
-  fn status(&self) -> StatusCode {
-    use Error::*;
-    match self {
-      WwwIo { .. } | FileIo { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-      InvalidPath { .. } => StatusCode::BAD_REQUEST,
-    }
-  }
-}
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
@@ -68,7 +43,7 @@ impl RequestHandler {
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     request.uri().path();
     match request.uri().path() {
-      "/" => self.list_www().await.context(WwwIo),
+      "/" => self.list_www().await.context(error::WwwIo),
       _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
     }
   }
@@ -100,7 +75,7 @@ impl RequestHandler {
   async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
     let file_contents = tokio::fs::read(self.working_directory.join("www").join(file_path))
       .await
-      .context(FileIo)?;
+      .context(error::FileIo)?;
     Ok(Response::new(Body::from(file_contents)))
   }
 }
@@ -159,8 +134,9 @@ impl AsRef<Path> for FilePath {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
-  use crate::{server::Server, test_utils::test};
+  use crate::{error::Error, server::Server, test_utils::test};
   use guard::guard_unwrap;
+  use hyper::StatusCode;
   use pretty_assertions::assert_eq;
   use reqwest::Url;
   use scraper::{ElementRef, Html, Selector};
@@ -203,9 +179,8 @@ pub(crate) mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let error = format!("{:?}", Server::setup(&environment).unwrap_err());
-        assert_contains(&error, "cannot access `www`");
-        assert_contains(&error, "Caused by:");
+        let error = Server::setup(&environment).unwrap_err();
+        guard_unwrap!(let Error::WwwIo { .. } = error);
       });
   }
 

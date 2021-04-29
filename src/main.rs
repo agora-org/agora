@@ -1,8 +1,8 @@
-use crate::server::Server;
-use anyhow::Result;
+use crate::{error::Result, server::Server};
 use environment::Environment;
 
 mod environment;
+mod error;
 mod request_handler;
 mod server;
 mod stderr;
@@ -13,7 +13,7 @@ mod test_utils;
 #[tokio::main]
 async fn main() {
   if let Err(error) = run().await {
-    eprintln!("{:?}", error);
+    eprintln!("{}", error);
     std::process::exit(1);
   }
 }
