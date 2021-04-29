@@ -292,7 +292,7 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_parent_path_component() {
-    test(|url, _dir| async move {
+    let stderr = test(|url, _dir| async move {
       let mut stream = TcpStream::connect(format!("localhost:{}", url.port().unwrap()))
         .await
         .unwrap();
@@ -305,6 +305,7 @@ pub(crate) mod tests {
       let response = str::from_utf8(&response[..bytes]).unwrap();
       assert_contains(&response, "HTTP/1.1 400 Bad Request");
     });
+    assert_contains(&stderr, &format!("Invalid URL file path: /foo/../bar.txt"));
   }
 
   #[test]
