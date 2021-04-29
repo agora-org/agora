@@ -103,21 +103,19 @@ struct FilePath {
 
 impl FilePath {
   fn from_uri(uri: &Uri) -> Result<Self> {
-    let path = uri
-      .path()
-      .strip_prefix('/')
-      .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })?;
+    let invalid_path = || Error::InvalidPath { uri: uri.clone() };
+    let path = uri.path().strip_prefix('/').ok_or_else(invalid_path)?;
 
     for component in Path::new(path).components() {
       match component {
         Component::Normal(_) => {}
-        _ => return Err(Error::InvalidPath { uri: uri.clone() }),
+        _ => return Err(invalid_path()),
       }
     }
 
     for component in path.split('/') {
       if component.is_empty() {
-        return Err(Error::InvalidPath { uri: uri.clone() });
+        return Err(invalid_path());
       }
     }
 
