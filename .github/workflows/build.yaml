@@ -80,5 +80,6 @@ jobs:
     - name: Check for Forbidden Words
       if: matrix.os == 'ubuntu-latest'
       run: |
-        sudo apt-get install ripgrep
+        sudo apt update
+        sudo apt install ripgrep
         ./bin/forbid
