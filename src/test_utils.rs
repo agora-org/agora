@@ -1,9 +1,10 @@
 use crate::{environment::Environment, server::Server};
+use reqwest::Url;
 use std::{ffi::OsString, future::Future, path::PathBuf};
 
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
-  Function: FnOnce(u16, PathBuf) -> F,
+  Function: FnOnce(Url, PathBuf) -> F,
   F: Future<Output = ()>,
 {
   test_with_arguments(&[], f)
@@ -11,7 +12,7 @@ where
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
 where
-  Function: FnOnce(u16, PathBuf) -> F,
+  Function: FnOnce(Url, PathBuf) -> F,
   F: Future<Output = ()>,
 {
   let mut environment = Environment::test();
@@ -30,7 +31,8 @@ where
       let server = Server::setup(&environment).unwrap();
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      f(port, environment.working_directory.clone()).await;
+      let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+      f(url, environment.working_directory.clone()).await;
       join_handle.abort();
       environment.stderr.contents()
     })

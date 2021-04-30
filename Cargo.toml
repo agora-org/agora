@@ -5,10 +5,10 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0.40"
 futures = "0.3.14"
 maud = "0.22.2"
 structopt = "0.3.21"
+snafu = "0.6.10"
 
 [dependencies.tower]
 version = "0.4.6"
@@ -23,5 +23,8 @@ version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
 
 [dev-dependencies]
+guard = "0.5.1"
+pretty_assertions = "0.7.2"
 reqwest = "0.11.3"
+scraper = "0.12.0"
 tempfile = "3.2.0"
