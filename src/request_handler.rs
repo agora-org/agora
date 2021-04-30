@@ -202,7 +202,15 @@ pub(crate) mod tests {
       reqwest::get(url).await.unwrap();
     });
     assert_contains(&stderr, "IO error accessing `www`: ");
-    assert_contains(&stderr, "No such file or directory");
+
+    assert_contains(
+      &stderr,
+      if cfg!(target_os = "windows") {
+        "The system cannot find the path specified."
+      } else {
+        "No such file or directory"
+      },
+    );
   }
 
   async fn get_html(url: &Url) -> Html {
