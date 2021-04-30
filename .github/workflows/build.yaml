@@ -69,7 +69,9 @@ jobs:
       run: cargo build --all
 
     - name: Test
-      run: cargo test --all
+      run: |
+        cargo test --all
+        cargo test --test smoke
 
     - name: Clippy
       run: cargo clippy --all
