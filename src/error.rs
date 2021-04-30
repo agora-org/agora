@@ -1,3 +1,4 @@
+use crate::request_handler::FilePath;
 use hyper::{StatusCode, Uri};
 use snafu::Snafu;
 use std::{fmt::Debug, io};
@@ -15,8 +16,8 @@ pub(crate) enum Error {
   Clap { source: clap::Error },
   #[snafu(display("IO error accessing `www`: {}", source))]
   WwwIo { source: io::Error },
-  #[snafu(display("IO error accessing file: {}", source))]
-  FileIo { source: io::Error },
+  #[snafu(display("IO error accessing file `{}`: {}", path, source))]
+  FileIo { source: io::Error, path: FilePath },
   #[snafu(display("Invalid URL file path: {}", uri))]
   InvalidPath { uri: Uri },
   #[snafu(display("Failed to retrieve current directory: {}", source))]
@@ -29,6 +30,7 @@ impl Error {
   pub(crate) fn status(&self) -> StatusCode {
     use Error::*;
     match self {
+      FileIo { source, .. } if source.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
       Clap { .. } | WwwIo { .. } | FileIo { .. } | CurrentDir { .. } | ServerRun { .. } => {
         StatusCode::INTERNAL_SERVER_ERROR
       }

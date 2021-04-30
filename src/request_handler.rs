@@ -9,7 +9,7 @@ use maud::{html, DOCTYPE};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
-  fmt::Debug,
+  fmt::{self, Debug, Display, Formatter},
   io::{self, Write},
   path::{Component, Path, PathBuf},
   task::{self, Poll},
@@ -74,10 +74,10 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn serve_file(&self, file_path: &FilePath) -> Result<Response<Body>> {
-    let file_contents = tokio::fs::read(self.working_directory.join("www").join(file_path))
+  async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
+    let file_contents = tokio::fs::read(self.working_directory.join("www").join(path))
       .await
-      .context(error::FileIo)?;
+      .with_context(|| error::FileIo { path: path.clone() })?;
     Ok(Response::new(Body::from(file_contents)))
   }
 }
@@ -96,8 +96,8 @@ impl Service<Request<Body>> for RequestHandler {
   }
 }
 
-#[derive(Debug)]
-struct FilePath {
+#[derive(Debug, Clone)]
+pub(crate) struct FilePath {
   inner: String,
 }
 
@@ -128,6 +128,12 @@ impl FilePath {
 impl AsRef<Path> for FilePath {
   fn as_ref(&self) -> &Path {
     self.inner.as_ref()
+  }
+}
+
+impl Display for FilePath {
+  fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    write!(f, "{}", self.inner)
   }
 }
 
@@ -319,5 +325,19 @@ pub(crate) mod tests {
       )
     });
     assert_contains(&stderr, &format!("Invalid URL file path: //foo.txt"));
+  }
+
+  #[test]
+  fn return_404_for_missing_files() {
+    let stderr = test(|url, _dir| async move {
+      assert_eq!(
+        reqwest::get(url.join("foo.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+    assert_contains(&stderr, "IO error accessing file `foo.txt`");
   }
 }
