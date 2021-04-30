@@ -1,4 +1,4 @@
-use crate::request_handler::FilePath;
+use crate::file_path::FilePath;
 use hyper::{StatusCode, Uri};
 use snafu::Snafu;
 use std::{fmt::Debug, io};

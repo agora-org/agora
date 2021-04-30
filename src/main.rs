@@ -3,6 +3,7 @@ use environment::Environment;
 
 mod environment;
 mod error;
+mod file_path;
 mod request_handler;
 mod server;
 mod stderr;
