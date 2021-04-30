@@ -17,10 +17,11 @@ impl Server {
   pub(crate) fn setup(environment: &Environment) -> Result<Self> {
     let arguments = environment.arguments()?;
 
-    fs::read_dir(environment.working_directory.join("www")).context(error::WwwIo)?;
+    let directory = environment.working_directory.join(arguments.directory);
+    fs::read_dir(&directory).context(error::WwwIo)?;
     let socket_addr = SocketAddr::from(([0, 0, 0, 0], arguments.port));
-    let inner =
-      hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(&environment)));
+    let inner = hyper::Server::bind(&socket_addr)
+      .serve(Shared::new(RequestHandler::new(&environment, &directory)));
 
     eprintln!("Listening on {}", inner.local_addr());
     Ok(Self { inner })
@@ -44,7 +45,7 @@ mod tests {
 
   #[test]
   fn listen_on_all_local_ip_addresses() {
-    let environment = Environment::test();
+    let environment = Environment::test(&[]);
 
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();

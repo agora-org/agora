@@ -13,8 +13,10 @@ const DEFAULT_PORT: &str = if cfg!(test) { "0" } else { "8080" };
 
 #[derive(StructOpt)]
 pub(crate) struct Arguments {
-  #[structopt(long, default_value = DEFAULT_PORT)]
+  #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
   pub(crate) port: u16,
+  #[structopt(long, default_value = "www", help = "Directory of files to serve")]
+  pub(crate) directory: PathBuf,
 }
 
 pub(crate) struct Environment {
@@ -37,14 +39,16 @@ impl Environment {
   }
 
   #[cfg(test)]
-  pub(crate) fn test() -> Self {
+  pub(crate) fn test(arguments: &[&str]) -> Self {
     let tempdir = tempfile::Builder::new()
       .prefix("foo-test")
       .tempdir()
       .unwrap();
 
     Environment {
-      arguments: vec!["foo".into()],
+      arguments: std::iter::once("foo".into())
+        .chain(arguments.into_iter().map(|item| item.into()))
+        .collect(),
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
       _working_directory_tempdir: tempdir,
