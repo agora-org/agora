@@ -1,5 +1,8 @@
-use crate::stderr::Stderr;
-use anyhow::Result;
+use crate::{
+  error::{self, Result},
+  stderr::Stderr,
+};
+use snafu::ResultExt;
 use std::{env, ffi::OsString, path::PathBuf};
 use structopt::StructOpt;
 
@@ -27,7 +30,7 @@ impl Environment {
     Ok(Environment {
       arguments: env::args_os().into_iter().collect(),
       stderr: Stderr::production(),
-      working_directory: env::current_dir()?,
+      working_directory: env::current_dir().context(error::CurrentDir)?,
       #[cfg(test)]
       _working_directory_tempdir: TempDir::new().unwrap(),
     })
