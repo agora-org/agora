@@ -12,21 +12,21 @@ use std::{
   convert::Infallible,
   fmt::Debug,
   io::{self, Write},
-  path::PathBuf,
+  path::{Path, PathBuf},
   task::{self, Poll},
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
-  pub(crate) working_directory: PathBuf,
+  pub(crate) directory: PathBuf,
 }
 
 impl RequestHandler {
-  pub(crate) fn new(environment: &Environment) -> Self {
+  pub(crate) fn new(environment: &Environment, directory: &Path) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      working_directory: environment.working_directory.to_owned(),
+      directory: directory.to_owned(),
     }
   }
 
@@ -51,7 +51,7 @@ impl RequestHandler {
   }
 
   async fn list_www(&self) -> io::Result<Response<Body>> {
-    let mut read_dir = tokio::fs::read_dir(self.working_directory.join("www")).await?;
+    let mut read_dir = tokio::fs::read_dir(&self.directory).await?;
     let body = html! {
       (DOCTYPE)
       html {
@@ -76,7 +76,7 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    let file_contents = tokio::fs::read(self.working_directory.join("www").join(path))
+    let file_contents = tokio::fs::read(&self.directory.join(path))
       .await
       .with_context(|| error::FileIo { path: path.clone() })?;
     Ok(Response::new(Body::from(file_contents)))
@@ -100,13 +100,17 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
-  use crate::{error::Error, server::Server, test_utils::test};
+  use crate::{
+    error::Error,
+    server::Server,
+    test_utils::{test, test_with_environment},
+  };
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
   use reqwest::Url;
   use scraper::{ElementRef, Html, Selector};
-  use std::str;
+  use std::{fs, str};
   use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -138,7 +142,7 @@ pub(crate) mod tests {
 
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
-    let environment = Environment::test();
+    let environment = Environment::test(&[]);
 
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
@@ -299,5 +303,34 @@ pub(crate) mod tests {
       )
     });
     assert_contains(&stderr, "IO error accessing file `foo.txt`");
+  }
+
+  #[test]
+  fn configure_source_directory() {
+    let environment = Environment::test(&["--directory", "src"]);
+
+    let src = environment.working_directory.join("src");
+    fs::create_dir(&src).unwrap();
+    fs::write(src.join("foo.txt"), "hello").unwrap();
+
+    test_with_environment(&environment, |url, _dir| async move {
+      assert_contains(
+        &reqwest::get(url.clone())
+          .await
+          .unwrap()
+          .text()
+          .await
+          .unwrap(),
+        "foo.txt",
+      );
+
+      let file_contents = reqwest::get(url.join("foo.txt").unwrap())
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+      assert_eq!(file_contents, "hello");
+    });
   }
 }

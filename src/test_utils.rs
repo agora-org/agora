@@ -15,7 +15,7 @@ where
   Function: FnOnce(Url, PathBuf) -> F,
   F: Future<Output = ()>,
 {
-  let mut environment = Environment::test();
+  let mut environment = Environment::test(&[]);
   environment
     .arguments
     .extend(args.iter().cloned().map(OsString::from));
@@ -23,6 +23,14 @@ where
   let www = environment.working_directory.join("www");
   std::fs::create_dir(&www).unwrap();
 
+  test_with_environment(&environment, f)
+}
+
+pub(crate) fn test_with_environment<Function, F>(environment: &Environment, f: Function) -> String
+where
+  Function: FnOnce(Url, PathBuf) -> F,
+  F: Future<Output = ()>,
+{
   tokio::runtime::Builder::new_current_thread()
     .enable_all()
     .build()
