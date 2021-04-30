@@ -18,11 +18,11 @@ impl Server {
     let arguments = environment.arguments()?;
 
     fs::read_dir(environment.working_directory.join("www")).context(error::WwwIo)?;
-    let socket_addr = SocketAddr::from(([127, 0, 0, 1], arguments.port));
+    let socket_addr = SocketAddr::from(([0, 0, 0, 0], arguments.port));
     let inner =
       hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(&environment)));
 
-    eprintln!("Listening on port {}", inner.local_addr().port());
+    eprintln!("Listening on {}", inner.local_addr());
     Ok(Self { inner })
   }
 
@@ -33,5 +33,29 @@ impl Server {
   #[cfg(test)]
   pub(crate) fn port(&self) -> u16 {
     self.inner.local_addr().port()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  use std::net::IpAddr;
+
+  #[test]
+  fn listen_on_all_local_ip_addresses() {
+    let environment = Environment::test();
+
+    let www = environment.working_directory.join("www");
+    std::fs::create_dir(&www).unwrap();
+
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(async {
+        let server = Server::setup(&environment).unwrap();
+        assert_eq!(server.inner.local_addr().ip(), IpAddr::from([0, 0, 0, 0]));
+      });
   }
 }
