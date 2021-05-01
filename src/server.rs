@@ -19,7 +19,12 @@ impl Server {
 
     let directory = environment.working_directory.join(arguments.directory);
     fs::read_dir(&directory).context(error::WwwIo)?;
-    let socket_addr = SocketAddr::from(([0, 0, 0, 0], arguments.port));
+    let address = if cfg!(test) {
+      [127, 0, 0, 1]
+    } else {
+      [0, 0, 0, 0]
+    };
+    let socket_addr = SocketAddr::from((address, arguments.port));
     let inner = hyper::Server::bind(&socket_addr)
       .serve(Shared::new(RequestHandler::new(&environment, &directory)));
 
@@ -43,7 +48,7 @@ mod tests {
   use std::net::IpAddr;
 
   #[test]
-  fn listen_on_all_local_ip_addresses() {
+  fn listen_on_localhost() {
     let environment = Environment::test(&[]);
 
     let www = environment.working_directory.join("www");
@@ -55,7 +60,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&environment).unwrap();
-        assert_eq!(server.inner.local_addr().ip(), IpAddr::from([0, 0, 0, 0]));
+        assert_eq!(server.inner.local_addr().ip(), IpAddr::from([127, 0, 0, 1]));
       });
   }
 }

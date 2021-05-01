@@ -7,7 +7,7 @@ use std::{
 };
 
 #[test]
-fn server_listens_on_localhost_8080() {
+fn server_listens_on_all_ip_addresses_port_8080() {
   let tempdir = tempfile::tempdir().unwrap();
 
   fs::create_dir(tempdir.path().join("www")).unwrap();
@@ -18,9 +18,13 @@ fn server_listens_on_localhost_8080() {
     .spawn()
     .unwrap();
 
+  let mut line = String::new();
+
   BufReader::new(child.stderr.unwrap())
-    .read_line(&mut String::new())
+    .read_line(&mut line)
     .unwrap();
+
+  assert!(line.contains("0.0.0.0:8080"));
 
   assert_eq!(
     reqwest::blocking::get("http://localhost:8080")
