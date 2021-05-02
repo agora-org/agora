@@ -30,6 +30,13 @@ impl FilePath {
       inner: path.to_owned(),
     })
   }
+
+  #[cfg(test)]
+  pub(crate) fn new(inner: &str) -> Self {
+    Self {
+      inner: inner.to_owned(),
+    }
+  }
 }
 
 impl AsRef<Path> for FilePath {

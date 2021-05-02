@@ -2,6 +2,7 @@ use crate::{
   environment::Environment,
   error::{self, Result},
   file_path::FilePath,
+  file_stream::FileStream,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
@@ -15,6 +16,7 @@ use std::{
   path::{Path, PathBuf},
   task::{self, Poll},
 };
+use tokio::fs::File;
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
@@ -76,10 +78,14 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    let file_contents = tokio::fs::read(&self.directory.join(path))
+    let file = File::open(&self.directory.join(path))
       .await
       .with_context(|| error::FileIo { path: path.clone() })?;
-    Ok(Response::new(Body::from(file_contents)))
+
+    Ok(Response::new(Body::wrap_stream(FileStream::new(
+      file,
+      path.clone(),
+    ))))
   }
 }
 

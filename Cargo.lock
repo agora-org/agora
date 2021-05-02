@@ -226,6 +226,7 @@ dependencies = [
  "guard",
  "hyper",
  "maud",
+ "pin-project",
  "pretty_assertions",
  "reqwest",
  "scraper",
