@@ -18,3 +18,6 @@ fmt-check:
 
 forbid:
   ./bin/forbid
+
+watch command='test':
+	cargo watch --exec '{{command}}'
