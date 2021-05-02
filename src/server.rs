@@ -26,7 +26,7 @@ impl Server {
         input: arguments.address.clone(),
       })?
       .next()
-      .ok_or_else(|| Error::AddressResolutionNoAddresses {
+      .ok_or(Error::AddressResolutionNoAddresses {
         input: arguments.address,
       })?;
 
