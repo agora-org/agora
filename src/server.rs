@@ -40,7 +40,6 @@ impl Server {
 #[cfg(test)]
 mod tests {
   use super::*;
-
   use std::net::IpAddr;
 
   #[test]
