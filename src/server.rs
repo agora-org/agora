@@ -74,4 +74,22 @@ mod tests {
         );
       });
   }
+
+  #[test]
+  fn address_resolution_failure_error() {
+    let mut environment = Environment::test(&[]);
+    environment.arguments = vec!["foo".into(), "--address".into(), "host.invalid".into()];
+
+    let www = environment.working_directory.join("www");
+    std::fs::create_dir(&www).unwrap();
+
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(async {
+        let error = Server::setup(&environment).unwrap_err();
+        assert_matches!(error, Error::AddressResolutionIo { input, ..} if input == "host.invalid");
+      });
+  }
 }

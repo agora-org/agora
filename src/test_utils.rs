@@ -2,6 +2,19 @@ use crate::{environment::Environment, server::Server};
 use reqwest::Url;
 use std::{ffi::OsString, future::Future, path::PathBuf};
 
+macro_rules! assert_matches {
+  ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {
+    match $expression {
+      $( $pattern )|+ $( if $guard )? => {}
+      left => panic!(
+        "assertion failed: (left ~= right)\n  left: `{:?}`\n right: `{}`",
+        left,
+        stringify!($($pattern)|+ $(if $guard)?)
+      ),
+    }
+  }
+}
+
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(Url, PathBuf) -> F,
