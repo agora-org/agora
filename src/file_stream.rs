@@ -2,7 +2,7 @@ use crate::{
   error::{self, Result},
   file_path::FilePath,
 };
-use futures::StreamExt;
+use futures::Stream;
 use hyper::body::Bytes;
 use pin_project::pin_project;
 use snafu::ResultExt;
@@ -29,7 +29,7 @@ impl FileStream {
   }
 }
 
-impl futures::Stream for FileStream {
+impl Stream for FileStream {
   type Item = Result<Bytes>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
@@ -60,6 +60,7 @@ impl futures::Stream for FileStream {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use futures::StreamExt;
 
   #[tokio::test]
   async fn file_stream_yields_file_contents() {
