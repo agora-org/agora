@@ -67,21 +67,21 @@ mod tests {
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path().join("foo.txt");
 
-    let want = &[0x15; 200];
+    let input = &[0x15; 200];
 
-    std::fs::write(&path, want).unwrap();
+    std::fs::write(&path, input).unwrap();
 
     let file = File::open(path).await.unwrap();
 
     let mut stream = FileStream::new(file, FilePath::new("foo.txt"));
 
-    let mut have = Vec::new();
+    let mut output = Vec::new();
 
     while let Some(result) = stream.next().await {
       let bytes = result.unwrap();
-      have.extend(bytes);
+      output.extend(bytes);
     }
 
-    assert_eq!(have, want);
+    assert_eq!(output, input);
   }
 }
