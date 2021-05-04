@@ -13,10 +13,12 @@ const DEFAULT_PORT: &str = if cfg!(test) { "0" } else { "8080" };
 
 #[derive(StructOpt)]
 pub(crate) struct Arguments {
-  #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
-  pub(crate) port: u16,
+  #[structopt(long, default_value = "0.0.0.0", help = "Address to listen on")]
+  pub(crate) address: String,
   #[structopt(long, default_value = "www", help = "Directory of files to serve")]
   pub(crate) directory: PathBuf,
+  #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
+  pub(crate) port: u16,
 }
 
 pub(crate) struct Environment {
@@ -46,8 +48,10 @@ impl Environment {
       .unwrap();
 
     Environment {
-      arguments: std::iter::once("foo".into())
-        .chain(arguments.into_iter().map(|item| item.into()))
+      arguments: ["foo", "--address", "localhost"]
+        .iter()
+        .chain(arguments)
+        .map(OsString::from)
         .collect(),
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
