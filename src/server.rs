@@ -53,7 +53,7 @@ mod tests {
   use std::net::IpAddr;
 
   #[test]
-  fn listen_on_localhost() {
+  fn listen_on_localhost_by_default_in_tests() {
     let environment = Environment::test(&[]);
 
     let www = environment.working_directory.join("www");
