@@ -114,8 +114,9 @@ pub(crate) mod tests {
   use pretty_assertions::assert_eq;
   use reqwest::Url;
   use scraper::{ElementRef, Html, Selector};
-  use std::{fs, str};
+  use std::{ffi::CString, fs, str};
   use tokio::{
+    fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
   };
@@ -335,6 +336,27 @@ pub(crate) mod tests {
         .await
         .unwrap();
       assert_eq!(file_contents, "hello");
+    });
+  }
+
+  #[test]
+  fn downloaded_files_are_streamed() {
+    test(|url, dir| async move {
+      let fifo_path = dir.join("www").join("fifo");
+      let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
+
+      assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
+
+      let mut fifo = File::open(&fifo_path).await.unwrap();
+
+      fifo.write(b"hello").await.unwrap();
+
+      // let html = get_html(&url).await;
+      // guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
+      // let file_url = a.value().attr("href").unwrap();
+      // let file_url = url.join(file_url).unwrap();
+      // let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
+      // assert_eq!(file_contents, "contents");
     });
   }
 }
