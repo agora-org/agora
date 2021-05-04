@@ -24,8 +24,15 @@ pub(crate) struct FileStream {
 }
 
 impl FileStream {
-  pub(crate) fn new(file: File, path: FilePath) -> Self {
-    Self { file, path }
+  pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
+    Ok(Self {
+      file: File::open(&file_path)
+        .await
+        .with_context(|| error::FileIo {
+          path: file_path.clone(),
+        })?,
+      path: file_path,
+    })
   }
 }
 
@@ -65,15 +72,14 @@ mod tests {
   #[tokio::test]
   async fn file_stream_yields_file_contents() {
     let tempdir = tempfile::tempdir().unwrap();
-    let path = tempdir.path().join("foo.txt");
+    let dir = tempdir.path();
+    let file_path = FilePath::new_unchecked(&dir, "foo.txt");
 
     let input = &[0x15; 200];
 
-    std::fs::write(&path, input).unwrap();
+    std::fs::write(&file_path, input).unwrap();
 
-    let file = File::open(path).await.unwrap();
-
-    let mut stream = FileStream::new(file, FilePath::new("foo.txt"));
+    let mut stream = FileStream::new(file_path).await.unwrap();
 
     let mut output = Vec::new();
 

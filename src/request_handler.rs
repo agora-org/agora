@@ -16,7 +16,6 @@ use std::{
   path::{Path, PathBuf},
   task::{self, Poll},
 };
-use tokio::fs::File;
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
@@ -48,7 +47,11 @@ impl RequestHandler {
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     match request.uri().path() {
       "/" => self.list_www().await.context(error::WwwIo),
-      _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
+      _ => {
+        self
+          .serve_file(&FilePath::new(&self.directory, request.uri())?)
+          .await
+      }
     }
   }
 
@@ -78,14 +81,9 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    let file = File::open(&self.directory.join(path))
-      .await
-      .with_context(|| error::FileIo { path: path.clone() })?;
-
-    Ok(Response::new(Body::wrap_stream(FileStream::new(
-      file,
-      path.clone(),
-    ))))
+    Ok(Response::new(Body::wrap_stream(
+      FileStream::new(path.clone()).await?,
+    )))
   }
 }
 
