@@ -121,4 +121,29 @@ mod tests {
 
     assert_eq!(output, b"hello");
   }
+
+  #[test]
+  fn can_read_and_write_fifos() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let dir = tempdir.path();
+    let fifo_path = dir.join("fifo");
+    let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
+
+    assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
+
+    let writer = {
+      let fifo_path = fifo_path.clone();
+      std::thread::spawn(move || {
+        std::fs::write(&fifo_path, b"hello").unwrap();
+      })
+    };
+
+    let reader = std::thread::spawn(move || {
+      let output = std::fs::read_to_string(&fifo_path).unwrap();
+      assert_eq!(output, "hello");
+    });
+
+    writer.join().unwrap();
+    reader.join().unwrap();
+  }
 }
