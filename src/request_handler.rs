@@ -349,14 +349,27 @@ pub(crate) mod tests {
 
       let mut fifo = File::open(&fifo_path).await.unwrap();
 
-      fifo.write(b"hello").await.unwrap();
+      tokio::spawn(async move {
+        dbg!("spawned!");
+        fifo.write_all(b"hello\n").await.unwrap();
+        dbg!("done writing!");
+        // fifo.flush().await.unwrap();
+        // drop(fifo);
+      });
 
-      // let html = get_html(&url).await;
-      // guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
-      // let file_url = a.value().attr("href").unwrap();
-      // let file_url = url.join(file_url).unwrap();
-      // let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
-      // assert_eq!(file_contents, "contents");
+      let text = reqwest::get(url.join("fifo").unwrap())
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+      assert_eq!(text, "hello\n");
+
+      // while let Some(result) = stream.next().await {
+      //   let chunk = result.unwrap();
+      //   assert_eq!(chunk, "hello");
+      // }
     });
   }
 }

@@ -34,7 +34,7 @@ libc = "0.2.94"
 
 [dev-dependencies.reqwest]
 version = "0.11.3"
-features = ["blocking"]
+features = ["blocking", "stream"]
 
 [[test]]
 name = "smoke"
