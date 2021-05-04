@@ -7,7 +7,7 @@ use std::{
 };
 
 #[test]
-fn server_listens_on_all_ip_addresses_port_8080() {
+fn server_listens_on_all_ip_addresses_on_port_8080() {
   let tempdir = tempfile::tempdir().unwrap();
 
   fs::create_dir(tempdir.path().join("www")).unwrap();
