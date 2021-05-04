@@ -131,19 +131,21 @@ mod tests {
 
     assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
 
-    let writer = {
+    let mut writer = {
       let fifo_path = fifo_path.clone();
-      std::thread::spawn(move || {
-        std::fs::write(&fifo_path, b"hello").unwrap();
-      })
+      std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!("echo hello > {}", fifo_path.display()))
+        .spawn()
+        .unwrap()
     };
 
     let reader = std::thread::spawn(move || {
       let output = std::fs::read_to_string(&fifo_path).unwrap();
-      assert_eq!(output, "hello");
+      assert_eq!(output, "hello\n");
     });
 
-    writer.join().unwrap();
+    writer.wait().unwrap();
     reader.join().unwrap();
   }
 }
