@@ -10,7 +10,7 @@ smoke:
   cargo test --test smoke
 
 clippy:
-  cargo clippy --all
+  cargo clippy --all-targets --all-features
 
 fmt-check:
   cargo fmt --all -- --check
