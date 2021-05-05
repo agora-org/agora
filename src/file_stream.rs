@@ -123,7 +123,7 @@ mod tests {
   }
 
   #[test]
-  fn can_read_and_write_fifos() {
+  fn can_read_and_write_fifos_from_different_processes() {
     let tempdir = tempfile::tempdir().unwrap();
     let dir = tempdir.path();
     let fifo_path = dir.join("fifo");
@@ -147,5 +147,51 @@ mod tests {
 
     writer.wait().unwrap();
     reader.join().unwrap();
+  }
+
+  #[test]
+  fn can_read_and_write_fifos_from_different_threads() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let dir = tempdir.path();
+    let fifo_path = dir.join("fifo");
+    let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
+
+    assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
+
+    let fifo_path_clone = fifo_path.clone();
+    let writer = std::thread::spawn(move || {
+      std::fs::write(&fifo_path_clone, "hello\n").unwrap();
+    });
+
+    let reader = std::thread::spawn(move || {
+      let output = std::fs::read_to_string(&fifo_path).unwrap();
+      assert_eq!(output, "hello\n");
+    });
+
+    writer.join().unwrap();
+    reader.join().unwrap();
+  }
+
+  #[tokio::test]
+  async fn can_read_and_write_fifos_from_different_futures() {
+    let tempdir = tempfile::tempdir().unwrap();
+    let dir = tempdir.path();
+    let fifo_path = dir.join("fifo");
+    let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
+
+    assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
+
+    let fifo_path_clone = fifo_path.clone();
+    let writer = tokio::spawn(async move {
+      tokio::fs::write(&fifo_path_clone, "hello\n").await.unwrap();
+    });
+
+    let reader = tokio::spawn(async move {
+      let output = tokio::fs::read_to_string(&fifo_path).await.unwrap();
+      assert_eq!(output, "hello\n");
+    });
+
+    writer.await.unwrap();
+    reader.await.unwrap();
   }
 }
