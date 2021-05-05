@@ -1,10 +1,13 @@
-all: build test clippy fmt-check forbid
+all: build test smoke clippy fmt-check forbid
 
 build:
   cargo build --all
 
 test:
   cargo test --all
+
+smoke:
+  cargo test --test smoke
 
 clippy:
   cargo clippy --all
@@ -15,3 +18,6 @@ fmt-check:
 
 forbid:
   ./bin/forbid
+
+watch command='test':
+	cargo watch --exec '{{command}}'

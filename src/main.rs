@@ -1,6 +1,10 @@
 use crate::{error::Result, server::Server};
 use environment::Environment;
 
+#[cfg(test)]
+#[macro_use]
+mod test_utils;
+
 mod environment;
 mod error;
 mod file_path;
@@ -8,9 +12,6 @@ mod file_stream;
 mod request_handler;
 mod server;
 mod stderr;
-
-#[cfg(test)]
-mod test_utils;
 
 #[tokio::main]
 async fn main() {
