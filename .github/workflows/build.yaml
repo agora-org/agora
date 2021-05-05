@@ -74,7 +74,7 @@ jobs:
         cargo test --test smoke
 
     - name: Clippy
-      run: cargo clippy --all
+      run: cargo clippy --all-targets --all-features
 
     - name: Check Formatting
       run: cargo fmt --all -- --check

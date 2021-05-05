@@ -264,7 +264,7 @@ pub(crate) mod tests {
       let response = str::from_utf8(&response[..bytes]).unwrap();
       assert_contains(&response, "HTTP/1.1 400 Bad Request");
     });
-    assert_contains(&stderr, &format!("Invalid URL file path: /foo/../bar.txt"));
+    assert_contains(&stderr, &"Invalid URL file path: /foo/../bar.txt");
   }
 
   #[test]
@@ -278,7 +278,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &format!("Invalid URL file path: /foo//bar.txt"));
+    assert_contains(&stderr, &"Invalid URL file path: /foo//bar.txt");
   }
 
   #[test]
@@ -292,7 +292,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &format!("Invalid URL file path: //foo.txt"));
+    assert_contains(&stderr, &"Invalid URL file path: //foo.txt");
   }
 
   #[test]
