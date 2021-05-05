@@ -115,7 +115,7 @@ pub(crate) mod tests {
   use pretty_assertions::assert_eq;
   use reqwest::Url;
   use scraper::{ElementRef, Html, Selector};
-  use std::{ffi::CString, fs, str};
+  use std::{fs, str};
   use tokio::{
     fs::OpenOptions,
     io::{AsyncReadExt, AsyncWriteExt},
@@ -345,9 +345,8 @@ pub(crate) mod tests {
   fn downloaded_files_are_streamed() {
     test(|url, dir| async move {
       let fifo_path = dir.join("www").join("fifo");
-      let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
 
-      assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
+      nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
 
       let (sender, receiver) = oneshot::channel();
 

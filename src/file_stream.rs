@@ -68,8 +68,6 @@ impl Stream for FileStream {
 mod tests {
   use super::*;
   use futures::StreamExt;
-  use std::{ffi::CString, path::PathBuf};
-  use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
   #[tokio::test]
   async fn file_stream_yields_file_contents() {
