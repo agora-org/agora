@@ -2,6 +2,7 @@ use crate::{
   environment::Environment,
   error::{self, Result},
   file_path::FilePath,
+  file_stream::FileStream,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
@@ -46,7 +47,11 @@ impl RequestHandler {
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     match request.uri().path() {
       "/" => self.list_www().await.context(error::WwwIo),
-      _ => self.serve_file(&FilePath::from_uri(request.uri())?).await,
+      _ => {
+        self
+          .serve_file(&FilePath::new(&self.directory, request.uri())?)
+          .await
+      }
     }
   }
 
@@ -76,10 +81,9 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    let file_contents = tokio::fs::read(&self.directory.join(path))
-      .await
-      .with_context(|| error::FileIo { path: path.clone() })?;
-    Ok(Response::new(Body::from(file_contents)))
+    Ok(Response::new(Body::wrap_stream(
+      FileStream::new(path.clone()).await?,
+    )))
   }
 }
 
@@ -331,6 +335,42 @@ pub(crate) mod tests {
         .await
         .unwrap();
       assert_eq!(file_contents, "hello");
+    });
+  }
+
+  #[test]
+  #[cfg(unix)]
+  fn downloaded_files_are_streamed() {
+    use futures::StreamExt;
+    use tokio::{fs::OpenOptions, sync::oneshot};
+
+    test(|url, dir| async move {
+      let fifo_path = dir.join("www").join("fifo");
+
+      nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
+
+      let (sender, receiver) = oneshot::channel();
+
+      let writer = tokio::spawn(async move {
+        let mut fifo = OpenOptions::new()
+          .write(true)
+          .open(&fifo_path)
+          .await
+          .unwrap();
+        fifo.write_all(b"hello").await.unwrap();
+        receiver.await.unwrap();
+      });
+
+      let mut stream = reqwest::get(url.join("fifo").unwrap())
+        .await
+        .unwrap()
+        .bytes_stream();
+
+      assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
+
+      sender.send(()).unwrap();
+
+      writer.await.unwrap();
     });
   }
 }
