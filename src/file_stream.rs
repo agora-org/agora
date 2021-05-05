@@ -40,7 +40,7 @@ impl Stream for FileStream {
   type Item = Result<Bytes>;
 
   fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
-    let data = &mut [MaybeUninit::uninit(); 16 * 1024];
+    let data = &mut [MaybeUninit::uninit(); 8 * 1024];
     let mut buf = ReadBuf::uninit(data);
 
     let projected = self.project();
@@ -69,6 +69,7 @@ mod tests {
   use super::*;
   use futures::StreamExt;
   use std::{ffi::CString, path::PathBuf};
+  use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 
   #[tokio::test]
   async fn file_stream_yields_file_contents() {

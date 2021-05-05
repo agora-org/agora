@@ -109,6 +109,7 @@ pub(crate) mod tests {
     server::Server,
     test_utils::{test, test_with_environment},
   };
+  use futures::StreamExt;
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
@@ -116,9 +117,10 @@ pub(crate) mod tests {
   use scraper::{ElementRef, Html, Selector};
   use std::{ffi::CString, fs, str};
   use tokio::{
-    fs::File,
+    fs::OpenOptions,
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
+    sync::oneshot,
   };
 
   #[track_caller]
@@ -340,7 +342,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[ignore]
   fn downloaded_files_are_streamed() {
     test(|url, dir| async move {
       let fifo_path = dir.join("www").join("fifo");
@@ -348,29 +349,28 @@ pub(crate) mod tests {
 
       assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
 
-      let mut fifo = File::open(&fifo_path).await.unwrap();
+      let (sender, receiver) = oneshot::channel();
 
-      tokio::spawn(async move {
-        dbg!("spawned!");
-        fifo.write_all(b"hello\n").await.unwrap();
-        dbg!("done writing!");
-        // fifo.flush().await.unwrap();
-        // drop(fifo);
+      let writer = tokio::spawn(async move {
+        let mut fifo = OpenOptions::new()
+          .write(true)
+          .open(&fifo_path)
+          .await
+          .unwrap();
+        fifo.write_all(b"hello").await.unwrap();
+        receiver.await.unwrap();
       });
 
-      let text = reqwest::get(url.join("fifo").unwrap())
+      let mut stream = reqwest::get(url.join("fifo").unwrap())
         .await
         .unwrap()
-        .text()
-        .await
-        .unwrap();
+        .bytes_stream();
 
-      assert_eq!(text, "hello\n");
+      assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
 
-      // while let Some(result) = stream.next().await {
-      //   let chunk = result.unwrap();
-      //   assert_eq!(chunk, "hello");
-      // }
+      sender.send(()).unwrap();
+
+      writer.await.unwrap();
     });
   }
 }
