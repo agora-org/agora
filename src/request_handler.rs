@@ -340,6 +340,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[ignore]
   fn downloaded_files_are_streamed() {
     test(|url, dir| async move {
       let fifo_path = dir.join("www").join("fifo");

@@ -68,8 +68,7 @@ impl Stream for FileStream {
 mod tests {
   use super::*;
   use futures::StreamExt;
-  use std::ffi::CString;
-  use tokio::io::AsyncWriteExt;
+  use std::{ffi::CString, path::PathBuf};
 
   #[tokio::test]
   async fn file_stream_yields_file_contents() {
@@ -96,16 +95,15 @@ mod tests {
   #[tokio::test]
   async fn file_stream_works_on_fifos() {
     let tempdir = tempfile::tempdir().unwrap();
-    let dir = tempdir.path();
+    let dir: PathBuf = tempdir.path().to_owned();
     let fifo_path = dir.join("fifo");
     let fifo_c = CString::new(fifo_path.to_string_lossy().into_owned()).unwrap();
 
     assert_eq!(unsafe { libc::mkfifo(fifo_c.as_ptr(), libc::S_IRWXU) }, 0);
 
-    let mut fifo = File::open(&fifo_path).await.unwrap();
-
-    tokio::spawn(async move {
-      fifo.write_all(b"hello\n").await.unwrap();
+    let writer = tokio::spawn(async move {
+      let contents = b"hello";
+      tokio::fs::write(&fifo_path, contents).await.unwrap();
     });
 
     let mut stream = FileStream::new(FilePath::new_unchecked(&dir, "fifo"))
@@ -120,6 +118,8 @@ mod tests {
     }
 
     assert_eq!(output, b"hello");
+
+    writer.await.unwrap();
   }
 
   #[test]
