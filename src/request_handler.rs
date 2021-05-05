@@ -109,7 +109,6 @@ pub(crate) mod tests {
     server::Server,
     test_utils::{test, test_with_environment},
   };
-  use futures::StreamExt;
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
@@ -117,10 +116,8 @@ pub(crate) mod tests {
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, str};
   use tokio::{
-    fs::OpenOptions,
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
-    sync::oneshot,
   };
 
   #[track_caller]
@@ -344,6 +341,9 @@ pub(crate) mod tests {
   #[test]
   #[cfg(unix)]
   fn downloaded_files_are_streamed() {
+    use futures::StreamExt;
+    use tokio::{fs::OpenOptions, sync::oneshot};
+
     test(|url, dir| async move {
       let fifo_path = dir.join("www").join("fifo");
 
