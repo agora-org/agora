@@ -6,7 +6,7 @@ use crate::{
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{service::Service, Body, Request, Response};
+use hyper::{header, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
 use snafu::ResultExt;
 use std::{
@@ -85,9 +85,13 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    Ok(Response::new(Body::wrap_stream(
-      FileStream::new(path.clone()).await?,
-    )))
+    Ok(
+      Response::builder()
+        .header(header::CONTENT_TYPE, "video/mp4")
+        .status(StatusCode::OK)
+        .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
+        .unwrap(),
+    )
   }
 }
 
