@@ -11,6 +11,7 @@ structopt = "0.3.21"
 snafu = "0.6.10"
 pin-project = "1.0.7"
 bytes = "1.0.1"
+mime_guess = "2.0.3"
 
 [dependencies.tower]
 version = "0.4.6"

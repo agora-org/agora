@@ -1,6 +1,6 @@
 use crate::{
   environment::Environment,
-  error::{self, Result},
+  error::{self, Error, Result},
   file_path::FilePath,
   file_stream::FileStream,
   stderr::Stderr,
@@ -85,13 +85,15 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    Ok(
-      Response::builder()
-        .header(header::CONTENT_TYPE, "video/mp4")
-        .status(StatusCode::OK)
-        .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
-        .unwrap(),
-    )
+    let mut builder = Response::builder().status(StatusCode::OK);
+
+    if let Some(guess) = path.mime_guess().first() {
+      builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
+    }
+
+    builder
+      .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
+      .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
   }
 }
 
@@ -388,6 +390,20 @@ pub(crate) mod tests {
       sender.send(()).unwrap();
 
       writer.await.unwrap();
+    });
+  }
+
+  #[test]
+  fn downloaded_files_have_correct_content_type() {
+    test(|url, dir| async move {
+      fs::write(dir.join("www/foo.mp4"), "hello").unwrap();
+
+      let response = reqwest::get(url.join("foo.mp4").unwrap()).await.unwrap();
+
+      assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "video/mp4"
+      );
     });
   }
 }
