@@ -71,6 +71,10 @@ impl RequestHandler {
             a download href=(file_name) {
               (file_name)
             }
+            " - "
+            a href=(file_name) {
+              "view in browser"
+            }
             br;
           }
         }
@@ -226,13 +230,12 @@ pub(crate) mod tests {
   }
 
   #[test]
-  fn listed_files_are_download_links() {
+  fn listed_files_have_download_links() {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
       let html = get_html(&url).await;
-      guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
+      guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
       assert_eq!(a.inner_html(), "some-test-file.txt");
-      assert_eq!(a.value().attr("download"), Some(""));
     });
   }
 
@@ -241,11 +244,21 @@ pub(crate) mod tests {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
       let html = get_html(&url).await;
-      guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
+      guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
       let file_url = a.value().attr("href").unwrap();
       let file_url = url.join(file_url).unwrap();
       let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
       assert_eq!(file_contents, "contents");
+    });
+  }
+
+  #[test]
+  fn listed_files_can_be_played_in_browser() {
+    test(|url, dir| async move {
+      std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
+      let html = get_html(&url).await;
+      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "view in browser");
     });
   }
 
