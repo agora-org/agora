@@ -406,4 +406,15 @@ pub(crate) mod tests {
       );
     });
   }
+
+  #[test]
+  fn unknown_files_have_no_content_type() {
+    test(|url, dir| async move {
+      fs::write(dir.join("www/foo"), "hello").unwrap();
+
+      let response = reqwest::get(url.join("foo.mp4").unwrap()).await.unwrap();
+
+      assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
+    });
+  }
 }
