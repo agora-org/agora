@@ -125,7 +125,7 @@ pub(crate) mod tests {
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
-  use reqwest::Url;
+  use reqwest::{IntoUrl, Url};
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, str};
   use tokio::{
@@ -413,6 +413,23 @@ pub(crate) mod tests {
       let response = reqwest::get(url.join("foo").unwrap()).await.unwrap();
 
       assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
+    });
+  }
+
+  async fn text(url: impl IntoUrl) -> String {
+    let response = reqwest::get(url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response.text().await.unwrap()
+  }
+
+  #[test]
+  fn filenames_with_spaces() {
+    test(|url, dir| async move {
+      fs::write(dir.join("www/foo bar"), "hello").unwrap();
+
+      let response = text(url.join("foo%20bar").unwrap()).await;
+
+      assert_eq!(response, "hello");
     });
   }
 }
