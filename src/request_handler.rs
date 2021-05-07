@@ -143,6 +143,25 @@ pub(crate) mod tests {
     );
   }
 
+  async fn get(url: impl IntoUrl) -> reqwest::Response {
+    let response = reqwest::get(url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response
+  }
+
+  async fn text(url: impl IntoUrl) -> String {
+    get(url).await.text().await.unwrap()
+  }
+
+  async fn html(url: &Url) -> Html {
+    Html::parse_document(&text(url.clone()).await)
+  }
+
+  fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
+    let selector = Selector::parse(selector).unwrap();
+    html.select(&selector).collect::<Vec<_>>()
+  }
+
   #[test]
   fn index_route_status_code_is_200() {
     test(|url, _dir| async move { assert_eq!(reqwest::get(url).await.unwrap().status(), 200) });
@@ -151,7 +170,7 @@ pub(crate) mod tests {
   #[test]
   fn index_route_contains_title() {
     test(|url, _dir| async move {
-      let haystack = reqwest::get(url).await.unwrap().text().await.unwrap();
+      let haystack = text(url).await;
       let needle = "<title>foo</title>";
       assert_contains(&haystack, needle);
     });
@@ -200,27 +219,11 @@ pub(crate) mod tests {
     );
   }
 
-  async fn get_html(url: &Url) -> Html {
-    Html::parse_document(
-      &reqwest::get(url.clone())
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap(),
-    )
-  }
-
-  fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
-    let selector = Selector::parse(selector).unwrap();
-    html.select(&selector).collect::<Vec<_>>()
-  }
-
   #[test]
   fn listing_contains_file() {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
-      let haystack = get_html(&url).await.root_element().html();
+      let haystack = html(&url).await.root_element().html();
       let needle = "some-test-file.txt";
       assert_contains(&haystack, needle);
     });
@@ -232,7 +235,7 @@ pub(crate) mod tests {
       let www = dir.join("www");
       std::fs::write(www.join("a.txt"), "").unwrap();
       std::fs::write(www.join("b.txt"), "").unwrap();
-      let haystack = get_html(&url).await.root_element().html();
+      let haystack = html(&url).await.root_element().html();
       assert_contains(&haystack, "a.txt");
       assert_contains(&haystack, "b.txt");
     });
@@ -242,12 +245,12 @@ pub(crate) mod tests {
   fn listed_files_can_be_played_in_browser() {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
-      let html = get_html(&url).await;
+      let html = html(&url).await;
       guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "some-test-file.txt");
       let file_url = a.value().attr("href").unwrap();
       let file_url = url.join(file_url).unwrap();
-      let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
+      let file_contents = text(file_url).await;
       assert_eq!(file_contents, "contents");
     });
   }
@@ -256,12 +259,12 @@ pub(crate) mod tests {
   fn listed_files_have_download_links() {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
-      let html = get_html(&url).await;
+      let html = html(&url).await;
       guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
       assert_eq!(a.inner_html(), "download");
       let file_url = a.value().attr("href").unwrap();
       let file_url = url.join(file_url).unwrap();
-      let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
+      let file_contents = text(file_url).await;
       assert_eq!(file_contents, "contents");
     });
   }
@@ -335,22 +338,9 @@ pub(crate) mod tests {
     fs::write(src.join("foo.txt"), "hello").unwrap();
 
     test_with_environment(&environment, |url, _dir| async move {
-      assert_contains(
-        &reqwest::get(url.clone())
-          .await
-          .unwrap()
-          .text()
-          .await
-          .unwrap(),
-        "foo.txt",
-      );
+      assert_contains(&text(url.clone()).await, "foo.txt");
 
-      let file_contents = reqwest::get(url.join("foo.txt").unwrap())
-        .await
-        .unwrap()
-        .text()
-        .await
-        .unwrap();
+      let file_contents = text(url.join("foo.txt").unwrap()).await;
       assert_eq!(file_contents, "hello");
     });
   }
@@ -378,10 +368,7 @@ pub(crate) mod tests {
         receiver.await.unwrap();
       });
 
-      let mut stream = reqwest::get(url.join("fifo").unwrap())
-        .await
-        .unwrap()
-        .bytes_stream();
+      let mut stream = get(url.join("fifo").unwrap()).await.bytes_stream();
 
       assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
 
@@ -396,7 +383,7 @@ pub(crate) mod tests {
     test(|url, dir| async move {
       fs::write(dir.join("www/foo.mp4"), "hello").unwrap();
 
-      let response = reqwest::get(url.join("foo.mp4").unwrap()).await.unwrap();
+      let response = get(url.join("foo.mp4").unwrap()).await;
 
       assert_eq!(
         response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -410,16 +397,10 @@ pub(crate) mod tests {
     test(|url, dir| async move {
       fs::write(dir.join("www/foo"), "hello").unwrap();
 
-      let response = reqwest::get(url.join("foo").unwrap()).await.unwrap();
+      let response = get(url.join("foo").unwrap()).await;
 
       assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
     });
-  }
-
-  async fn text(url: impl IntoUrl) -> String {
-    let response = reqwest::get(url).await.unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    response.text().await.unwrap()
   }
 
   #[test]
