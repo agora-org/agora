@@ -20,10 +20,9 @@ impl FilePath {
   }
 
   fn new_option(dir: &Path, uri: &Uri) -> Option<Self> {
-    let path = Self::percent_decode(uri.path())?;
-    let file_path = path.strip_prefix('/')?;
+    let file_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
 
-    for component in Path::new(file_path).components() {
+    for component in Path::new(&file_path).components() {
       match component {
         Component::Normal(_) => {}
         _ => return None,
@@ -37,8 +36,8 @@ impl FilePath {
     }
 
     Some(Self {
-      full_path: dir.join(file_path),
-      file_path: file_path.to_owned(),
+      full_path: dir.join(&file_path),
+      file_path,
     })
   }
 
