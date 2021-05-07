@@ -66,12 +66,15 @@ impl RequestHandler {
           }
         }
         body {
-          @while let Some(entry) = read_dir.next_entry().await? {
-            @let file_name = entry.file_name().to_string_lossy().into_owned();
-            a download href=(file_name) {
-              (file_name)
+          ul {
+            @while let Some(entry) = read_dir.next_entry().await? {
+              @let file_name = entry.file_name().to_string_lossy().into_owned();
+              li {
+                a download href=(file_name) {
+                  (file_name)
+                }
+              }
             }
-            br;
           }
         }
       }
