@@ -1,8 +1,12 @@
 use crate::error::{Error, Result};
 use hyper::Uri;
 use mime_guess::MimeGuess;
-use std::fmt::{self, Debug, Display, Formatter};
+use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
+use std::{
+  borrow::Cow,
+  fmt::{self, Debug, Display, Formatter},
+};
 
 #[derive(Debug, Clone)]
 pub(crate) struct FilePath {
@@ -12,26 +16,36 @@ pub(crate) struct FilePath {
 
 impl FilePath {
   pub(crate) fn new(dir: &Path, uri: &Uri) -> Result<Self> {
-    let invalid_path = || Error::InvalidPath { uri: uri.clone() };
-    let file_path = uri.path().strip_prefix('/').ok_or_else(invalid_path)?;
+    Self::new_option(dir, uri).ok_or_else(|| Error::InvalidPath { uri: uri.clone() })
+  }
 
-    for component in Path::new(file_path).components() {
+  fn new_option(dir: &Path, uri: &Uri) -> Option<Self> {
+    let file_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
+
+    for component in Path::new(&file_path).components() {
       match component {
         Component::Normal(_) => {}
-        _ => return Err(invalid_path()),
+        _ => return None,
       }
     }
 
     for component in file_path.split('/') {
       if component.is_empty() {
-        return Err(invalid_path());
+        return None;
       }
     }
 
-    Ok(Self {
-      full_path: dir.join(file_path),
-      file_path: file_path.to_owned(),
+    Some(Self {
+      full_path: dir.join(&file_path),
+      file_path,
     })
+  }
+
+  fn percent_decode(path: &str) -> Option<String> {
+    percent_decode_str(path)
+      .decode_utf8()
+      .ok()
+      .map(Cow::into_owned)
   }
 
   pub(crate) fn mime_guess(&self) -> MimeGuess {
