@@ -73,12 +73,12 @@ impl RequestHandler {
                 a download href=(file_name) {
                   (file_name)
                 }
+                " - "
+                a href=(file_name) {
+                  "view in browser"
+                }
+                br;
               }
-              " - "
-              a href=(file_name) {
-                "view in browser"
-              }
-              br;
             }
           }
         }
