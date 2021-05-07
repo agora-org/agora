@@ -22,6 +22,12 @@ pub(crate) enum Error {
   CurrentDir { source: io::Error },
   #[snafu(display("IO error accessing file `{}`: {}", path, source))]
   FileIo { source: io::Error, path: FilePath },
+  #[snafu(display(
+    "Internal error, this is probably a bug in foo: {}\n\
+      Consider filing an issue: https://github.com/soenkehahn/foo/issues/new/",
+    message
+  ))]
+  Internal { message: String },
   #[snafu(display("Invalid URL file path: {}", uri))]
   InvalidPath { uri: Uri },
   #[snafu(display("Failed running HTTP server: {}", source))]
@@ -41,8 +47,15 @@ impl Error {
       | Clap { .. }
       | CurrentDir { .. }
       | FileIo { .. }
+      | Internal { .. }
       | ServerRun { .. }
       | WwwIo { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+  }
+
+  pub(crate) fn internal(message: impl Into<String>) -> Self {
+    Self::Internal {
+      message: message.into(),
     }
   }
 }

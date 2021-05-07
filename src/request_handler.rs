@@ -1,12 +1,12 @@
 use crate::{
   environment::Environment,
-  error::{self, Result},
+  error::{self, Error, Result},
   file_path::FilePath,
   file_stream::FileStream,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{service::Service, Body, Request, Response};
+use hyper::{header, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
 use snafu::ResultExt;
 use std::{
@@ -70,8 +70,12 @@ impl RequestHandler {
             @while let Some(entry) = read_dir.next_entry().await? {
               @let file_name = entry.file_name().to_string_lossy().into_owned();
               li {
-                a download href=(file_name) {
+                a href=(file_name) {
                   (file_name)
+                }
+                " - "
+                a download href=(file_name) {
+                  "download"
                 }
               }
             }
@@ -84,9 +88,15 @@ impl RequestHandler {
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
-    Ok(Response::new(Body::wrap_stream(
-      FileStream::new(path.clone()).await?,
-    )))
+    let mut builder = Response::builder().status(StatusCode::OK);
+
+    if let Some(guess) = path.mime_guess().first() {
+      builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
+    }
+
+    builder
+      .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
+      .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
   }
 }
 
@@ -229,22 +239,26 @@ pub(crate) mod tests {
   }
 
   #[test]
-  fn listed_files_are_download_links() {
+  fn listed_files_can_be_played_in_browser() {
     test(|url, dir| async move {
-      std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
+      std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
       let html = get_html(&url).await;
-      guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
+      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "some-test-file.txt");
-      assert_eq!(a.value().attr("download"), Some(""));
+      let file_url = a.value().attr("href").unwrap();
+      let file_url = url.join(file_url).unwrap();
+      let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
+      assert_eq!(file_contents, "contents");
     });
   }
 
   #[test]
-  fn listed_files_can_be_downloaded() {
+  fn listed_files_have_download_links() {
     test(|url, dir| async move {
       std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
       let html = get_html(&url).await;
-      guard_unwrap!(let &[a] = css_select(&html, "a").as_slice());
+      guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
+      assert_eq!(a.inner_html(), "download");
       let file_url = a.value().attr("href").unwrap();
       let file_url = url.join(file_url).unwrap();
       let file_contents = reqwest::get(file_url).await.unwrap().text().await.unwrap();
@@ -374,6 +388,31 @@ pub(crate) mod tests {
       sender.send(()).unwrap();
 
       writer.await.unwrap();
+    });
+  }
+
+  #[test]
+  fn downloaded_files_have_correct_content_type() {
+    test(|url, dir| async move {
+      fs::write(dir.join("www/foo.mp4"), "hello").unwrap();
+
+      let response = reqwest::get(url.join("foo.mp4").unwrap()).await.unwrap();
+
+      assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "video/mp4"
+      );
+    });
+  }
+
+  #[test]
+  fn unknown_files_have_no_content_type() {
+    test(|url, dir| async move {
+      fs::write(dir.join("www/foo"), "hello").unwrap();
+
+      let response = reqwest::get(url.join("foo").unwrap()).await.unwrap();
+
+      assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
     });
   }
 }

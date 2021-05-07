@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 use hyper::Uri;
+use mime_guess::MimeGuess;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::path::{Component, Path, PathBuf};
 
@@ -31,6 +32,10 @@ impl FilePath {
       full_path: dir.join(file_path),
       file_path: file_path.to_owned(),
     })
+  }
+
+  pub(crate) fn mime_guess(&self) -> MimeGuess {
+    mime_guess::from_path(&self.file_path)
   }
 
   #[cfg(test)]
