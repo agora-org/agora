@@ -410,7 +410,7 @@ pub(crate) mod tests {
     test(|url, dir| async move {
       fs::write(dir.join("www/foo"), "hello").unwrap();
 
-      let response = reqwest::get(url.join("foo.mp4").unwrap()).await.unwrap();
+      let response = reqwest::get(url.join("foo").unwrap()).await.unwrap();
 
       assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
     });
