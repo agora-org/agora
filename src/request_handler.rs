@@ -11,6 +11,7 @@ use maud::{html, DOCTYPE};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
+  ffi::OsString,
   fmt::Debug,
   io::{self, Write},
   path::{Path, PathBuf},
@@ -56,7 +57,7 @@ impl RequestHandler {
   }
 
   async fn list_www(&self) -> io::Result<Response<Body>> {
-    let mut read_dir = tokio::fs::read_dir(&self.directory).await?;
+    let files = RequestHandler::lookup_directory(&self.directory).await?;
     let body = html! {
       (DOCTYPE)
       html {
@@ -67,8 +68,8 @@ impl RequestHandler {
         }
         body {
           ul {
-            @while let Some(entry) = read_dir.next_entry().await? {
-              @let file_name = entry.file_name().to_string_lossy().into_owned();
+            @for entry in files {
+              @let file_name = entry.to_string_lossy().into_owned();
               li {
                 a href=(file_name) {
                   (file_name)
@@ -85,6 +86,16 @@ impl RequestHandler {
     };
 
     Ok(Response::new(Body::from(body.into_string())))
+  }
+
+  async fn lookup_directory(path: &Path) -> io::Result<Vec<OsString>> {
+    let mut read_dir = tokio::fs::read_dir(path).await?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir.next_entry().await? {
+      entries.push(entry.file_name());
+    }
+    entries.sort();
+    Ok(entries)
   }
 
   async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
@@ -238,6 +249,23 @@ pub(crate) mod tests {
       let haystack = html(&url).await.root_element().html();
       assert_contains(&haystack, "a.txt");
       assert_contains(&haystack, "b.txt");
+    });
+  }
+
+  #[test]
+  fn listing_is_sorted_alphabetically() {
+    test(|url, dir| async move {
+      let www = dir.join("www");
+      std::fs::write(www.join("b"), "").unwrap();
+      std::fs::write(www.join("c"), "").unwrap();
+      std::fs::write(www.join("a"), "").unwrap();
+      let html = html(&url).await;
+      let haystack: Vec<&str> = css_select(&html, "a:not([download])")
+        .into_iter()
+        .map(|x| x.text())
+        .flatten()
+        .collect();
+      assert_eq!(haystack, vec!["a", "b", "c"]);
     });
   }
 
