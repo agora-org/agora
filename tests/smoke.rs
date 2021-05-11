@@ -12,24 +12,27 @@ fn server_listens_on_all_ip_addresses_on_port_8080() {
 
   fs::create_dir(tempdir.path().join("www")).unwrap();
 
-  let child = Command::new(executable_path("foo"))
+  let mut child = Command::new(executable_path("foo"))
     .current_dir(&tempdir)
     .stderr(Stdio::piped())
     .spawn()
     .unwrap();
 
-  let mut line = String::new();
+  let child_stderr = child.stderr.take().unwrap();
+  let result = std::panic::catch_unwind(|| {
+    let mut line = String::new();
 
-  BufReader::new(child.stderr.unwrap())
-    .read_line(&mut line)
-    .unwrap();
+    BufReader::new(child_stderr).read_line(&mut line).unwrap();
 
-  assert!(line.contains("0.0.0.0:8080"));
+    assert!(line.contains("0.0.0.0:8080"));
 
-  assert_eq!(
-    reqwest::blocking::get("http://localhost:8080")
-      .unwrap()
-      .status(),
-    StatusCode::OK
-  );
+    assert_eq!(
+      reqwest::blocking::get("http://localhost:8080")
+        .unwrap()
+        .status(),
+      StatusCode::OK
+    );
+  });
+  child.kill().unwrap();
+  result.unwrap();
 }
