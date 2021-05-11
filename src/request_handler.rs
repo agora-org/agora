@@ -68,8 +68,8 @@ impl RequestHandler {
         }
         body {
           ul {
-            @for entry in files {
-              @let file_name = entry.to_string_lossy().into_owned();
+            @for file_name in file_names {
+              @let file_name = file_name.to_string_lossy();
               li {
                 a href=(file_name) {
                   (file_name)
