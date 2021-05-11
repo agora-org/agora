@@ -57,7 +57,7 @@ impl RequestHandler {
   }
 
   async fn list_www(&self) -> io::Result<Response<Body>> {
-    let file_names = Self::lookup_directory(&self.directory).await?;
+    let file_names = Self::read_dir(&self.directory).await?;
     let body = html! {
       (DOCTYPE)
       html {
@@ -88,7 +88,7 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn lookup_directory(path: &Path) -> io::Result<Vec<OsString>> {
+  async fn read_dir(path: &Path) -> io::Result<Vec<OsString>> {
     let mut read_dir = tokio::fs::read_dir(path).await?;
     let mut entries = Vec::new();
     while let Some(entry) = read_dir.next_entry().await? {
