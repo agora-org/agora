@@ -8,6 +8,7 @@ use crate::{
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{header, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
+use percent_encoding::NON_ALPHANUMERIC;
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
@@ -57,25 +58,26 @@ impl RequestHandler {
   }
 
   async fn list_www(&self) -> io::Result<Response<Body>> {
-    let file_names = Self::read_dir(&self.directory).await?;
     let body = html! {
       (DOCTYPE)
       html {
         head {
+          meta charset="utf-8";
           title {
             "foo"
           }
         }
         body {
           ul {
-            @for file_name in file_names {
+            @for file_name in Self::read_dir(&self.directory).await? {
               @let file_name = file_name.to_string_lossy();
+              @let encoded = percent_encoding::utf8_percent_encode(&file_name, NON_ALPHANUMERIC);
               li {
-                a href=(file_name) {
+                a href=(encoded) {
                   (file_name)
                 }
                 " - "
-                a download href=(file_name) {
+                a download href=(encoded) {
                   "download"
                 }
               }
@@ -294,6 +296,22 @@ pub(crate) mod tests {
       let file_url = url.join(file_url).unwrap();
       let file_contents = text(file_url).await;
       assert_eq!(file_contents, "contents");
+    });
+  }
+
+  #[test]
+  fn listed_files_have_percent_encoded_hrefs() {
+    test(|url, dir| async move {
+      std::fs::write(dir.join("www").join("filename with special chäracters"), "").unwrap();
+      let html = html(&url).await;
+      let links = css_select(&html, "a");
+      assert_eq!(links.len(), 2);
+      for link in links {
+        assert_eq!(
+          link.value().attr("href").unwrap(),
+          "filename%20with%20special%20ch%C3%A4racters"
+        );
+      }
     });
   }
 
