@@ -57,7 +57,7 @@ impl RequestHandler {
   }
 
   async fn list_www(&self) -> io::Result<Response<Body>> {
-    let files = RequestHandler::lookup_directory(&self.directory).await?;
+    let file_names = RequestHandler::lookup_directory(&self.directory).await?;
     let body = html! {
       (DOCTYPE)
       html {
