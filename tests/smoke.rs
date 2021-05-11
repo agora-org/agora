@@ -34,5 +34,6 @@ fn server_listens_on_all_ip_addresses_on_port_8080() {
     );
   });
   child.kill().unwrap();
+  child.wait().unwrap();
   result.unwrap();
 }
