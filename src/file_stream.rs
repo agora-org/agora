@@ -26,11 +26,9 @@ pub(crate) struct FileStream {
 impl FileStream {
   pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
     Ok(Self {
-      file: File::open(&file_path)
-        .await
-        .with_context(|| error::FileIo {
-          path: file_path.clone(),
-        })?,
+      file: File::open(&file_path).await.context(error::FilesystemIo {
+        path: file_path.as_ref(),
+      })?,
       path: file_path,
     })
   }
@@ -48,9 +46,11 @@ impl Stream for FileStream {
     let file = projected.file;
     let path = projected.path;
 
-    let poll = file
-      .poll_read(cx, &mut buf)
-      .map(|result| result.with_context(|| error::FileIo { path: path.clone() }))?;
+    let poll = file.poll_read(cx, &mut buf).map(|result| {
+      result.context(error::FilesystemIo {
+        path: path.as_ref(),
+      })
+    })?;
 
     if poll.is_pending() {
       return Poll::Pending;

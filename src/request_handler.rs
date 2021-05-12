@@ -49,11 +49,19 @@ impl RequestHandler {
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     match request.uri().path() {
-      "/" => self.list(&self.directory).await.context(error::WwwIo), // TODO: FIX
+      "/" => self
+        .list(&self.directory)
+        .await
+        .context(error::FilesystemIo { path: "www" }),
       _ => {
         let file_path = &FilePath::new(&self.directory, request.uri())?;
         if file_path.as_ref().is_dir() {
-          self.list(file_path.as_ref()).await.context(error::WwwIo) // TODO: FIX
+          self
+            .list(file_path.as_ref())
+            .await
+            .context(error::FilesystemIo {
+              path: file_path.as_ref(),
+            })
         } else {
           self.serve_file(file_path).await
         }
@@ -213,7 +221,7 @@ pub(crate) mod tests {
       .unwrap()
       .block_on(async {
         let error = Server::setup(&environment).unwrap_err();
-        guard_unwrap!(let Error::WwwIo { .. } = error);
+        guard_unwrap!(let Error::FilesystemIo { .. } = error);
       });
   }
 
@@ -234,7 +242,8 @@ pub(crate) mod tests {
       std::fs::remove_dir(www).unwrap();
       reqwest::get(url).await.unwrap();
     });
-    assert_contains(&stderr, "IO error accessing `www`: ");
+
+    assert_contains(&stderr, "IO error accessing filesystem at `www`: ");
 
     assert_contains(
       &stderr,

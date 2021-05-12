@@ -18,7 +18,7 @@ impl Server {
     let arguments = environment.arguments()?;
 
     let directory = environment.working_directory.join(&arguments.directory);
-    fs::read_dir(&directory).context(error::WwwIo)?;
+    fs::read_dir(&directory).context(error::FilesystemIo { path: &directory })?;
 
     let socket_addr = (arguments.address.as_str(), arguments.port)
       .to_socket_addrs()
