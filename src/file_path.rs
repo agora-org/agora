@@ -29,10 +29,8 @@ impl FilePath {
       }
     }
 
-    for component in file_path.split('/') {
-      if component.is_empty() {
-        return None;
-      }
+    if file_path.contains("//") {
+      return None;
     }
 
     Some(Self {

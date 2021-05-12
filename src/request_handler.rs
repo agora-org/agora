@@ -8,12 +8,13 @@ use crate::{
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{header, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
-use percent_encoding::NON_ALPHANUMERIC;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
   ffi::OsString,
   fmt::Debug,
+  fs::FileType,
   io::{self, Write},
   path::{Path, PathBuf},
   task::{self, Poll},
@@ -48,16 +49,21 @@ impl RequestHandler {
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
     match request.uri().path() {
-      "/" => self.list_www().await.context(error::WwwIo),
+      "/" => self.list(&self.directory).await.context(error::WwwIo), // TODO: FIX
       _ => {
-        self
-          .serve_file(&FilePath::new(&self.directory, request.uri())?)
-          .await
+        let file_path = &FilePath::new(&self.directory, request.uri())?;
+        if file_path.as_ref().is_dir() {
+          self.list(file_path.as_ref()).await.context(error::WwwIo) // TODO: FIX
+        } else {
+          self.serve_file(file_path).await
+        }
       }
     }
   }
 
-  async fn list_www(&self) -> io::Result<Response<Body>> {
+  const SET: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+
+  async fn list(&self, dir: &Path) -> io::Result<Response<Body>> {
     let body = html! {
       (DOCTYPE)
       html {
@@ -69,16 +75,24 @@ impl RequestHandler {
         }
         body {
           ul {
-            @for file_name in Self::read_dir(&self.directory).await? {
-              @let file_name = file_name.to_string_lossy();
-              @let encoded = percent_encoding::utf8_percent_encode(&file_name, NON_ALPHANUMERIC);
+            @for (file_name, file_type) in Self::read_dir(dir).await? {
+              @let file_name = {
+                let mut file_name = file_name.to_string_lossy().into_owned();
+                if file_type.is_dir() {
+                  file_name.push('/');
+                }
+                file_name
+              };
+              @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::SET);
               li {
                 a href=(encoded) {
                   (file_name)
                 }
-                " - "
-                a download href=(encoded) {
-                  "download"
+                @if file_type.is_file() {
+                  " - "
+                  a download href=(encoded) {
+                    "download"
+                  }
                 }
               }
             }
@@ -90,13 +104,13 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn read_dir(path: &Path) -> io::Result<Vec<OsString>> {
+  async fn read_dir(path: &Path) -> io::Result<Vec<(OsString, FileType)>> {
     let mut read_dir = tokio::fs::read_dir(path).await?;
     let mut entries = Vec::new();
     while let Some(entry) = read_dir.next_entry().await? {
-      entries.push(entry.file_name());
+      entries.push((entry.file_name(), entry.file_type().await?));
     }
-    entries.sort();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
   }
 
@@ -459,4 +473,28 @@ pub(crate) mod tests {
       assert_eq!(response, "hello");
     });
   }
+
+  #[test]
+  fn subdirectories_appear_in_listings() {
+    test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      std::fs::write(dir.join("www/foo/bar.txt"), "hello").unwrap();
+      let root_listing = html(&url).await;
+      guard_unwrap!(let &[a] = css_select(&root_listing, "a").as_slice());
+      assert_eq!(a.inner_html(), "foo/");
+      let subdir_url = url.join(a.value().attr("href").unwrap()).unwrap();
+      let subdir_listing = html(&subdir_url).await;
+      guard_unwrap!(let &[a] = css_select(&subdir_listing, "a:not([download])").as_slice());
+      let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
+      assert_eq!(text(file_url).await, "hello");
+    });
+  }
+
+  #[test]
+  #[ignore]
+  fn no_trailing_slash_redirects_to_trailing_slash() {}
+
+  #[test]
+  #[ignore]
+  fn file_type_error_is_associated_with_file_path() {}
 }
