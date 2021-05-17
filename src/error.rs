@@ -1,3 +1,4 @@
+use crate::file_path::FilePath;
 use hyper::{StatusCode, Uri};
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
@@ -54,6 +55,12 @@ impl Error {
   pub(crate) fn internal(message: impl Into<String>) -> Self {
     Self::Internal {
       message: message.into(),
+    }
+  }
+
+  pub(crate) fn filesystem_io(file_path: &FilePath) -> FilesystemIo<&str> {
+    FilesystemIo {
+      path: file_path.relative_path(),
     }
   }
 }

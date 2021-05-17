@@ -20,22 +20,22 @@ impl FilePath {
   }
 
   fn new_option(dir: &Path, uri: &Uri) -> Option<Self> {
-    let file_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
+    let relative_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
 
-    for component in Path::new(&file_path).components() {
+    for component in Path::new(&relative_path).components() {
       match component {
         Component::Normal(_) => {}
         _ => return None,
       }
     }
 
-    if file_path.contains("//") {
+    if relative_path.contains("//") {
       return None;
     }
 
     Some(Self {
-      full_path: dir.join(&file_path),
-      relative_path: file_path,
+      full_path: dir.join(&relative_path),
+      relative_path,
     })
   }
 

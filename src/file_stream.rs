@@ -1,5 +1,5 @@
 use crate::{
-  error::{self, Result},
+  error::{Error, Result},
   file_path::FilePath,
 };
 use futures::Stream;
@@ -26,9 +26,9 @@ pub(crate) struct FileStream {
 impl FileStream {
   pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
     Ok(Self {
-      file: File::open(&file_path).await.context(error::FilesystemIo {
-        path: file_path.relative_path(),
-      })?,
+      file: File::open(&file_path)
+        .await
+        .context(Error::filesystem_io(&file_path))?,
       path: file_path,
     })
   }
@@ -46,11 +46,9 @@ impl Stream for FileStream {
     let file = projected.file;
     let path = projected.path;
 
-    let poll = file.poll_read(cx, &mut buf).map(|result| {
-      result.context(error::FilesystemIo {
-        path: path.relative_path(),
-      })
-    })?;
+    let poll = file
+      .poll_read(cx, &mut buf)
+      .map(|result| result.context(Error::filesystem_io(path)))?;
 
     if poll.is_pending() {
       return Poll::Pending;

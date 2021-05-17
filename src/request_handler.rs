@@ -69,9 +69,7 @@ impl RequestHandler {
           self
             .list(file_path.as_ref())
             .await
-            .context(error::FilesystemIo {
-              path: file_path.as_ref(),
-            })
+            .context(Error::filesystem_io(file_path))
         } else {
           self.serve_file(file_path).await
         }
