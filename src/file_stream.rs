@@ -1,6 +1,6 @@
 use crate::{
-  error::{self, Result},
-  file_path::FilePath,
+  error::{Error, Result},
+  input_path::InputPath,
 };
 use futures::Stream;
 use hyper::body::Bytes;
@@ -20,17 +20,15 @@ use tokio::{
 pub(crate) struct FileStream {
   #[pin]
   file: File,
-  path: FilePath,
+  path: InputPath,
 }
 
 impl FileStream {
-  pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
+  pub(crate) async fn new(file_path: InputPath) -> Result<Self> {
     Ok(Self {
       file: File::open(&file_path)
         .await
-        .with_context(|| error::FileIo {
-          path: file_path.clone(),
-        })?,
+        .with_context(|| Error::filesystem_io(&file_path))?,
       path: file_path,
     })
   }
@@ -50,7 +48,7 @@ impl Stream for FileStream {
 
     let poll = file
       .poll_read(cx, &mut buf)
-      .map(|result| result.with_context(|| error::FileIo { path: path.clone() }))?;
+      .map(|result| result.with_context(|| Error::filesystem_io(path)))?;
 
     if poll.is_pending() {
       return Poll::Pending;
@@ -73,7 +71,7 @@ mod tests {
   async fn file_stream_yields_file_contents() {
     let tempdir = tempfile::tempdir().unwrap();
     let dir = tempdir.path();
-    let file_path = FilePath::new_unchecked(&dir, "foo.txt");
+    let file_path = InputPath::new_unchecked(&dir, "foo.txt");
 
     let input = &[0x15; 200];
 

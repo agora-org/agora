@@ -1,35 +1,36 @@
 use crate::{
   environment::Environment,
-  error::{self, Error, Result},
-  file_path::FilePath,
+  error::{Error, Result},
   file_stream::FileStream,
+  input_path::InputPath,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
 use hyper::{header, service::Service, Body, Request, Response, StatusCode};
 use maud::{html, DOCTYPE};
-use percent_encoding::NON_ALPHANUMERIC;
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
   ffi::OsString,
   fmt::Debug,
-  io::{self, Write},
-  path::{Path, PathBuf},
+  fs::FileType,
+  io::Write,
+  path::Path,
   task::{self, Poll},
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
-  pub(crate) directory: PathBuf,
+  pub(crate) base_directory: InputPath,
 }
 
 impl RequestHandler {
-  pub(crate) fn new(environment: &Environment, directory: &Path) -> Self {
+  pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      directory: directory.to_owned(),
+      base_directory: InputPath::new(environment, base_directory),
     }
   }
 
@@ -47,17 +48,25 @@ impl RequestHandler {
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    match request.uri().path() {
-      "/" => self.list_www().await.context(error::WwwIo),
-      _ => {
-        self
-          .serve_file(&FilePath::new(&self.directory, request.uri())?)
-          .await
+    let file_path = &self.base_directory.join_uri(request.uri())?;
+    if file_path.as_ref().is_dir() {
+      if !request.uri().path().ends_with('/') {
+        return Response::builder()
+          .status(StatusCode::FOUND)
+          .header(header::LOCATION, String::from(request.uri().path()) + "/")
+          .body(Body::empty())
+          .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)));
       }
+
+      self.list(file_path).await
+    } else {
+      self.serve_file(file_path).await
     }
   }
 
-  async fn list_www(&self) -> io::Result<Response<Body>> {
+  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+
+  async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
     let body = html! {
       (DOCTYPE)
       html {
@@ -69,16 +78,24 @@ impl RequestHandler {
         }
         body {
           ul {
-            @for file_name in Self::read_dir(&self.directory).await? {
-              @let file_name = file_name.to_string_lossy();
-              @let encoded = percent_encoding::utf8_percent_encode(&file_name, NON_ALPHANUMERIC);
+            @for (file_name, file_type) in Self::read_dir(dir).await? {
+              @let file_name = {
+                let mut file_name = file_name.to_string_lossy().into_owned();
+                if file_type.is_dir() {
+                  file_name.push('/');
+                }
+                file_name
+              };
+              @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
               li {
                 a href=(encoded) {
                   (file_name)
                 }
-                " - "
-                a download href=(encoded) {
-                  "download"
+                @if file_type.is_file() {
+                  " - "
+                  a download href=(encoded) {
+                    "download"
+                  }
                 }
               }
             }
@@ -90,17 +107,34 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn read_dir(path: &Path) -> io::Result<Vec<OsString>> {
-    let mut read_dir = tokio::fs::read_dir(path).await?;
+  async fn read_dir(path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
+    let mut read_dir = tokio::fs::read_dir(path)
+      .await
+      .with_context(|| Error::filesystem_io(path))?;
     let mut entries = Vec::new();
-    while let Some(entry) = read_dir.next_entry().await? {
-      entries.push(entry.file_name());
+    while let Some(entry) = read_dir
+      .next_entry()
+      .await
+      .with_context(|| Error::filesystem_io(path))?
+    {
+      entries.push((
+        entry.file_name(),
+        entry.file_type().await.map_err(|source| {
+          match path.join_relative(Path::new(&entry.file_name())) {
+            Err(error) => error,
+            Ok(entry_path) => Error::FilesystemIo {
+              path: entry_path.display_path().to_owned(),
+              source,
+            },
+          }
+        })?,
+      ));
     }
-    entries.sort();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
   }
 
-  async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
+  async fn serve_file(&self, path: &InputPath) -> Result<Response<Body>> {
     let mut builder = Response::builder().status(StatusCode::OK);
 
     if let Some(guess) = path.mime_guess().first() {
@@ -138,9 +172,9 @@ pub(crate) mod tests {
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
-  use reqwest::{IntoUrl, Url};
+  use reqwest::{redirect::Policy, Client, IntoUrl, Url};
   use scraper::{ElementRef, Html, Selector};
-  use std::{fs, str};
+  use std::{fs, path::MAIN_SEPARATOR, str};
   use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -199,16 +233,25 @@ pub(crate) mod tests {
       .unwrap()
       .block_on(async {
         let error = Server::setup(&environment).unwrap_err();
-        guard_unwrap!(let Error::WwwIo { .. } = error);
+        guard_unwrap!(let Error::FilesystemIo { .. } = error);
       });
   }
 
   #[test]
+  #[cfg(unix)]
   fn errors_in_request_handling_cause_500_status_codes() {
+    use std::os::unix::fs::PermissionsExt;
+
     test(|url, dir| async move {
-      let www = dir.join("www");
-      std::fs::remove_dir(www).unwrap();
-      let status = reqwest::get(url).await.unwrap().status();
+      let file = dir.join("www/foo");
+      fs::write(&file, "").unwrap();
+      let mut permissions = file.metadata().unwrap().permissions();
+      permissions.set_mode(0o000);
+      fs::set_permissions(file, permissions).unwrap();
+      let status = reqwest::get(url.join("foo").unwrap())
+        .await
+        .unwrap()
+        .status();
       assert_eq!(status, 500);
     });
   }
@@ -220,12 +263,16 @@ pub(crate) mod tests {
       std::fs::remove_dir(www).unwrap();
       reqwest::get(url).await.unwrap();
     });
-    assert_contains(&stderr, "IO error accessing `www`: ");
 
     assert_contains(
       &stderr,
-      if cfg!(target_os = "windows") {
-        "The system cannot find the path specified."
+      &format!("IO error accessing filesystem at `www{}`: ", MAIN_SEPARATOR),
+    );
+
+    assert_contains(
+      &stderr,
+      if cfg!(windows) {
+        "The system cannot find the file specified."
       } else {
         "No such file or directory"
       },
@@ -372,7 +419,13 @@ pub(crate) mod tests {
         StatusCode::NOT_FOUND
       )
     });
-    assert_contains(&stderr, "IO error accessing file `foo.txt`");
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}foo.txt`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
@@ -458,5 +511,80 @@ pub(crate) mod tests {
 
       assert_eq!(response, "hello");
     });
+  }
+
+  #[test]
+  fn subdirectories_appear_in_listings() {
+    test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      std::fs::write(dir.join("www/foo/bar.txt"), "hello").unwrap();
+      let root_listing = html(&url).await;
+      guard_unwrap!(let &[a] = css_select(&root_listing, "a").as_slice());
+      assert_eq!(a.inner_html(), "foo/");
+      let subdir_url = url.join(a.value().attr("href").unwrap()).unwrap();
+      let subdir_listing = html(&subdir_url).await;
+      guard_unwrap!(let &[a] = css_select(&subdir_listing, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "bar.txt");
+      let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
+      assert_eq!(text(file_url).await, "hello");
+    });
+  }
+
+  #[test]
+  fn no_trailing_slash_redirects_to_trailing_slash() {
+    test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      let client = Client::builder().redirect(Policy::none()).build().unwrap();
+      let request = client.get(url.join("foo").unwrap()).build().unwrap();
+      let response = client.execute(request).await.unwrap();
+      assert_eq!(response.status(), StatusCode::FOUND);
+      assert_eq!(
+        url
+          .join("foo")
+          .unwrap()
+          .join(
+            response
+              .headers()
+              .get(header::LOCATION)
+              .unwrap()
+              .to_str()
+              .unwrap()
+          )
+          .unwrap(),
+        url.join("foo/").unwrap()
+      );
+    });
+  }
+
+  #[test]
+  fn redirects_correctly_for_two_layers_of_subdirectories() {
+    test(|url, dir| async move {
+      std::fs::create_dir_all(dir.join("www/foo/bar")).unwrap();
+      std::fs::write(dir.join("www/foo/bar/baz.txt"), "").unwrap();
+      let listing = html(&url.join("foo/bar").unwrap()).await;
+      guard_unwrap!(let &[a] = css_select(&listing, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "baz.txt")
+    });
+  }
+
+  #[test]
+  fn file_errors_are_associated_with_file_path() {
+    let stderr = test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      assert_eq!(
+        reqwest::get(url.join("foo/bar.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}foo/bar.txt`",
+        MAIN_SEPARATOR,
+      ),
+    );
   }
 }

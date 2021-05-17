@@ -7,8 +7,8 @@ mod test_utils;
 
 mod environment;
 mod error;
-mod file_path;
 mod file_stream;
+mod input_path;
 mod request_handler;
 mod server;
 mod stderr;
