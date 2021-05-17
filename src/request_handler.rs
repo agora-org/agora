@@ -1,6 +1,6 @@
 use crate::{
   environment::Environment,
-  error::{self, Error, Result},
+  error::{Error, Result},
   file_path::FilePath,
   file_stream::FileStream,
   stderr::Stderr,
@@ -24,13 +24,15 @@ use std::{
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
   pub(crate) directory: PathBuf,
+  base_directory: PathBuf,
 }
 
 impl RequestHandler {
-  pub(crate) fn new(environment: &Environment, directory: &Path) -> Self {
+  pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      directory: directory.to_owned(),
+      directory: environment.working_directory.join(base_directory),
+      base_directory: base_directory.to_owned(),
     }
   }
 
@@ -48,32 +50,22 @@ impl RequestHandler {
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    match request.uri().path() {
-      "/" => self
-        .list(&self.directory)
-        .await
-        .context(error::FilesystemIo { path: "www" }),
-      _ => {
-        let file_path = &FilePath::new(&self.directory, request.uri())?;
-        if file_path.as_ref().is_dir() {
-          if !request.uri().path().ends_with('/') {
-            return Response::builder()
-              .status(StatusCode::FOUND)
-              .header(header::LOCATION, String::from(request.uri().path()) + "/")
-              .body(Body::empty())
-              .map_err(|error| {
-                Error::internal(format!("Failed to construct response: {}", error))
-              });
-          }
-
-          self
-            .list(file_path.as_ref())
-            .await
-            .context(Error::filesystem_io(file_path))
-        } else {
-          self.serve_file(file_path).await
-        }
+    let file_path = &FilePath::new(&self.base_directory, &self.directory, request.uri())?;
+    if file_path.as_ref().is_dir() {
+      if !request.uri().path().ends_with('/') {
+        return Response::builder()
+          .status(StatusCode::FOUND)
+          .header(header::LOCATION, String::from(request.uri().path()) + "/")
+          .body(Body::empty())
+          .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)));
       }
+
+      self
+        .list(file_path.as_ref())
+        .await
+        .context(Error::filesystem_io(file_path))
+    } else {
+      self.serve_file(file_path).await
     }
   }
 
@@ -260,7 +252,7 @@ pub(crate) mod tests {
       reqwest::get(url).await.unwrap();
     });
 
-    assert_contains(&stderr, "IO error accessing filesystem at `www`: ");
+    assert_contains(&stderr, "IO error accessing filesystem at `www/`: ");
 
     assert_contains(
       &stderr,
@@ -412,7 +404,7 @@ pub(crate) mod tests {
         StatusCode::NOT_FOUND
       )
     });
-    assert_contains(&stderr, "IO error accessing filesystem at `foo.txt`");
+    assert_contains(&stderr, "IO error accessing filesystem at `www/foo.txt`");
   }
 
   #[test]
@@ -566,6 +558,9 @@ pub(crate) mod tests {
         StatusCode::NOT_FOUND
       )
     });
-    assert_contains(&stderr, "IO error accessing filesystem at `foo/bar.txt`");
+    assert_contains(
+      &stderr,
+      "IO error accessing filesystem at `www/foo/bar.txt`",
+    );
   }
 }

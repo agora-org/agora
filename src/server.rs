@@ -30,8 +30,10 @@ impl Server {
         input: arguments.address,
       })?;
 
-    let inner = hyper::Server::bind(&socket_addr)
-      .serve(Shared::new(RequestHandler::new(&environment, &directory)));
+    let inner = hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(
+      &environment,
+      &arguments.directory,
+    )));
 
     eprintln!("Listening on {}", inner.local_addr());
     Ok(Self { inner })
