@@ -27,7 +27,7 @@ impl FileStream {
   pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
     Ok(Self {
       file: File::open(&file_path).await.context(error::FilesystemIo {
-        path: file_path.as_ref(),
+        path: file_path.relative_path(),
       })?,
       path: file_path,
     })

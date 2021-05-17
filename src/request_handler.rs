@@ -56,6 +56,16 @@ impl RequestHandler {
       _ => {
         let file_path = &FilePath::new(&self.directory, request.uri())?;
         if file_path.as_ref().is_dir() {
+          if !request.uri().path().ends_with('/') {
+            return Response::builder()
+              .status(StatusCode::FOUND)
+              .header(header::LOCATION, String::from(request.uri().path()) + "/")
+              .body(Body::empty())
+              .map_err(|error| {
+                Error::internal(format!("Failed to construct response: {}", error))
+              });
+          }
+
           self
             .list(file_path.as_ref())
             .await
@@ -160,7 +170,7 @@ pub(crate) mod tests {
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
-  use reqwest::{IntoUrl, Url};
+  use reqwest::{redirect::Policy, Client, IntoUrl, Url};
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, str};
   use tokio::{
@@ -226,11 +236,20 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(unix)]
   fn errors_in_request_handling_cause_500_status_codes() {
+    use std::os::unix::fs::PermissionsExt;
+
     test(|url, dir| async move {
-      let www = dir.join("www");
-      std::fs::remove_dir(www).unwrap();
-      let status = reqwest::get(url).await.unwrap().status();
+      let file = dir.join("www/foo");
+      fs::write(&file, "").unwrap();
+      let mut permissions = file.metadata().unwrap().permissions();
+      permissions.set_mode(0o000);
+      fs::set_permissions(file, permissions).unwrap();
+      let status = reqwest::get(url.join("foo").unwrap())
+        .await
+        .unwrap()
+        .status();
       assert_eq!(status, 500);
     });
   }
@@ -395,7 +414,7 @@ pub(crate) mod tests {
         StatusCode::NOT_FOUND
       )
     });
-    assert_contains(&stderr, "IO error accessing file `foo.txt`");
+    assert_contains(&stderr, "IO error accessing filesystem at `foo.txt`");
   }
 
   #[test]
@@ -494,16 +513,61 @@ pub(crate) mod tests {
       let subdir_url = url.join(a.value().attr("href").unwrap()).unwrap();
       let subdir_listing = html(&subdir_url).await;
       guard_unwrap!(let &[a] = css_select(&subdir_listing, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "bar.txt");
       let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
       assert_eq!(text(file_url).await, "hello");
     });
   }
 
   #[test]
-  #[ignore]
-  fn no_trailing_slash_redirects_to_trailing_slash() {}
+  fn no_trailing_slash_redirects_to_trailing_slash() {
+    test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      let client = Client::builder().redirect(Policy::none()).build().unwrap();
+      let request = client.get(url.join("foo").unwrap()).build().unwrap();
+      let response = client.execute(request).await.unwrap();
+      assert_eq!(response.status(), StatusCode::FOUND);
+      assert_eq!(
+        url
+          .join("foo")
+          .unwrap()
+          .join(
+            response
+              .headers()
+              .get(header::LOCATION)
+              .unwrap()
+              .to_str()
+              .unwrap()
+          )
+          .unwrap(),
+        url.join("foo/").unwrap()
+      );
+    });
+  }
 
   #[test]
-  #[ignore]
-  fn file_type_error_is_associated_with_file_path() {}
+  fn redirects_correctly_for_two_layers_of_subdirectories() {
+    test(|url, dir| async move {
+      std::fs::create_dir_all(dir.join("www/foo/bar")).unwrap();
+      std::fs::write(dir.join("www/foo/bar/baz.txt"), "").unwrap();
+      let listing = html(&url.join("foo/bar").unwrap()).await;
+      guard_unwrap!(let &[a] = css_select(&listing, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "baz.txt")
+    });
+  }
+
+  #[test]
+  fn file_errors_are_associated_with_file_path() {
+    let stderr = test(|url, dir| async move {
+      std::fs::create_dir(dir.join("www/foo")).unwrap();
+      assert_eq!(
+        reqwest::get(url.join("foo/bar.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+    assert_contains(&stderr, "IO error accessing filesystem at `foo/bar.txt`");
+  }
 }

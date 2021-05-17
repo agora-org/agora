@@ -11,7 +11,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub(crate) struct FilePath {
   full_path: PathBuf,
-  file_path: String,
+  relative_path: String,
 }
 
 impl FilePath {
@@ -35,7 +35,7 @@ impl FilePath {
 
     Some(Self {
       full_path: dir.join(&file_path),
-      file_path,
+      relative_path: file_path,
     })
   }
 
@@ -46,15 +46,19 @@ impl FilePath {
       .map(Cow::into_owned)
   }
 
+  pub(crate) fn relative_path(&self) -> &str {
+    &self.relative_path
+  }
+
   pub(crate) fn mime_guess(&self) -> MimeGuess {
-    mime_guess::from_path(&self.file_path)
+    mime_guess::from_path(&self.relative_path)
   }
 
   #[cfg(test)]
   pub(crate) fn new_unchecked(dir: &Path, inner: &str) -> Self {
     Self {
       full_path: dir.join(inner),
-      file_path: inner.to_owned(),
+      relative_path: inner.to_owned(),
     }
   }
 }
@@ -67,6 +71,6 @@ impl AsRef<Path> for FilePath {
 
 impl Display for FilePath {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-    write!(f, "{}", self.file_path)
+    write!(f, "{}", self.relative_path)
   }
 }
