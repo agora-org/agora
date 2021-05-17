@@ -48,7 +48,7 @@ impl Stream for FileStream {
 
     let poll = file.poll_read(cx, &mut buf).map(|result| {
       result.context(error::FilesystemIo {
-        path: path.as_ref(),
+        path: path.relative_path(),
       })
     })?;
 
