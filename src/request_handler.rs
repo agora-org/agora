@@ -119,10 +119,15 @@ impl RequestHandler {
     {
       entries.push((
         entry.file_name(),
-        entry
-          .file_type()
-          .await
-          .with_context(|| Error::filesystem_io(&path.join(Path::new(&entry.file_name()))))?,
+        entry.file_type().await.map_err(|source| {
+          match path.join_relative(Path::new(&entry.file_name())) {
+            Err(error) => error,
+            Ok(entry_path) => Error::FilesystemIo {
+              path: entry_path.display_path().to_owned(),
+              source,
+            },
+          }
+        })?,
       ));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));

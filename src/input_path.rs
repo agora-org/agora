@@ -22,20 +22,27 @@ impl InputPath {
     }
   }
 
-  pub(crate) fn join(&self, path: &Path) -> Self {
-    Self {
+  pub(crate) fn join_relative(&self, path: &Path) -> Result<Self> {
+    if path.is_absolute() {
+      return Err(Error::internal(format!(
+        "join_relative: {} is absolute",
+        path.display()
+      )));
+    }
+    Ok(Self {
       full_path: self.full_path.join(path),
       display_path: self.display_path.join(path),
-    }
+    })
   }
 
   pub(crate) fn join_uri(&self, uri: &Uri) -> Result<Self> {
     self
       .join_uri_option(uri)
+      .transpose()?
       .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })
   }
 
-  fn join_uri_option(&self, uri: &Uri) -> Option<Self> {
+  fn join_uri_option(&self, uri: &Uri) -> Option<Result<Self>> {
     let relative_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
 
     for component in Path::new(&relative_path).components() {
@@ -49,7 +56,7 @@ impl InputPath {
       return None;
     }
 
-    Some(self.join(Path::new(&relative_path)))
+    Some(self.join_relative(Path::new(&relative_path)))
   }
 
   fn percent_decode(path: &str) -> Option<String> {
