@@ -1,8 +1,8 @@
 use crate::{
   environment::Environment,
   error::{Error, Result},
-  file_path::InputPath,
   file_stream::FileStream,
+  input_path::InputPath,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
@@ -15,7 +15,7 @@ use std::{
   ffi::OsString,
   fmt::Debug,
   fs::FileType,
-  io::{self, Write},
+  io::Write,
   path::Path,
   task::{self, Poll},
 };
@@ -58,18 +58,15 @@ impl RequestHandler {
           .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)));
       }
 
-      self
-        .list(file_path.as_ref())
-        .await
-        .context(Error::filesystem_io(file_path))
+      self.list(file_path).await
     } else {
       self.serve_file(file_path).await
     }
   }
 
-  const SET: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
-  async fn list(&self, dir: &Path) -> io::Result<Response<Body>> {
+  async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
     let body = html! {
       (DOCTYPE)
       html {
@@ -89,7 +86,7 @@ impl RequestHandler {
                 }
                 file_name
               };
-              @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::SET);
+              @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
               li {
                 a href=(encoded) {
                   (file_name)
@@ -110,11 +107,23 @@ impl RequestHandler {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  async fn read_dir(path: &Path) -> io::Result<Vec<(OsString, FileType)>> {
-    let mut read_dir = tokio::fs::read_dir(path).await?;
+  async fn read_dir(path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
+    let mut read_dir = tokio::fs::read_dir(path)
+      .await
+      .with_context(|| Error::filesystem_io(path))?;
     let mut entries = Vec::new();
-    while let Some(entry) = read_dir.next_entry().await? {
-      entries.push((entry.file_name(), entry.file_type().await?));
+    while let Some(entry) = read_dir
+      .next_entry()
+      .await
+      .with_context(|| Error::filesystem_io(path))?
+    {
+      entries.push((
+        entry.file_name(),
+        entry
+          .file_type()
+          .await
+          .with_context(|| Error::filesystem_io(&path.join(Path::new(&entry.file_name()))))?,
+      ));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)

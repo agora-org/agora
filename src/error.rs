@@ -1,11 +1,7 @@
-use crate::file_path::InputPath;
+use crate::input_path::InputPath;
 use hyper::{StatusCode, Uri};
 use snafu::Snafu;
-use std::{
-  fmt::Debug,
-  io,
-  path::{Path, PathBuf},
-};
+use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
@@ -62,9 +58,9 @@ impl Error {
     }
   }
 
-  pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<&Path> {
+  pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<PathBuf> {
     FilesystemIo {
-      path: file_path.display_path(),
+      path: file_path.display_path().to_owned(),
     }
   }
 }

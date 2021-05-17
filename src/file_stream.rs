@@ -1,6 +1,6 @@
 use crate::{
   error::{Error, Result},
-  file_path::InputPath,
+  input_path::InputPath,
 };
 use futures::Stream;
 use hyper::body::Bytes;
@@ -28,7 +28,7 @@ impl FileStream {
     Ok(Self {
       file: File::open(&file_path)
         .await
-        .context(Error::filesystem_io(&file_path))?,
+        .with_context(|| Error::filesystem_io(&file_path))?,
       path: file_path,
     })
   }
@@ -48,7 +48,7 @@ impl Stream for FileStream {
 
     let poll = file
       .poll_read(cx, &mut buf)
-      .map(|result| result.context(Error::filesystem_io(path)))?;
+      .map(|result| result.with_context(|| Error::filesystem_io(path)))?;
 
     if poll.is_pending() {
       return Poll::Pending;

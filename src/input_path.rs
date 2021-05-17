@@ -22,6 +22,13 @@ impl InputPath {
     }
   }
 
+  pub(crate) fn join(&self, path: &Path) -> Self {
+    Self {
+      full_path: self.full_path.join(path),
+      display_path: self.display_path.join(path),
+    }
+  }
+
   pub(crate) fn join_uri(&self, uri: &Uri) -> Result<Self> {
     self
       .join_uri_option(uri)
