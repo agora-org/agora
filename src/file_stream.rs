@@ -1,6 +1,6 @@
 use crate::{
   error::{Error, Result},
-  file_path::FilePath,
+  file_path::InputPath,
 };
 use futures::Stream;
 use hyper::body::Bytes;
@@ -20,11 +20,11 @@ use tokio::{
 pub(crate) struct FileStream {
   #[pin]
   file: File,
-  path: FilePath,
+  path: InputPath,
 }
 
 impl FileStream {
-  pub(crate) async fn new(file_path: FilePath) -> Result<Self> {
+  pub(crate) async fn new(file_path: InputPath) -> Result<Self> {
     Ok(Self {
       file: File::open(&file_path)
         .await
@@ -71,7 +71,7 @@ mod tests {
   async fn file_stream_yields_file_contents() {
     let tempdir = tempfile::tempdir().unwrap();
     let dir = tempdir.path();
-    let file_path = FilePath::new_unchecked(&dir, "foo.txt");
+    let file_path = InputPath::new_unchecked(&dir, "foo.txt");
 
     let input = &[0x15; 200];
 

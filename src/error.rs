@@ -1,4 +1,4 @@
-use crate::file_path::FilePath;
+use crate::file_path::InputPath;
 use hyper::{StatusCode, Uri};
 use snafu::Snafu;
 use std::{
@@ -62,7 +62,7 @@ impl Error {
     }
   }
 
-  pub(crate) fn filesystem_io(file_path: &FilePath) -> FilesystemIo<&Path> {
+  pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<&Path> {
     FilesystemIo {
       path: file_path.display_path(),
     }

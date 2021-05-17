@@ -1,7 +1,7 @@
 use crate::{
   environment::Environment,
   error::{Error, Result},
-  file_path::FilePath,
+  file_path::InputPath,
   file_stream::FileStream,
   stderr::Stderr,
 };
@@ -16,23 +16,21 @@ use std::{
   fmt::Debug,
   fs::FileType,
   io::{self, Write},
-  path::{Path, PathBuf},
+  path::Path,
   task::{self, Poll},
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
-  pub(crate) directory: PathBuf,
-  base_directory: PathBuf,
+  pub(crate) base_directory: InputPath,
 }
 
 impl RequestHandler {
   pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      directory: environment.working_directory.join(base_directory),
-      base_directory: base_directory.to_owned(),
+      base_directory: InputPath::new(environment, base_directory),
     }
   }
 
@@ -50,7 +48,7 @@ impl RequestHandler {
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    let file_path = &FilePath::new(&self.base_directory, &self.directory, request.uri())?;
+    let file_path = &self.base_directory.join_uri(request.uri())?;
     if file_path.as_ref().is_dir() {
       if !request.uri().path().ends_with('/') {
         return Response::builder()
@@ -122,7 +120,7 @@ impl RequestHandler {
     Ok(entries)
   }
 
-  async fn serve_file(&self, path: &FilePath) -> Result<Response<Body>> {
+  async fn serve_file(&self, path: &InputPath) -> Result<Response<Body>> {
     let mut builder = Response::builder().status(StatusCode::OK);
 
     if let Some(guess) = path.mime_guess().first() {
