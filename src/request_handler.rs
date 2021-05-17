@@ -174,7 +174,7 @@ pub(crate) mod tests {
   use pretty_assertions::assert_eq;
   use reqwest::{redirect::Policy, Client, IntoUrl, Url};
   use scraper::{ElementRef, Html, Selector};
-  use std::{fs, str};
+  use std::{fs, path::MAIN_SEPARATOR, str};
   use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -264,7 +264,10 @@ pub(crate) mod tests {
       reqwest::get(url).await.unwrap();
     });
 
-    assert_contains(&stderr, "IO error accessing filesystem at `www/`: ");
+    assert_contains(
+      &stderr,
+      &format!("IO error accessing filesystem at `www{}`: ", MAIN_SEPARATOR),
+    );
 
     assert_contains(
       &stderr,
@@ -416,7 +419,13 @@ pub(crate) mod tests {
         StatusCode::NOT_FOUND
       )
     });
-    assert_contains(&stderr, "IO error accessing filesystem at `www/foo.txt`");
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}foo.txt`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
@@ -572,7 +581,10 @@ pub(crate) mod tests {
     });
     assert_contains(
       &stderr,
-      "IO error accessing filesystem at `www/foo/bar.txt`",
+      &format!(
+        "IO error accessing filesystem at `www{}foo/bar.txt`",
+        MAIN_SEPARATOR,
+      ),
     );
   }
 }
