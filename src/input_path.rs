@@ -49,10 +49,7 @@ impl InputPath {
       return None;
     }
 
-    Some(Self {
-      full_path: self.full_path.join(&relative_path),
-      display_path: self.display_path.join(&relative_path),
-    })
+    Some(self.join(Path::new(&relative_path)))
   }
 
   fn percent_decode(path: &str) -> Option<String> {
