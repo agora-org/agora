@@ -271,8 +271,8 @@ pub(crate) mod tests {
 
     assert_contains(
       &stderr,
-      if cfg!(target_os = "windows") {
-        "The system cannot find the path specified."
+      if cfg!(windows) {
+        "The system cannot find the file specified."
       } else {
         "No such file or directory"
       },
