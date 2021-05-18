@@ -21,7 +21,7 @@ macro_rules! assert_matches {
 
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
-  Function: FnOnce(Url, TestContext) -> F,
+  Function: FnOnce((), TestContext) -> F,
   F: Future<Output = ()>,
 {
   test_with_arguments(&[], f)
@@ -29,7 +29,7 @@ where
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
 where
-  Function: FnOnce(Url, TestContext) -> F,
+  Function: FnOnce((), TestContext) -> F,
   F: Future<Output = ()>,
 {
   let mut environment = Environment::test(&[]);
@@ -45,7 +45,7 @@ where
 
 pub(crate) fn test_with_environment<Function, F>(environment: &Environment, f: Function) -> String
 where
-  Function: FnOnce(Url, TestContext) -> F,
+  Function: FnOnce((), TestContext) -> F,
   F: Future<Output = ()>,
 {
   tokio::runtime::Builder::new_current_thread()
@@ -59,8 +59,9 @@ where
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       f(
-        url.clone(),
+        (),
         TestContext {
+          base_url: url.clone(),
           files_url: url.join("files/").unwrap(),
           files_directory,
         },
@@ -73,6 +74,7 @@ where
 
 pub(crate) struct TestContext {
   files_url: Url,
+  base_url: Url,
   files_directory: PathBuf,
 }
 
@@ -83,5 +85,9 @@ impl TestContext {
 
   pub(crate) fn files_directory(&self) -> &Path {
     &self.files_directory
+  }
+
+  pub(crate) fn base_url(&self) -> &Url {
+    &self.base_url
   }
 }
