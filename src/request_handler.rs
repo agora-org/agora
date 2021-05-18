@@ -235,7 +235,7 @@ pub(crate) mod tests {
 
   #[test]
   fn index_route_redirects_to_files() {
-    test(|_url, context| async move {
+    test(|context| async move {
       let client = Client::builder().redirect(Policy::none()).build().unwrap();
       let request = client.get(context.base_url().clone()).build().unwrap();
       let response = client.execute(request).await.unwrap();
@@ -259,7 +259,7 @@ pub(crate) mod tests {
 
   #[test]
   fn index_route_status_code_is_200() {
-    test(|_url, context| async move {
+    test(|context| async move {
       assert_eq!(
         reqwest::get(context.base_url().clone())
           .await
@@ -272,7 +272,7 @@ pub(crate) mod tests {
 
   #[test]
   fn index_route_contains_title() {
-    test(|_url, context| async move {
+    test(|context| async move {
       let haystack = text(context.base_url()).await;
       let needle = "<title>foo</title>";
       assert_contains(&haystack, needle);
@@ -298,7 +298,7 @@ pub(crate) mod tests {
   fn errors_in_request_handling_cause_500_status_codes() {
     use std::os::unix::fs::PermissionsExt;
 
-    test(|_url, context| async move {
+    test(|context| async move {
       let file = context.files_directory().join("foo");
       fs::write(&file, "").unwrap();
       let mut permissions = file.metadata().unwrap().permissions();
@@ -314,7 +314,7 @@ pub(crate) mod tests {
 
   #[test]
   fn errors_in_request_handling_are_printed_to_stderr() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       std::fs::remove_dir(context.files_directory()).unwrap();
       reqwest::get(context.base_url().clone()).await.unwrap();
     });
@@ -336,7 +336,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listing_contains_file() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(context.files_directory().join("some-test-file.txt"), "").unwrap();
       let haystack = html(context.base_url()).await.root_element().html();
       let needle = "some-test-file.txt";
@@ -346,7 +346,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listing_contains_multiple_files() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(context.files_directory().join("a.txt"), "").unwrap();
       std::fs::write(context.files_directory().join("b.txt"), "").unwrap();
       let haystack = html(context.base_url()).await.root_element().html();
@@ -357,7 +357,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listing_is_sorted_alphabetically() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(context.files_directory().join("b"), "").unwrap();
       std::fs::write(context.files_directory().join("c"), "").unwrap();
       std::fs::write(context.files_directory().join("a"), "").unwrap();
@@ -373,7 +373,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listed_files_can_be_played_in_browser() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(
         context.files_directory().join("some-test-file.txt"),
         "contents",
@@ -391,7 +391,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listed_files_have_download_links() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(
         context.files_directory().join("some-test-file.txt"),
         "contents",
@@ -409,7 +409,7 @@ pub(crate) mod tests {
 
   #[test]
   fn listed_files_have_percent_encoded_hrefs() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::write(
         context
           .files_directory()
@@ -431,7 +431,7 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_parent_path_component() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       let mut stream =
         TcpStream::connect(format!("localhost:{}", context.base_url().port().unwrap()))
           .await
@@ -450,7 +450,7 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_empty_path_component() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
         reqwest::get(format!("{}foo//bar.txt", context.files_url()))
           .await
@@ -464,7 +464,7 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_absolute_path() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
         reqwest::get(format!("{}/foo.txt", context.files_url()))
           .await
@@ -478,7 +478,7 @@ pub(crate) mod tests {
 
   #[test]
   fn return_404_for_missing_files() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
         reqwest::get(context.files_url().join("foo.txt").unwrap())
           .await
@@ -504,7 +504,7 @@ pub(crate) mod tests {
     fs::create_dir(&src).unwrap();
     fs::write(src.join("foo.txt"), "hello").unwrap();
 
-    test_with_environment(&environment, |_url, context| async move {
+    test_with_environment(&environment, |context| async move {
       assert_contains(&text(context.files_url()).await, "foo.txt");
 
       let file_contents = text(&context.files_url().join("foo.txt").unwrap()).await;
@@ -518,7 +518,7 @@ pub(crate) mod tests {
     use futures::StreamExt;
     use tokio::{fs::OpenOptions, sync::oneshot};
 
-    test(|_url, context| async move {
+    test(|context| async move {
       let fifo_path = context.files_directory().join("fifo");
 
       nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
@@ -549,7 +549,7 @@ pub(crate) mod tests {
 
   #[test]
   fn downloaded_files_have_correct_content_type() {
-    test(|_url, context| async move {
+    test(|context| async move {
       fs::write(context.files_directory().join("foo.mp4"), "hello").unwrap();
 
       let response = get(context.files_url().join("foo.mp4").unwrap()).await;
@@ -563,7 +563,7 @@ pub(crate) mod tests {
 
   #[test]
   fn unknown_files_have_no_content_type() {
-    test(|_url, context| async move {
+    test(|context| async move {
       fs::write(context.files_directory().join("foo"), "hello").unwrap();
 
       let response = get(context.files_url().join("foo").unwrap()).await;
@@ -574,7 +574,7 @@ pub(crate) mod tests {
 
   #[test]
   fn filenames_with_spaces() {
-    test(|_url, context| async move {
+    test(|context| async move {
       fs::write(context.files_directory().join("foo bar"), "hello").unwrap();
 
       let response = text(&context.files_url().join("foo%20bar").unwrap()).await;
@@ -585,7 +585,7 @@ pub(crate) mod tests {
 
   #[test]
   fn subdirectories_appear_in_listings() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::create_dir(context.files_directory().join("foo")).unwrap();
       std::fs::write(context.files_directory().join("foo/bar.txt"), "hello").unwrap();
       let root_listing = html(context.files_url()).await;
@@ -605,7 +605,7 @@ pub(crate) mod tests {
 
   #[test]
   fn no_trailing_slash_redirects_to_trailing_slash() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::create_dir(context.files_directory().join("foo")).unwrap();
       let client = Client::builder().redirect(Policy::none()).build().unwrap();
       let request = client
@@ -635,7 +635,7 @@ pub(crate) mod tests {
 
   #[test]
   fn redirects_correctly_for_two_layers_of_subdirectories() {
-    test(|_url, context| async move {
+    test(|context| async move {
       std::fs::create_dir_all(context.files_directory().join("foo/bar")).unwrap();
       std::fs::write(context.files_directory().join("foo/bar/baz.txt"), "").unwrap();
       let listing = html(&context.files_url().join("foo/bar").unwrap()).await;
@@ -646,7 +646,7 @@ pub(crate) mod tests {
 
   #[test]
   fn file_errors_are_associated_with_file_path() {
-    let stderr = test(|_url, context| async move {
+    let stderr = test(|context| async move {
       std::fs::create_dir(context.files_directory().join("foo")).unwrap();
       assert_eq!(
         reqwest::get(context.files_url().join("foo/bar.txt").unwrap())

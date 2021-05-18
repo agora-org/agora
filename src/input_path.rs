@@ -2,7 +2,6 @@ use crate::{
   environment::Environment,
   error::{Error, Result},
 };
-use hyper::Uri;
 use mime_guess::MimeGuess;
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};

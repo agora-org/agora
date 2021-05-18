@@ -1,5 +1,5 @@
 use crate::input_path::InputPath;
-use hyper::{StatusCode, Uri};
+use hyper::StatusCode;
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;

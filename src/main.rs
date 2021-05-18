@@ -44,7 +44,7 @@ mod tests {
 
     let args = &["--port", &free_port.to_string()];
 
-    test_with_arguments(args, |_port, _| async move {
+    test_with_arguments(args, |_| async move {
       assert_eq!(
         reqwest::get(format!("http://localhost:{}", free_port))
           .await
