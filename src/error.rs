@@ -28,8 +28,10 @@ pub(crate) enum Error {
     message
   ))]
   Internal { message: String },
-  #[snafu(display("Invalid URL file path: {}", uri))]
+  #[snafu(display("Invalid URI file path: {}", uri))]
   InvalidPath { uri: String },
+  #[snafu(display("URI path did not match any route: {}", uri_path))]
+  RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
   ServerRun { source: hyper::Error },
 }
@@ -42,6 +44,7 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidPath { .. } => StatusCode::BAD_REQUEST,
+      RouteNotFound { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }

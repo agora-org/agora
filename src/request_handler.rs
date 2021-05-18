@@ -82,9 +82,9 @@ impl RequestHandler {
           self.serve_file(file_path).await
         }
       }
-      _ => {
-        todo!()
-      }
+      _ => Err(Error::RouteNotFound {
+        uri_path: request.uri().path().to_owned(),
+      }),
     }
   }
 
@@ -271,6 +271,19 @@ pub(crate) mod tests {
   }
 
   #[test]
+  fn unknown_route_status_code_is_404() {
+    test(|context| async move {
+      assert_eq!(
+        reqwest::get(context.base_url().join("huhu").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        404
+      )
+    });
+  }
+
+  #[test]
   fn index_route_contains_title() {
     test(|context| async move {
       let haystack = text(context.base_url()).await;
@@ -445,7 +458,7 @@ pub(crate) mod tests {
       let response = str::from_utf8(&response[..bytes]).unwrap();
       assert_contains(&response, "HTTP/1.1 400 Bad Request");
     });
-    assert_contains(&stderr, &"Invalid URL file path: foo/../bar.txt");
+    assert_contains(&stderr, &"Invalid URI file path: foo/../bar.txt");
   }
 
   #[test]
@@ -459,7 +472,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URL file path: foo//bar.txt");
+    assert_contains(&stderr, &"Invalid URI file path: foo//bar.txt");
   }
 
   #[test]
@@ -473,7 +486,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URL file path: /foo.txt");
+    assert_contains(&stderr, &"Invalid URI file path: /foo.txt");
   }
 
   #[test]
