@@ -17,7 +17,7 @@ macro_rules! assert_matches {
 
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
-  Function: FnOnce(Url, PathBuf) -> F,
+  Function: FnOnce(Url, PathBuf, TestContext) -> F,
   F: Future<Output = ()>,
 {
   test_with_arguments(&[], f)
@@ -25,7 +25,7 @@ where
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
 where
-  Function: FnOnce(Url, PathBuf) -> F,
+  Function: FnOnce(Url, PathBuf, TestContext) -> F,
   F: Future<Output = ()>,
 {
   let mut environment = Environment::test(&[]);
@@ -41,7 +41,7 @@ where
 
 pub(crate) fn test_with_environment<Function, F>(environment: &Environment, f: Function) -> String
 where
-  Function: FnOnce(Url, PathBuf) -> F,
+  Function: FnOnce(Url, PathBuf, TestContext) -> F,
   F: Future<Output = ()>,
 {
   tokio::runtime::Builder::new_current_thread()
@@ -53,8 +53,25 @@ where
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      f(url, environment.working_directory.clone()).await;
+      f(
+        url.clone(),
+        environment.working_directory.clone(),
+        TestContext {
+          files_url: url.join("files/").unwrap(),
+        },
+      )
+      .await;
       join_handle.abort();
       environment.stderr.contents()
     })
+}
+
+pub(crate) struct TestContext {
+  files_url: Url,
+}
+
+impl TestContext {
+  pub(crate) fn files_url(&self) -> &Url {
+    &self.files_url
+  }
 }

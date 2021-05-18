@@ -35,15 +35,17 @@ impl InputPath {
     })
   }
 
-  pub(crate) fn join_uri(&self, uri: &Uri) -> Result<Self> {
+  pub(crate) fn join_uri(&self, uri: &str) -> Result<Self> {
     self
       .join_uri_option(uri)
       .transpose()?
-      .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })
+      .ok_or_else(|| Error::InvalidPath {
+        uri: uri.to_owned(),
+      })
   }
 
-  fn join_uri_option(&self, uri: &Uri) -> Option<Result<Self>> {
-    let relative_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
+  fn join_uri_option(&self, uri: &str) -> Option<Result<Self>> {
+    let relative_path = Self::percent_decode(uri)?;
 
     for component in Path::new(&relative_path).components() {
       match component {

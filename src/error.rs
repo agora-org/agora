@@ -29,7 +29,7 @@ pub(crate) enum Error {
   ))]
   Internal { message: String },
   #[snafu(display("Invalid URL file path: {}", uri))]
-  InvalidPath { uri: Uri },
+  InvalidPath { uri: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
   ServerRun { source: hyper::Error },
 }
