@@ -60,8 +60,8 @@ where
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       f(TestContext {
         base_url: url.clone(),
-        files_directory,
         files_url: url.join("files/").unwrap(),
+        files_directory,
       })
       .await;
       join_handle.abort();
