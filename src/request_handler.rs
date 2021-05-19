@@ -668,7 +668,7 @@ pub(crate) mod tests {
   }
 
   #[test]
-  fn requesting_files_with_trailing_slash_fails() {
+  fn requesting_files_with_trailing_slash_redirects() {
     test(|context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo/").unwrap())
