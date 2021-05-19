@@ -47,36 +47,42 @@ impl RequestHandler {
     }
   }
 
+  fn redirect(location: String) -> Result<Response<Body>> {
+    Response::builder()
+      .status(StatusCode::FOUND)
+      .header(header::LOCATION, location)
+      .body(Body::empty())
+      .map_err(|error| Error::internal(format!("Failed to construct redirect response: {}", error)))
+  }
+
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    match request
+    let components = request
       .uri()
       .path()
       .split_inclusive('/')
-      .collect::<Vec<&str>>()
-      .as_slice()
-    {
-      ["/"] => Response::builder()
-        .status(StatusCode::FOUND)
-        .header(
-          header::LOCATION,
-          String::from(request.uri().path()) + "files/",
-        )
-        .body(Body::empty())
-        .map_err(|error| Error::internal(format!("Failed to construct response: {}", error))),
+      .collect::<Vec<&str>>();
+    match components.as_slice() {
+      ["/"] => Self::redirect(String::from(request.uri().path()) + "files/"),
       ["/", "files/", tail @ ..] => {
         let file_path = &self.base_directory.join_file_path(&tail.join(""))?;
 
-        if file_path.as_ref().is_dir() {
-          if !request.uri().path().ends_with('/') {
-            return Response::builder()
-              .status(StatusCode::FOUND)
-              .header(header::LOCATION, String::from(request.uri().path()) + "/")
-              .body(Body::empty())
-              .map_err(|error| {
-                Error::internal(format!("Failed to construct response: {}", error))
-              });
-          }
+        let file_type = file_path
+          .as_ref()
+          .metadata()
+          .with_context(|| Error::filesystem_io(file_path))?
+          .file_type();
 
+        if !file_type.is_dir() && request.uri().path().ends_with('/') {
+          return Err(Error::NotADirectory {
+            uri_path: tail.join(""),
+          });
+        }
+
+        if file_type.is_dir() && !request.uri().path().ends_with('/') {
+          return Self::redirect(String::from(request.uri().path()) + "/");
+        }
+
+        if file_type.is_dir() {
           self.list(file_path).await
         } else {
           self.serve_file(file_path).await
@@ -311,7 +317,7 @@ pub(crate) mod tests {
   fn errors_in_request_handling_cause_500_status_codes() {
     use std::os::unix::fs::PermissionsExt;
 
-    test(|context| async move {
+    let stderr = test(|context| async move {
       let file = context.files_directory().join("foo");
       fs::write(&file, "").unwrap();
       let mut permissions = file.metadata().unwrap().permissions();
@@ -321,29 +327,12 @@ pub(crate) mod tests {
         .await
         .unwrap()
         .status();
-      assert_eq!(status, 500);
-    });
-  }
-
-  #[test]
-  fn errors_in_request_handling_are_printed_to_stderr() {
-    let stderr = test(|context| async move {
-      std::fs::remove_dir(context.files_directory()).unwrap();
-      reqwest::get(context.base_url().clone()).await.unwrap();
+      assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     });
 
     assert_contains(
       &stderr,
-      &format!("IO error accessing filesystem at `www{}`: ", MAIN_SEPARATOR),
-    );
-
-    assert_contains(
-      &stderr,
-      if cfg!(windows) {
-        "The system cannot find the file specified."
-      } else {
-        "No such file or directory"
-      },
+      "IO error accessing filesystem at `www/foo`: Permission denied (os error 13)",
     );
   }
 
@@ -676,5 +665,17 @@ pub(crate) mod tests {
         MAIN_SEPARATOR,
       ),
     );
+  }
+
+  #[test]
+  fn requesting_files_with_trailing_slash_fails() {
+    let stderr = test(|context| async move {
+      std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      let response = reqwest::get(context.files_url().join("foo/").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+    assert_eq!(stderr, "Not a directory: foo/\n");
   }
 }

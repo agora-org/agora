@@ -16,8 +16,8 @@ pub(crate) struct InputPath {
 impl InputPath {
   pub(crate) fn new(environment: &Environment, display_path: &Path) -> Self {
     Self {
-      full_path: environment.working_directory.join(display_path),
-      display_path: display_path.to_owned(),
+      full_path: Self::canonicalize(&environment.working_directory.join(display_path)),
+      display_path: Self::canonicalize(display_path),
     }
   }
 
@@ -29,8 +29,8 @@ impl InputPath {
       )));
     }
     Ok(Self {
-      full_path: self.full_path.join(path),
-      display_path: self.display_path.join(path),
+      full_path: Self::canonicalize(&self.full_path.join(path)),
+      display_path: Self::canonicalize(&self.display_path.join(path)),
     })
   }
 
@@ -60,6 +60,10 @@ impl InputPath {
     Some(self.join_relative(Path::new(&relative_path)))
   }
 
+  fn canonicalize(path: &Path) -> PathBuf {
+    path.components().collect()
+  }
+
   fn percent_decode(path: &str) -> Option<String> {
     percent_decode_str(path)
       .decode_utf8()
@@ -86,6 +90,6 @@ impl InputPath {
 
 impl AsRef<Path> for InputPath {
   fn as_ref(&self) -> &Path {
-    self.full_path.as_ref()
+    &self.full_path
   }
 }
