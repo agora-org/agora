@@ -64,7 +64,7 @@ impl RequestHandler {
         .body(Body::empty())
         .map_err(|error| Error::internal(format!("Failed to construct response: {}", error))),
       ["/", "files/", tail @ ..] => {
-        let file_path = &self.base_directory.join_uri(&tail.join(""))?;
+        let file_path = &self.base_directory.join_file_path(&tail.join(""))?;
 
         if file_path.as_ref().is_dir() {
           if !request.uri().path().ends_with('/') {

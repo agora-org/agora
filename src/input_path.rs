@@ -34,16 +34,16 @@ impl InputPath {
     })
   }
 
-  pub(crate) fn join_uri(&self, uri: &str) -> Result<Self> {
+  pub(crate) fn join_file_path(&self, uri: &str) -> Result<Self> {
     self
-      .join_uri_option(uri)
+      .join_file_path_option(uri)
       .transpose()?
       .ok_or_else(|| Error::InvalidPath {
         uri: uri.to_owned(),
       })
   }
 
-  fn join_uri_option(&self, uri: &str) -> Option<Result<Self>> {
+  fn join_file_path_option(&self, uri: &str) -> Option<Result<Self>> {
     let relative_path = Self::percent_decode(uri)?;
 
     for component in Path::new(&relative_path).components() {
