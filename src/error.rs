@@ -22,8 +22,6 @@ pub(crate) enum Error {
   CurrentDir { source: io::Error },
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo { source: io::Error, path: PathBuf },
-  #[snafu(display("Not a directory: {}", uri_path))]
-  NotADirectory { uri_path: String },
   #[snafu(display(
     "Internal error, this is probably a bug in foo: {}\n\
       Consider filing an issue: https://github.com/soenkehahn/foo/issues/new/",
@@ -46,7 +44,7 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
-      NotADirectory { .. } | RouteNotFound { .. } => StatusCode::NOT_FOUND,
+      RouteNotFound { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }

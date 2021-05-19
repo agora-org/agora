@@ -72,10 +72,10 @@ impl RequestHandler {
           .with_context(|| Error::filesystem_io(file_path))?
           .file_type();
 
-        if !file_type.is_dir() && request.uri().path().ends_with('/') {
-          return Err(Error::NotADirectory {
-            uri_path: tail.join(""),
-          });
+        if !file_type.is_dir() {
+          if let Some(stripped) = request.uri().path().strip_suffix("/") {
+            return Self::redirect(stripped.to_owned());
+          }
         }
 
         if file_type.is_dir() && !request.uri().path().ends_with('/') {
@@ -669,13 +669,16 @@ pub(crate) mod tests {
 
   #[test]
   fn requesting_files_with_trailing_slash_fails() {
-    let stderr = test(|context| async move {
+    test(|context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo/").unwrap())
         .await
         .unwrap();
-      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+      assert!(
+        response.url().as_str().ends_with("/files/foo"),
+        "{} didn't end with /files/foo",
+        response.url()
+      );
     });
-    assert_eq!(stderr, "Not a directory: foo/\n");
   }
 }
