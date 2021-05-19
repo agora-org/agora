@@ -43,8 +43,8 @@ impl InputPath {
       })
   }
 
-  fn join_file_path_option(&self, uri: &str) -> Option<Result<Self>> {
-    let relative_path = Self::percent_decode(uri)?;
+  fn join_file_path_option(&self, uri_path: &str) -> Option<Result<Self>> {
+    let relative_path = Self::percent_decode(uri_path)?;
 
     for component in Path::new(&relative_path).components() {
       match component {
