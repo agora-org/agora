@@ -5,19 +5,14 @@ use crate::{
 };
 use hyper::server::conn::AddrIncoming;
 use snafu::ResultExt;
-use std::{
-  fmt::Debug,
-  fs,
-  net::ToSocketAddrs,
-  path::{Path, PathBuf},
-};
+use std::{fmt::Debug, fs, net::ToSocketAddrs};
 use tower::make::Shared;
 
 #[derive(Debug)]
 pub(crate) struct Server {
   inner: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
-  directory: PathBuf,
+  directory: std::path::PathBuf,
 }
 
 impl Server {
@@ -43,7 +38,11 @@ impl Server {
     )));
 
     eprintln!("Listening on {}", inner.local_addr());
-    Ok(Self { inner, directory })
+    Ok(Self {
+      inner,
+      #[cfg(test)]
+      directory,
+    })
   }
 
   pub(crate) async fn run(self) -> Result<()> {
@@ -56,7 +55,7 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn directory(&self) -> &Path {
+  pub(crate) fn directory(&self) -> &std::path::Path {
     &self.directory
   }
 }
