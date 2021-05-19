@@ -661,8 +661,8 @@ pub(crate) mod tests {
     assert_contains(
       &stderr,
       &format!(
-        "IO error accessing filesystem at `www{}foo/bar.txt`",
-        MAIN_SEPARATOR,
+        "IO error accessing filesystem at `www{}foo{}bar.txt`",
+        MAIN_SEPARATOR, MAIN_SEPARATOR,
       ),
     );
   }
