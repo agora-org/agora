@@ -60,8 +60,8 @@ where
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       f(TestContext {
         base_url: url.clone(),
-        files_url: url.join("files/").unwrap(),
         files_directory,
+        files_url: url.join("files/").unwrap(),
       })
       .await;
       join_handle.abort();
@@ -70,9 +70,9 @@ where
 }
 
 pub(crate) struct TestContext {
-  files_url: Url,
   base_url: Url,
   files_directory: PathBuf,
+  files_url: Url,
 }
 
 impl TestContext {
