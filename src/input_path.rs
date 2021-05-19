@@ -34,12 +34,12 @@ impl InputPath {
     })
   }
 
-  pub(crate) fn join_file_path(&self, uri: &str) -> Result<Self> {
+  pub(crate) fn join_file_path(&self, uri_path: &str) -> Result<Self> {
     self
-      .join_file_path_option(uri)
+      .join_file_path_option(uri_path)
       .transpose()?
-      .ok_or_else(|| Error::InvalidPath {
-        uri: uri.to_owned(),
+      .ok_or_else(|| Error::InvalidFilePath {
+        uri_path: uri_path.to_owned(),
       })
   }
 

@@ -30,8 +30,8 @@ pub(crate) enum Error {
     message
   ))]
   Internal { message: String },
-  #[snafu(display("Invalid URI file path: {}", uri))]
-  InvalidPath { uri: String },
+  #[snafu(display("Invalid URI file path: {}", uri_path))]
+  InvalidFilePath { uri_path: String },
   #[snafu(display("URI path did not match any route: {}", uri_path))]
   RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
@@ -45,7 +45,7 @@ impl Error {
       FilesystemIo { source, .. } if source.kind() == io::ErrorKind::NotFound => {
         StatusCode::NOT_FOUND
       }
-      InvalidPath { .. } => StatusCode::BAD_REQUEST,
+      InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
       NotADirectory { .. } | RouteNotFound { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
