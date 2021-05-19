@@ -2,13 +2,12 @@ use crate::{
   environment::Environment,
   error::{Error, Result},
 };
-use hyper::Uri;
 use mime_guess::MimeGuess;
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
 use std::{borrow::Cow, fmt::Debug};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {
   full_path: PathBuf,
   display_path: PathBuf,
@@ -17,8 +16,8 @@ pub(crate) struct InputPath {
 impl InputPath {
   pub(crate) fn new(environment: &Environment, display_path: &Path) -> Self {
     Self {
-      full_path: environment.working_directory.join(display_path),
-      display_path: display_path.to_owned(),
+      full_path: Self::canonicalize(&environment.working_directory.join(display_path)),
+      display_path: Self::canonicalize(display_path),
     }
   }
 
@@ -30,20 +29,22 @@ impl InputPath {
       )));
     }
     Ok(Self {
-      full_path: self.full_path.join(path),
-      display_path: self.display_path.join(path),
+      full_path: Self::canonicalize(&self.full_path.join(path)),
+      display_path: Self::canonicalize(&self.display_path.join(path)),
     })
   }
 
-  pub(crate) fn join_uri(&self, uri: &Uri) -> Result<Self> {
+  pub(crate) fn join_file_path(&self, uri_path: &str) -> Result<Self> {
     self
-      .join_uri_option(uri)
+      .join_file_path_option(uri_path)
       .transpose()?
-      .ok_or_else(|| Error::InvalidPath { uri: uri.clone() })
+      .ok_or_else(|| Error::InvalidFilePath {
+        uri_path: uri_path.to_owned(),
+      })
   }
 
-  fn join_uri_option(&self, uri: &Uri) -> Option<Result<Self>> {
-    let relative_path = Self::percent_decode(uri.path().strip_prefix('/')?)?;
+  fn join_file_path_option(&self, uri_path: &str) -> Option<Result<Self>> {
+    let relative_path = Self::percent_decode(uri_path)?;
 
     for component in Path::new(&relative_path).components() {
       match component {
@@ -57,6 +58,10 @@ impl InputPath {
     }
 
     Some(self.join_relative(Path::new(&relative_path)))
+  }
+
+  fn canonicalize(path: &Path) -> PathBuf {
+    path.components().collect()
   }
 
   fn percent_decode(path: &str) -> Option<String> {
@@ -85,6 +90,53 @@ impl InputPath {
 
 impl AsRef<Path> for InputPath {
   fn as_ref(&self) -> &Path {
-    self.full_path.as_ref()
+    &self.full_path
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use pretty_assertions::assert_eq;
+
+  #[test]
+  fn new_removes_trailing_slashes() {
+    let environment = Environment::test(&[]);
+    let input_path = InputPath::new(&environment, Path::new("foo/"));
+    assert_eq!(
+      input_path,
+      InputPath {
+        full_path: environment.working_directory.join("foo"),
+        display_path: "foo".into()
+      }
+    );
+  }
+
+  #[test]
+  fn join_relative_removes_trailing_slashes() {
+    let environment = Environment::test(&[]);
+    let base = InputPath::new(&environment, Path::new("foo"));
+    let input_path = base.join_relative(Path::new("bar/")).unwrap();
+    assert_eq!(
+      input_path,
+      InputPath {
+        full_path: environment.working_directory.join("foo").join("bar"),
+        display_path: Path::new("foo").join("bar")
+      }
+    );
+  }
+
+  #[test]
+  fn join_file_path_removes_trailing_slashes() {
+    let environment = Environment::test(&[]);
+    let base = InputPath::new(&environment, Path::new("foo"));
+    let input_path = base.join_file_path("bar/").unwrap();
+    assert_eq!(
+      input_path,
+      InputPath {
+        full_path: environment.working_directory.join("foo").join("bar"),
+        display_path: Path::new("foo").join("bar")
+      }
+    );
   }
 }

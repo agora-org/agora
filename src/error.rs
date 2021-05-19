@@ -1,5 +1,5 @@
 use crate::input_path::InputPath;
-use hyper::{StatusCode, Uri};
+use hyper::StatusCode;
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
@@ -28,8 +28,10 @@ pub(crate) enum Error {
     message
   ))]
   Internal { message: String },
-  #[snafu(display("Invalid URL file path: {}", uri))]
-  InvalidPath { uri: Uri },
+  #[snafu(display("Invalid URI file path: {}", uri_path))]
+  InvalidFilePath { uri_path: String },
+  #[snafu(display("URI path did not match any route: {}", uri_path))]
+  RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
   ServerRun { source: hyper::Error },
 }
@@ -41,7 +43,8 @@ impl Error {
       FilesystemIo { source, .. } if source.kind() == io::ErrorKind::NotFound => {
         StatusCode::NOT_FOUND
       }
-      InvalidPath { .. } => StatusCode::BAD_REQUEST,
+      InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
+      RouteNotFound { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }

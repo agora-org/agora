@@ -47,20 +47,50 @@ impl RequestHandler {
     }
   }
 
-  async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
-    let file_path = &self.base_directory.join_uri(request.uri())?;
-    if file_path.as_ref().is_dir() {
-      if !request.uri().path().ends_with('/') {
-        return Response::builder()
-          .status(StatusCode::FOUND)
-          .header(header::LOCATION, String::from(request.uri().path()) + "/")
-          .body(Body::empty())
-          .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)));
-      }
+  fn redirect(location: String) -> Result<Response<Body>> {
+    Response::builder()
+      .status(StatusCode::FOUND)
+      .header(header::LOCATION, location)
+      .body(Body::empty())
+      .map_err(|error| Error::internal(format!("Failed to construct redirect response: {}", error)))
+  }
 
-      self.list(file_path).await
-    } else {
-      self.serve_file(file_path).await
+  async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
+    let components = request
+      .uri()
+      .path()
+      .split_inclusive('/')
+      .collect::<Vec<&str>>();
+    match components.as_slice() {
+      ["/"] => Self::redirect(String::from(request.uri().path()) + "files/"),
+      ["/", "files/", tail @ ..] => {
+        let file_path = &self.base_directory.join_file_path(&tail.join(""))?;
+
+        let file_type = file_path
+          .as_ref()
+          .metadata()
+          .with_context(|| Error::filesystem_io(file_path))?
+          .file_type();
+
+        if !file_type.is_dir() {
+          if let Some(stripped) = request.uri().path().strip_suffix("/") {
+            return Self::redirect(stripped.to_owned());
+          }
+        }
+
+        if file_type.is_dir() && !request.uri().path().ends_with('/') {
+          return Self::redirect(String::from(request.uri().path()) + "/");
+        }
+
+        if file_type.is_dir() {
+          self.list(file_path).await
+        } else {
+          self.serve_file(file_path).await
+        }
+      }
+      _ => Err(Error::RouteNotFound {
+        uri_path: request.uri().path().to_owned(),
+      }),
     }
   }
 
@@ -196,12 +226,12 @@ pub(crate) mod tests {
     response
   }
 
-  async fn text(url: impl IntoUrl) -> String {
-    get(url).await.text().await.unwrap()
+  async fn text(url: &Url) -> String {
+    get(url.clone()).await.text().await.unwrap()
   }
 
   async fn html(url: &Url) -> Html {
-    Html::parse_document(&text(url.clone()).await)
+    Html::parse_document(&text(url).await)
   }
 
   fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
@@ -210,14 +240,59 @@ pub(crate) mod tests {
   }
 
   #[test]
+  fn index_route_redirects_to_files() {
+    test(|context| async move {
+      let client = Client::builder().redirect(Policy::none()).build().unwrap();
+      let request = client.get(context.base_url().clone()).build().unwrap();
+      let response = client.execute(request).await.unwrap();
+      assert_eq!(response.status(), StatusCode::FOUND);
+      assert_eq!(
+        &context
+          .base_url()
+          .join(
+            response
+              .headers()
+              .get(header::LOCATION)
+              .unwrap()
+              .to_str()
+              .unwrap()
+          )
+          .unwrap(),
+        context.files_url()
+      );
+    });
+  }
+
+  #[test]
   fn index_route_status_code_is_200() {
-    test(|url, _dir| async move { assert_eq!(reqwest::get(url).await.unwrap().status(), 200) });
+    test(|context| async move {
+      assert_eq!(
+        reqwest::get(context.base_url().clone())
+          .await
+          .unwrap()
+          .status(),
+        200
+      )
+    });
+  }
+
+  #[test]
+  fn unknown_route_status_code_is_404() {
+    test(|context| async move {
+      assert_eq!(
+        reqwest::get(context.base_url().join("huhu").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        404
+      )
+    });
   }
 
   #[test]
   fn index_route_contains_title() {
-    test(|url, _dir| async move {
-      let haystack = text(url).await;
+    test(|context| async move {
+      let haystack = text(context.base_url()).await;
       let needle = "<title>foo</title>";
       assert_contains(&haystack, needle);
     });
@@ -242,48 +317,30 @@ pub(crate) mod tests {
   fn errors_in_request_handling_cause_500_status_codes() {
     use std::os::unix::fs::PermissionsExt;
 
-    test(|url, dir| async move {
-      let file = dir.join("www/foo");
+    let stderr = test(|context| async move {
+      let file = context.files_directory().join("foo");
       fs::write(&file, "").unwrap();
       let mut permissions = file.metadata().unwrap().permissions();
       permissions.set_mode(0o000);
       fs::set_permissions(file, permissions).unwrap();
-      let status = reqwest::get(url.join("foo").unwrap())
+      let status = reqwest::get(context.files_url().join("foo").unwrap())
         .await
         .unwrap()
         .status();
-      assert_eq!(status, 500);
-    });
-  }
-
-  #[test]
-  fn errors_in_request_handling_are_printed_to_stderr() {
-    let stderr = test(|url, dir| async move {
-      let www = dir.join("www");
-      std::fs::remove_dir(www).unwrap();
-      reqwest::get(url).await.unwrap();
+      assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     });
 
     assert_contains(
       &stderr,
-      &format!("IO error accessing filesystem at `www{}`: ", MAIN_SEPARATOR),
-    );
-
-    assert_contains(
-      &stderr,
-      if cfg!(windows) {
-        "The system cannot find the file specified."
-      } else {
-        "No such file or directory"
-      },
+      "IO error accessing filesystem at `www/foo`: Permission denied (os error 13)",
     );
   }
 
   #[test]
   fn listing_contains_file() {
-    test(|url, dir| async move {
-      std::fs::write(dir.join("www").join("some-test-file.txt"), "").unwrap();
-      let haystack = html(&url).await.root_element().html();
+    test(|context| async move {
+      std::fs::write(context.files_directory().join("some-test-file.txt"), "").unwrap();
+      let haystack = html(context.base_url()).await.root_element().html();
       let needle = "some-test-file.txt";
       assert_contains(&haystack, needle);
     });
@@ -291,11 +348,10 @@ pub(crate) mod tests {
 
   #[test]
   fn listing_contains_multiple_files() {
-    test(|url, dir| async move {
-      let www = dir.join("www");
-      std::fs::write(www.join("a.txt"), "").unwrap();
-      std::fs::write(www.join("b.txt"), "").unwrap();
-      let haystack = html(&url).await.root_element().html();
+    test(|context| async move {
+      std::fs::write(context.files_directory().join("a.txt"), "").unwrap();
+      std::fs::write(context.files_directory().join("b.txt"), "").unwrap();
+      let haystack = html(context.base_url()).await.root_element().html();
       assert_contains(&haystack, "a.txt");
       assert_contains(&haystack, "b.txt");
     });
@@ -303,12 +359,11 @@ pub(crate) mod tests {
 
   #[test]
   fn listing_is_sorted_alphabetically() {
-    test(|url, dir| async move {
-      let www = dir.join("www");
-      std::fs::write(www.join("b"), "").unwrap();
-      std::fs::write(www.join("c"), "").unwrap();
-      std::fs::write(www.join("a"), "").unwrap();
-      let html = html(&url).await;
+    test(|context| async move {
+      std::fs::write(context.files_directory().join("b"), "").unwrap();
+      std::fs::write(context.files_directory().join("c"), "").unwrap();
+      std::fs::write(context.files_directory().join("a"), "").unwrap();
+      let html = html(context.base_url()).await;
       let haystack: Vec<&str> = css_select(&html, "a:not([download])")
         .into_iter()
         .map(|x| x.text())
@@ -320,37 +375,51 @@ pub(crate) mod tests {
 
   #[test]
   fn listed_files_can_be_played_in_browser() {
-    test(|url, dir| async move {
-      std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
-      let html = html(&url).await;
+    test(|context| async move {
+      std::fs::write(
+        context.files_directory().join("some-test-file.txt"),
+        "contents",
+      )
+      .unwrap();
+      let html = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "some-test-file.txt");
       let file_url = a.value().attr("href").unwrap();
-      let file_url = url.join(file_url).unwrap();
-      let file_contents = text(file_url).await;
+      let file_url = context.files_url().join(file_url).unwrap();
+      let file_contents = text(&file_url).await;
       assert_eq!(file_contents, "contents");
     });
   }
 
   #[test]
   fn listed_files_have_download_links() {
-    test(|url, dir| async move {
-      std::fs::write(dir.join("www").join("some-test-file.txt"), "contents").unwrap();
-      let html = html(&url).await;
+    test(|context| async move {
+      std::fs::write(
+        context.files_directory().join("some-test-file.txt"),
+        "contents",
+      )
+      .unwrap();
+      let html = html(&context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
       assert_eq!(a.inner_html(), "download");
       let file_url = a.value().attr("href").unwrap();
-      let file_url = url.join(file_url).unwrap();
-      let file_contents = text(file_url).await;
+      let file_url = context.files_url().join(file_url).unwrap();
+      let file_contents = text(&file_url).await;
       assert_eq!(file_contents, "contents");
     });
   }
 
   #[test]
   fn listed_files_have_percent_encoded_hrefs() {
-    test(|url, dir| async move {
-      std::fs::write(dir.join("www").join("filename with special chäracters"), "").unwrap();
-      let html = html(&url).await;
+    test(|context| async move {
+      std::fs::write(
+        context
+          .files_directory()
+          .join("filename with special chäracters"),
+        "",
+      )
+      .unwrap();
+      let html = html(context.base_url()).await;
       let links = css_select(&html, "a");
       assert_eq!(links.len(), 2);
       for link in links {
@@ -364,12 +433,13 @@ pub(crate) mod tests {
 
   #[test]
   fn disallow_parent_path_component() {
-    let stderr = test(|url, _dir| async move {
-      let mut stream = TcpStream::connect(format!("localhost:{}", url.port().unwrap()))
-        .await
-        .unwrap();
+    let stderr = test(|context| async move {
+      let mut stream =
+        TcpStream::connect(format!("localhost:{}", context.base_url().port().unwrap()))
+          .await
+          .unwrap();
       stream
-        .write_all(b"GET /foo/../bar.txt HTTP/1.1\n\n")
+        .write_all(b"GET /files/foo/../bar.txt HTTP/1.1\n\n")
         .await
         .unwrap();
       let response = &mut [0; 1024];
@@ -377,42 +447,42 @@ pub(crate) mod tests {
       let response = str::from_utf8(&response[..bytes]).unwrap();
       assert_contains(&response, "HTTP/1.1 400 Bad Request");
     });
-    assert_contains(&stderr, &"Invalid URL file path: /foo/../bar.txt");
+    assert_contains(&stderr, &"Invalid URI file path: foo/../bar.txt");
   }
 
   #[test]
   fn disallow_empty_path_component() {
-    let stderr = test(|url, _dir| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
-        reqwest::get(format!("{}foo//bar.txt", url))
+        reqwest::get(format!("{}foo//bar.txt", context.files_url()))
           .await
           .unwrap()
           .status(),
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URL file path: /foo//bar.txt");
+    assert_contains(&stderr, &"Invalid URI file path: foo//bar.txt");
   }
 
   #[test]
   fn disallow_absolute_path() {
-    let stderr = test(|url, _dir| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
-        reqwest::get(format!("{}/foo.txt", url))
+        reqwest::get(format!("{}/foo.txt", context.files_url()))
           .await
           .unwrap()
           .status(),
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URL file path: //foo.txt");
+    assert_contains(&stderr, &"Invalid URI file path: /foo.txt");
   }
 
   #[test]
   fn return_404_for_missing_files() {
-    let stderr = test(|url, _dir| async move {
+    let stderr = test(|context| async move {
       assert_eq!(
-        reqwest::get(url.join("foo.txt").unwrap())
+        reqwest::get(context.files_url().join("foo.txt").unwrap())
           .await
           .unwrap()
           .status(),
@@ -436,10 +506,10 @@ pub(crate) mod tests {
     fs::create_dir(&src).unwrap();
     fs::write(src.join("foo.txt"), "hello").unwrap();
 
-    test_with_environment(&environment, |url, _dir| async move {
-      assert_contains(&text(url.clone()).await, "foo.txt");
+    test_with_environment(&environment, |context| async move {
+      assert_contains(&text(context.files_url()).await, "foo.txt");
 
-      let file_contents = text(url.join("foo.txt").unwrap()).await;
+      let file_contents = text(&context.files_url().join("foo.txt").unwrap()).await;
       assert_eq!(file_contents, "hello");
     });
   }
@@ -450,8 +520,8 @@ pub(crate) mod tests {
     use futures::StreamExt;
     use tokio::{fs::OpenOptions, sync::oneshot};
 
-    test(|url, dir| async move {
-      let fifo_path = dir.join("www").join("fifo");
+    test(|context| async move {
+      let fifo_path = context.files_directory().join("fifo");
 
       nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
 
@@ -467,7 +537,9 @@ pub(crate) mod tests {
         receiver.await.unwrap();
       });
 
-      let mut stream = get(url.join("fifo").unwrap()).await.bytes_stream();
+      let mut stream = get(context.files_url().join("fifo").unwrap())
+        .await
+        .bytes_stream();
 
       assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
 
@@ -479,10 +551,10 @@ pub(crate) mod tests {
 
   #[test]
   fn downloaded_files_have_correct_content_type() {
-    test(|url, dir| async move {
-      fs::write(dir.join("www/foo.mp4"), "hello").unwrap();
+    test(|context| async move {
+      fs::write(context.files_directory().join("foo.mp4"), "hello").unwrap();
 
-      let response = get(url.join("foo.mp4").unwrap()).await;
+      let response = get(context.files_url().join("foo.mp4").unwrap()).await;
 
       assert_eq!(
         response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -493,10 +565,10 @@ pub(crate) mod tests {
 
   #[test]
   fn unknown_files_have_no_content_type() {
-    test(|url, dir| async move {
-      fs::write(dir.join("www/foo"), "hello").unwrap();
+    test(|context| async move {
+      fs::write(context.files_directory().join("foo"), "hello").unwrap();
 
-      let response = get(url.join("foo").unwrap()).await;
+      let response = get(context.files_url().join("foo").unwrap()).await;
 
       assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
     });
@@ -504,10 +576,10 @@ pub(crate) mod tests {
 
   #[test]
   fn filenames_with_spaces() {
-    test(|url, dir| async move {
-      fs::write(dir.join("www/foo bar"), "hello").unwrap();
+    test(|context| async move {
+      fs::write(context.files_directory().join("foo bar"), "hello").unwrap();
 
-      let response = text(url.join("foo%20bar").unwrap()).await;
+      let response = text(&context.files_url().join("foo%20bar").unwrap()).await;
 
       assert_eq!(response, "hello");
     });
@@ -515,31 +587,38 @@ pub(crate) mod tests {
 
   #[test]
   fn subdirectories_appear_in_listings() {
-    test(|url, dir| async move {
-      std::fs::create_dir(dir.join("www/foo")).unwrap();
-      std::fs::write(dir.join("www/foo/bar.txt"), "hello").unwrap();
-      let root_listing = html(&url).await;
+    test(|context| async move {
+      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      std::fs::write(context.files_directory().join("foo/bar.txt"), "hello").unwrap();
+      let root_listing = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&root_listing, "a").as_slice());
       assert_eq!(a.inner_html(), "foo/");
-      let subdir_url = url.join(a.value().attr("href").unwrap()).unwrap();
+      let subdir_url = context
+        .files_url()
+        .join(a.value().attr("href").unwrap())
+        .unwrap();
       let subdir_listing = html(&subdir_url).await;
       guard_unwrap!(let &[a] = css_select(&subdir_listing, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "bar.txt");
       let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
-      assert_eq!(text(file_url).await, "hello");
+      assert_eq!(text(&file_url).await, "hello");
     });
   }
 
   #[test]
   fn no_trailing_slash_redirects_to_trailing_slash() {
-    test(|url, dir| async move {
-      std::fs::create_dir(dir.join("www/foo")).unwrap();
+    test(|context| async move {
+      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
       let client = Client::builder().redirect(Policy::none()).build().unwrap();
-      let request = client.get(url.join("foo").unwrap()).build().unwrap();
+      let request = client
+        .get(context.files_url().join("foo").unwrap())
+        .build()
+        .unwrap();
       let response = client.execute(request).await.unwrap();
       assert_eq!(response.status(), StatusCode::FOUND);
       assert_eq!(
-        url
+        context
+          .files_url()
           .join("foo")
           .unwrap()
           .join(
@@ -551,17 +630,17 @@ pub(crate) mod tests {
               .unwrap()
           )
           .unwrap(),
-        url.join("foo/").unwrap()
+        context.files_url().join("foo/").unwrap()
       );
     });
   }
 
   #[test]
   fn redirects_correctly_for_two_layers_of_subdirectories() {
-    test(|url, dir| async move {
-      std::fs::create_dir_all(dir.join("www/foo/bar")).unwrap();
-      std::fs::write(dir.join("www/foo/bar/baz.txt"), "").unwrap();
-      let listing = html(&url.join("foo/bar").unwrap()).await;
+    test(|context| async move {
+      std::fs::create_dir_all(context.files_directory().join("foo/bar")).unwrap();
+      std::fs::write(context.files_directory().join("foo/bar/baz.txt"), "").unwrap();
+      let listing = html(&context.files_url().join("foo/bar").unwrap()).await;
       guard_unwrap!(let &[a] = css_select(&listing, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "baz.txt")
     });
@@ -569,10 +648,10 @@ pub(crate) mod tests {
 
   #[test]
   fn file_errors_are_associated_with_file_path() {
-    let stderr = test(|url, dir| async move {
-      std::fs::create_dir(dir.join("www/foo")).unwrap();
+    let stderr = test(|context| async move {
+      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
       assert_eq!(
-        reqwest::get(url.join("foo/bar.txt").unwrap())
+        reqwest::get(context.files_url().join("foo/bar.txt").unwrap())
           .await
           .unwrap()
           .status(),
@@ -582,9 +661,24 @@ pub(crate) mod tests {
     assert_contains(
       &stderr,
       &format!(
-        "IO error accessing filesystem at `www{}foo/bar.txt`",
-        MAIN_SEPARATOR,
+        "IO error accessing filesystem at `www{}foo{}bar.txt`",
+        MAIN_SEPARATOR, MAIN_SEPARATOR,
       ),
     );
+  }
+
+  #[test]
+  fn requesting_files_with_trailing_slash_redirects() {
+    test(|context| async move {
+      std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      let response = reqwest::get(context.files_url().join("foo/").unwrap())
+        .await
+        .unwrap();
+      assert!(
+        response.url().as_str().ends_with("/files/foo"),
+        "{} didn't end with /files/foo",
+        response.url()
+      );
+    });
   }
 }
