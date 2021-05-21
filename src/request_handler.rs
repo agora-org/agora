@@ -689,4 +689,30 @@ pub(crate) mod tests {
       );
     });
   }
+
+  #[test]
+  fn listings_are_not_cached() {
+    test(|context| async move {
+      let response = reqwest::get(context.files_url().clone()).await.unwrap();
+      assert_eq!(
+        response.headers().get(header::CACHE_CONTROL).unwrap(),
+        "no-store, max-age=0",
+      );
+    });
+  }
+
+  #[test]
+  fn files_are_not_cached() {
+    test(|context| async move {
+      std::fs::write(context.files_directory().join("foo"), "bar").unwrap();
+      let response = reqwest::get(context.files_url().join("foo").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(
+        response.headers().get(header::CACHE_CONTROL).unwrap(),
+        "no-store, max-age=0",
+      );
+      assert_eq!(response.text().await.unwrap(), "bar");
+    });
+  }
 }
