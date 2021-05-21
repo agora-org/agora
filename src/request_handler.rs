@@ -1,6 +1,6 @@
 use crate::{
   environment::Environment,
-  error::{Error, Result},
+  error::{self, Error, Result},
   file_stream::FileStream,
   input_path::InputPath,
   stderr::Stderr,
@@ -34,17 +34,25 @@ impl RequestHandler {
     }
   }
 
-  async fn response(mut self, request: Request<Body>) -> Response<Body> {
-    match self.dispatch(request).await {
+  async fn response(self, request: Request<Body>) -> Response<Body> {
+    let mut stderr = self.stderr.clone();
+
+    match self.response_result(request).await {
       Ok(response) => response,
       Err(error) => {
-        writeln!(self.stderr, "{}", error).unwrap();
+        writeln!(stderr, "{}", error).unwrap();
         Response::builder()
           .status(error.status())
           .body(Body::empty())
           .unwrap()
       }
     }
+  }
+
+  async fn response_result(self, request: Request<Body>) -> Result<Response<Body>> {
+    tokio::spawn(async move { self.dispatch(request).await })
+      .await
+      .context(error::RequestHandlerPanic)?
   }
 
   fn redirect(location: String) -> Result<Response<Body>> {
