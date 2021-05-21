@@ -3,6 +3,7 @@ use hyper::StatusCode;
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
+use tokio::task::JoinError;
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
@@ -30,6 +31,8 @@ pub(crate) enum Error {
   Internal { message: String },
   #[snafu(display("Invalid URI file path: {}", uri_path))]
   InvalidFilePath { uri_path: String },
+  #[snafu(display("Request handler panicked: {}", source))]
+  RequestHandlerPanic { source: JoinError },
   #[snafu(display("URI path did not match any route: {}", uri_path))]
   RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
@@ -51,6 +54,7 @@ impl Error {
       | CurrentDir { .. }
       | FilesystemIo { .. }
       | Internal { .. }
+      | RequestHandlerPanic { .. }
       | ServerRun { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
