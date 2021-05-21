@@ -6,7 +6,11 @@ use crate::{
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
-use hyper::{header, service::Service, Body, Request, Response, StatusCode};
+use hyper::{
+  header::{self, HeaderValue},
+  service::Service,
+  Body, Request, Response, StatusCode,
+};
 use maud::{html, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
@@ -50,7 +54,7 @@ impl RequestHandler {
   }
 
   async fn response_result(self, request: Request<Body>) -> Result<Response<Body>> {
-    tokio::spawn(async move { self.dispatch(request).await })
+    tokio::spawn(async move { self.dispatch(request).await.map(Self::add_global_headers) })
       .await
       .context(error::RequestHandlerPanic)?
   }
@@ -61,6 +65,14 @@ impl RequestHandler {
       .header(header::LOCATION, location)
       .body(Body::empty())
       .map_err(|error| Error::internal(format!("Failed to construct redirect response: {}", error)))
+  }
+
+  fn add_global_headers(mut response: Response<Body>) -> Response<Body> {
+    response.headers_mut().insert(
+      header::CACHE_CONTROL,
+      HeaderValue::from_static("no-store, max-age=0"),
+    );
+    response
   }
 
   async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
