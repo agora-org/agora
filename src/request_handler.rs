@@ -743,12 +743,23 @@ pub(crate) mod tests {
     });
   }
 
+  fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(original, link).unwrap();
+    #[cfg(windows)]
+    if original.as_ref().is_dir() {
+      std::os::windows::fs::symlink_dir(original, link).unwrap();
+    } else {
+      std::os::windows::fs::symlink_file(original, link).unwrap();
+    }
+  }
+
   #[test]
   fn disallow_file_downloads_via_symlinks() {
     test(|context| async move {
       let file = context.files_directory().join("file");
       std::fs::write(&file, "contents").unwrap();
-      std::os::unix::fs::symlink(file, context.files_directory().join("link")).unwrap();
+      symlink(file, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
         .unwrap();
@@ -761,7 +772,7 @@ pub(crate) mod tests {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       std::fs::create_dir(&dir).unwrap();
-      std::os::unix::fs::symlink(&dir, context.files_directory().join("link")).unwrap();
+      symlink(&dir, context.files_directory().join("link"));
       std::fs::write(dir.join("file"), "contents").unwrap();
       let response = reqwest::get(context.files_url().join("link/file").unwrap())
         .await
@@ -775,7 +786,7 @@ pub(crate) mod tests {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       std::fs::create_dir_all(&dir).unwrap();
-      std::os::unix::fs::symlink(dir, context.files_directory().join("link")).unwrap();
+      symlink(dir, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
         .unwrap();
@@ -788,7 +799,7 @@ pub(crate) mod tests {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       std::fs::create_dir(&dir).unwrap();
-      std::os::unix::fs::symlink(&dir, context.files_directory().join("link")).unwrap();
+      symlink(&dir, context.files_directory().join("link"));
       std::fs::create_dir(dir.join("subdir")).unwrap();
       let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
         .await
@@ -802,7 +813,7 @@ pub(crate) mod tests {
     test(|context| async move {
       let file = context.files_directory().join("file");
       std::fs::write(&file, "").unwrap();
-      std::os::unix::fs::symlink(file, context.files_directory().join("link")).unwrap();
+      symlink(file, context.files_directory().join("link"));
       let html = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "file");
