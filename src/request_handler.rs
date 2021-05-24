@@ -3,6 +3,7 @@ use crate::{
   error::{self, Error, Result},
   file_stream::FileStream,
   input_path::InputPath,
+  static_assets::StaticAssets,
   stderr::Stderr,
 };
 use futures::{future::BoxFuture, FutureExt};
@@ -83,6 +84,7 @@ impl RequestHandler {
       .collect::<Vec<&str>>();
     match components.as_slice() {
       ["/"] => Self::redirect(String::from(request.uri().path()) + "files/"),
+      ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => {
         let file_path = self.base_directory.join_file_path(&tail.join(""))?;
 
@@ -139,6 +141,7 @@ impl RequestHandler {
           title {
             "foo"
           }
+          link rel="stylesheet" href="/static/index.css";
         }
         body {
           ul {
@@ -157,7 +160,7 @@ impl RequestHandler {
                 }
                 @if file_type.is_file() {
                   " - "
-                  a download href=(encoded) {
+                  a download href=(encoded) class=("download") {
                     "download"
                   }
                 }
@@ -237,7 +240,7 @@ pub(crate) mod tests {
   use guard::guard_unwrap;
   use hyper::StatusCode;
   use pretty_assertions::assert_eq;
-  use reqwest::{redirect::Policy, Client, IntoUrl, Url};
+  use reqwest::{redirect::Policy, Client, Url};
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, path::MAIN_SEPARATOR, str};
   use tokio::{
@@ -255,14 +258,14 @@ pub(crate) mod tests {
     );
   }
 
-  async fn get(url: impl IntoUrl) -> reqwest::Response {
-    let response = reqwest::get(url).await.unwrap();
+  async fn get(url: &Url) -> reqwest::Response {
+    let response = reqwest::get(url.clone()).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     response
   }
 
   async fn text(url: &Url) -> String {
-    get(url.clone()).await.text().await.unwrap()
+    get(url).await.text().await.unwrap()
   }
 
   async fn html(url: &Url) -> Html {
@@ -572,7 +575,7 @@ pub(crate) mod tests {
         receiver.await.unwrap();
       });
 
-      let mut stream = get(context.files_url().join("fifo").unwrap())
+      let mut stream = get(&context.files_url().join("fifo").unwrap())
         .await
         .bytes_stream();
 
@@ -589,7 +592,7 @@ pub(crate) mod tests {
     test(|context| async move {
       fs::write(context.files_directory().join("foo.mp4"), "hello").unwrap();
 
-      let response = get(context.files_url().join("foo.mp4").unwrap()).await;
+      let response = get(&context.files_url().join("foo.mp4").unwrap()).await;
 
       assert_eq!(
         response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -603,7 +606,7 @@ pub(crate) mod tests {
     test(|context| async move {
       fs::write(context.files_directory().join("foo"), "hello").unwrap();
 
-      let response = get(context.files_url().join("foo").unwrap()).await;
+      let response = get(&context.files_url().join("foo").unwrap()).await;
 
       assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
     });
@@ -817,6 +820,36 @@ pub(crate) mod tests {
       let html = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "file");
+    });
+  }
+
+  #[test]
+  fn serves_static_assets() {
+    test(|context| async move {
+      let response = text(&context.base_url().join("static/index.css").unwrap()).await;
+      let expected = std::fs::read_to_string("static/index.css").unwrap();
+      assert_eq!(response, expected);
+    });
+  }
+
+  #[test]
+  fn sets_mime_types_for_static_assets() {
+    test(|context| async move {
+      let response = get(&context.base_url().join("static/index.css").unwrap()).await;
+      assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "text/css"
+      );
+    });
+  }
+
+  #[test]
+  fn missing_asset_not_found() {
+    test(|context| async move {
+      let response = reqwest::get(context.base_url().join("static/does-not-exist").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
   }
 }

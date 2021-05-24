@@ -11,6 +11,7 @@ maud = "0.22.2"
 mime_guess = "2.0.3"
 percent-encoding = "2.1.0"
 pin-project = "1.0.7"
+rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
 

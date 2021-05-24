@@ -11,6 +11,7 @@ mod file_stream;
 mod input_path;
 mod request_handler;
 mod server;
+mod static_assets;
 mod stderr;
 
 #[tokio::main]

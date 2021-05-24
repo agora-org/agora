@@ -39,6 +39,8 @@ pub(crate) enum Error {
   ServerRun { source: hyper::Error },
   #[snafu(display("Forbidden access to symlink: {}", path.display()))]
   SymlinkAccess { path: PathBuf },
+  #[snafu(display("Static asset not found: {}", uri_path))]
+  StaticAssetNotFound { uri_path: String },
 }
 
 impl Error {
@@ -49,7 +51,9 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
-      RouteNotFound { .. } | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
+      RouteNotFound { .. } | SymlinkAccess { .. } | StaticAssetNotFound { .. } => {
+        StatusCode::NOT_FOUND
+      }
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }
