@@ -84,12 +84,26 @@ impl RequestHandler {
     match components.as_slice() {
       ["/"] => Self::redirect(String::from(request.uri().path()) + "files/"),
       ["/", "files/", tail @ ..] => {
-        let file_path = &self.base_directory.join_file_path(&tail.join(""))?;
+        let file_path = self.base_directory.join_file_path(&tail.join(""))?;
+
+        for result in self.base_directory.iter_prefixes(tail) {
+          let prefix = result?;
+          let file_type = prefix
+            .as_ref()
+            .symlink_metadata()
+            .with_context(|| Error::filesystem_io(&prefix))?
+            .file_type();
+          if file_type.is_symlink() {
+            return Err(Error::SymlinkAccess {
+              path: prefix.as_ref().to_owned(),
+            });
+          }
+        }
 
         let file_type = file_path
           .as_ref()
           .metadata()
-          .with_context(|| Error::filesystem_io(file_path))?
+          .with_context(|| Error::filesystem_io(&file_path))?
           .file_type();
 
         if !file_type.is_dir() {
@@ -103,9 +117,9 @@ impl RequestHandler {
         }
 
         if file_type.is_dir() {
-          self.list(file_path).await
+          self.list(&file_path).await
         } else {
-          self.serve_file(file_path).await
+          self.serve_file(&file_path).await
         }
       }
       _ => Err(Error::RouteNotFound {
@@ -167,18 +181,19 @@ impl RequestHandler {
       .await
       .with_context(|| Error::filesystem_io(path))?
     {
-      entries.push((
-        entry.file_name(),
-        entry.file_type().await.map_err(|source| {
-          match path.join_relative(Path::new(&entry.file_name())) {
-            Err(error) => error,
-            Ok(entry_path) => Error::FilesystemIo {
-              path: entry_path.display_path().to_owned(),
-              source,
-            },
-          }
-        })?,
-      ));
+      let file_type = entry.file_type().await.map_err(|source| {
+        match path.join_relative(Path::new(&entry.file_name())) {
+          Err(error) => error,
+          Ok(entry_path) => Error::FilesystemIo {
+            path: entry_path.display_path().to_owned(),
+            source,
+          },
+        }
+      })?;
+      if file_type.is_symlink() {
+        continue;
+      }
+      entries.push((entry.file_name(), file_type));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
@@ -725,6 +740,83 @@ pub(crate) mod tests {
         "no-store, max-age=0",
       );
       assert_eq!(response.text().await.unwrap(), "bar");
+    });
+  }
+
+  fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(original, link).unwrap();
+    #[cfg(windows)]
+    if original.as_ref().is_dir() {
+      std::os::windows::fs::symlink_dir(original, link).unwrap();
+    } else {
+      std::os::windows::fs::symlink_file(original, link).unwrap();
+    }
+  }
+
+  #[test]
+  fn disallow_file_downloads_via_symlinks() {
+    test(|context| async move {
+      let file = context.files_directory().join("file");
+      std::fs::write(&file, "contents").unwrap();
+      symlink(file, context.files_directory().join("link"));
+      let response = reqwest::get(context.files_url().join("link").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn disallow_file_downloads_via_intermediate_symlinks() {
+    test(|context| async move {
+      let dir = context.files_directory().join("dir");
+      std::fs::create_dir(&dir).unwrap();
+      symlink(&dir, context.files_directory().join("link"));
+      std::fs::write(dir.join("file"), "contents").unwrap();
+      let response = reqwest::get(context.files_url().join("link/file").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn disallow_listing_directories_via_symlinks() {
+    test(|context| async move {
+      let dir = context.files_directory().join("dir");
+      std::fs::create_dir(&dir).unwrap();
+      symlink(dir, context.files_directory().join("link"));
+      let response = reqwest::get(context.files_url().join("link").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn disallow_listing_directories_via_intermediate_symlinks() {
+    test(|context| async move {
+      let dir = context.files_directory().join("dir");
+      std::fs::create_dir(&dir).unwrap();
+      symlink(&dir, context.files_directory().join("link"));
+      std::fs::create_dir(dir.join("subdir")).unwrap();
+      let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn remove_symlinks_from_listings() {
+    test(|context| async move {
+      let file = context.files_directory().join("file");
+      std::fs::write(&file, "").unwrap();
+      symlink(file, context.files_directory().join("link"));
+      let html = html(context.files_url()).await;
+      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "file");
     });
   }
 }

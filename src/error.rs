@@ -37,6 +37,8 @@ pub(crate) enum Error {
   RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
   ServerRun { source: hyper::Error },
+  #[snafu(display("Forbidden access to symlink: {}", path.display()))]
+  SymlinkAccess { path: PathBuf },
 }
 
 impl Error {
@@ -47,7 +49,7 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
-      RouteNotFound { .. } => StatusCode::NOT_FOUND,
+      RouteNotFound { .. } | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }

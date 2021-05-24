@@ -86,6 +86,13 @@ impl InputPath {
       display_path: Path::new("www").join(inner),
     }
   }
+
+  pub(crate) fn iter_prefixes<'a>(
+    &'a self,
+    tail: &'a [&str],
+  ) -> impl Iterator<Item = Result<InputPath>> + 'a {
+    (0..tail.len()).map(move |i| self.join_file_path(&tail[..i + 1].join("")))
+  }
 }
 
 impl AsRef<Path> for InputPath {
@@ -138,5 +145,27 @@ mod tests {
         display_path: Path::new("foo").join("bar")
       }
     );
+  }
+
+  #[test]
+  fn iter_prefixes_iterates_from_base_dir_to_file() {
+    let environment = Environment::test(&[]);
+    let base = InputPath::new(&environment, Path::new("www"));
+    let dirs: Result<Vec<InputPath>> = base.iter_prefixes(&["foo/", "bar/", "baz"]).collect();
+    assert_eq!(
+      dirs.unwrap(),
+      ["foo", "foo/bar", "foo/bar/baz"]
+        .iter()
+        .map(|x| base.join_file_path(x).unwrap())
+        .collect::<Vec<_>>()
+    );
+  }
+
+  #[test]
+  fn iter_prefixes_for_empty_inputs() {
+    let environment = Environment::test(&[]);
+    let base = InputPath::new(&environment, Path::new("www"));
+    let mut dirs = base.iter_prefixes(&[]);
+    assert!(dirs.next().is_none());
   }
 }
