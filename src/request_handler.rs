@@ -785,7 +785,7 @@ pub(crate) mod tests {
   fn disallow_listing_directories_via_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
-      std::fs::create_dir_all(&dir).unwrap();
+      std::fs::create_dir(&dir).unwrap();
       symlink(dir, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
