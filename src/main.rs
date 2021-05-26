@@ -8,9 +8,12 @@ mod test_utils;
 mod environment;
 mod error;
 mod file_stream;
+mod files;
 mod input_path;
+mod redirect;
 mod request_handler;
 mod server;
+mod static_assets;
 mod stderr;
 
 #[tokio::main]
