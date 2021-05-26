@@ -1,7 +1,7 @@
 use crate::{
   environment::Environment,
   error::{self, Error, Result},
-  file_stream::FileStream,
+  files::Files,
   input_path::InputPath,
   redirect::redirect,
   static_assets::StaticAssets,
@@ -11,16 +11,12 @@ use futures::{future::BoxFuture, FutureExt};
 use hyper::{
   header::{self, HeaderValue},
   service::Service,
-  Body, Request, Response, StatusCode,
+  Body, Request, Response,
 };
-use maud::{html, DOCTYPE};
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
-  ffi::OsString,
   fmt::Debug,
-  fs::FileType,
   io::Write,
   path::Path,
   task::{self, Poll},
@@ -29,14 +25,14 @@ use std::{
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
-  pub(crate) base_directory: InputPath,
+  pub(crate) files: Files,
 }
 
 impl RequestHandler {
   pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      base_directory: InputPath::new(environment, base_directory),
+      files: Files::new(InputPath::new(environment, base_directory)),
     }
   }
 
@@ -78,7 +74,7 @@ impl RequestHandler {
     match components.as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
-      ["/", "files/", tail @ ..] => crate::files::serve(&self.base_directory, &request, tail).await,
+      ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       _ => Err(Error::RouteNotFound {
         uri_path: request.uri().path().to_owned(),
       }),
