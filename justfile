@@ -19,5 +19,11 @@ fmt-check:
 forbid:
   ./bin/forbid
 
+check-install:
+  #!/usr/bin/env bash
+  tmp=`mktemp -d`
+  cargo install --path . --root $tmp
+  $tmp/bin/foo --version
+
 watch +command='test':
 	cargo watch --exec '{{command}}'
