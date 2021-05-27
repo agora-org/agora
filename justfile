@@ -1,4 +1,4 @@
-all: build test smoke clippy fmt-check forbid
+all: build test smoke clippy fmt-check forbid check-install
 
 build:
   cargo build --all
