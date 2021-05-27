@@ -85,3 +85,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install ripgrep
         ./bin/forbid
+
+    - name: Install
+      run: |
+        cargo install --path .
+        foo --version
