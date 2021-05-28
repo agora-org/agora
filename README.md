@@ -15,16 +15,20 @@ See `foo --help` for more configuration options.
 
 ## Building
 
-`foo` is written in Rust and is built with Cargo. Running `cargo build --release` will compile the binary in `target/release/foo`.
+`foo` is written in Rust and is built with Cargo. Inside the checked out repository, running `cargo build --release` will build `foo` and copy the binary to `target/release/foo`.
 
-You can also run `cargo install
+From within the repository, you can also run e.g. `cargo install --path . --root /usr/local`, which will copy `foo` to `/usr/local/bin/foo`.
 
 ## Deployment
 
-- self contained (no runtime files, but needs libs)
-- copy and run
+The `foo` binary contains its static assets. So it can be copied and run from anywhere on the filesystem.
+By default `cargo` links to some system libraries dynamically.
+You can avoid this by using the `x86_64-unknown-linux-musl` target: `cargo build --target=x86_64-unknown-linux-musl --release`.
+This produces a statically linked binary that runs on e.g. Alpine and CentOS Linux.
 
-## development
+## Development
 
-- cargo test
-- something about running the CI tests
+You can run the tests locally with `cargo test`.
+Pull requests are tested on github actions, with the workflow in `.github/workflows/build.yaml`.
+You can approximately the same tests that run on CI locally with `just all`.
+(See [just](https://github.com/casey/just).)
