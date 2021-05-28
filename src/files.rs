@@ -106,7 +106,8 @@ impl Files {
           link rel="stylesheet" href="/static/index.css";
         }
         body {
-          ul {
+          ul class=("contents") {
+            li class=("separator") {}
             @for (file_name, file_type) in Self::read_dir(dir).await? {
               @let file_name = {
                 let mut file_name = file_name.to_string_lossy().into_owned();
@@ -116,17 +117,17 @@ impl Files {
                 file_name
               };
               @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
-              li {
-                a href=(encoded) {
+              li class=("file") {
+                a href=(encoded) class=("view") {
                   (file_name)
                 }
                 @if file_type.is_file() {
-                  " - "
                   a download href=(encoded) class=("download") {
-                    "download"
+                    img src=("/static/download.svg");
                   }
                 }
               }
+              li class=("separator") {}
             }
           }
         }
