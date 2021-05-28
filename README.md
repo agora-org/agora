@@ -1,6 +1,6 @@
 # `foo`
 
-`foo` serves the contents of a local directory, serving file listings and downloads over HTTP. For example, you can point it at a directory full of PDFs, allowing users to browse and view PDFs in their web browser.
+`foo` serves the contents of a local directory, providing file listings and downloads over HTTP. For example, you can point it at a directory full of PDFs, allowing users to browse and view PDFs in their web browser.
 
 ## Running
 
