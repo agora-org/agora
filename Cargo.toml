@@ -3,6 +3,7 @@ name = "foo"
 version = "0.0.0"
 authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
 edition = "2018"
+resolver = "2"
 
 [dependencies]
 bytes = "1.0.1"
@@ -21,7 +22,7 @@ features = ["make"]
 
 [dependencies.hyper]
 version = "0.14.7"
-features = ["server", "stream"]
+features = ["server", "stream", "tcp", "http1", "http2"]
 
 [dependencies.tokio]
 version = "1.5.0"

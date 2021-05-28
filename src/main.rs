@@ -19,8 +19,12 @@ mod stderr;
 #[tokio::main]
 async fn main() {
   if let Err(error) = run().await {
-    eprintln!("{}", error);
-    std::process::exit(1);
+    if let crate::error::Error::Clap { source } = error {
+      source.exit();
+    } else {
+      eprintln!("{}", error);
+      std::process::exit(1);
+    }
   }
 }
 

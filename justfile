@@ -1,4 +1,4 @@
-all: build test smoke clippy fmt-check forbid
+all: build test smoke clippy fmt-check forbid check-install
 
 build:
   cargo build --all
@@ -18,6 +18,12 @@ fmt-check:
 
 forbid:
   ./bin/forbid
+
+check-install:
+  #!/usr/bin/env bash
+  tmp=`mktemp -d`
+  cargo install --path . --root $tmp
+  $tmp/bin/foo --version
 
 watch +command='test':
 	cargo watch --exec '{{command}}'
