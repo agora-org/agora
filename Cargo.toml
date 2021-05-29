@@ -1,9 +1,13 @@
 [package]
 name = "agora"
 version = "0.0.0"
+description = "Serve a local directory over HTTP"
 authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
+license = "CC0-1.0"
 edition = "2018"
 resolver = "2"
+repository = "https://github.com/soenkehahn/agora"
+homepage = "https://github.com/soenkehahn/agora"
 
 [dependencies]
 bytes = "1.0.1"
