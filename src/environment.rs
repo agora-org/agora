@@ -43,12 +43,12 @@ impl Environment {
   #[cfg(test)]
   pub(crate) fn test(arguments: &[&str]) -> Self {
     let tempdir = tempfile::Builder::new()
-      .prefix("foo-test")
+      .prefix("agora-test")
       .tempdir()
       .unwrap();
 
     Environment {
-      arguments: ["foo", "--address", "localhost"]
+      arguments: ["agora", "--address", "localhost"]
         .iter()
         .chain(arguments)
         .map(OsString::from)

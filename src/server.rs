@@ -91,7 +91,7 @@ mod tests {
   #[test]
   fn address_resolution_failure_error() {
     let mut environment = Environment::test(&[]);
-    environment.arguments = vec!["foo".into(), "--address".into(), "host.invalid".into()];
+    environment.arguments = vec!["agora".into(), "--address".into(), "host.invalid".into()];
 
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();

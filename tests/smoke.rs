@@ -12,7 +12,7 @@ fn server_listens_on_all_ip_addresses_on_port_8080() {
 
   fs::create_dir(tempdir.path().join("www")).unwrap();
 
-  let mut child = Command::new(executable_path("foo"))
+  let mut child = Command::new(executable_path("agora"))
     .current_dir(&tempdir)
     .stderr(Stdio::piped())
     .spawn()

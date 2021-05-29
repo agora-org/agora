@@ -198,7 +198,7 @@ pub(crate) mod tests {
   fn index_route_contains_title() {
     test(|context| async move {
       let haystack = text(context.base_url()).await;
-      let needle = "<title>foo</title>";
+      let needle = "<title>agora</title>";
       assert_contains(&haystack, needle);
     });
   }
