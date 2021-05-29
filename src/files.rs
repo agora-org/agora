@@ -101,7 +101,7 @@ impl Files {
         head {
           meta charset="utf-8";
           title {
-            "foo"
+            "agora"
           }
           link rel="stylesheet" href="/static/index.css";
         }

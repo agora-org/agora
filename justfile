@@ -23,7 +23,7 @@ check-install:
   #!/usr/bin/env bash
   tmp=`mktemp -d`
   cargo install --path . --root $tmp
-  $tmp/bin/foo --version
+  $tmp/bin/agora --version
 
 watch +command='test':
 	cargo watch --exec '{{command}}'

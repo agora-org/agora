@@ -24,8 +24,8 @@ pub(crate) enum Error {
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo { source: io::Error, path: PathBuf },
   #[snafu(display(
-    "Internal error, this is probably a bug in foo: {}\n\
-      Consider filing an issue: https://github.com/soenkehahn/foo/issues/new/",
+    "Internal error, this is probably a bug in agora: {}\n\
+      Consider filing an issue: https://github.com/soenkehahn/agora/issues/new/",
     message
   ))]
   Internal { message: String },

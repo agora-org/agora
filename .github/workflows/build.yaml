@@ -89,4 +89,4 @@ jobs:
     - name: Install
       run: |
         cargo install --path .
-        foo --version
+        agora --version
