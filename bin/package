@@ -42,7 +42,7 @@ case $OS in
     tar czf $ARCHIVE *
     echo "::set-output name=archive::$ARCHIVE"
     ;;
-  windows-2016)
+  windows-latest)
     ARCHIVE=$DIST/$BIN-$VERSION-$TARGET.zip
     7z a $ARCHIVE *
     echo "::set-output name=archive::`pwd -W`/$BIN-$VERSION-$TARGET.zip"
