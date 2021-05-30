@@ -27,3 +27,13 @@
   background-color: black;
   height: 1px;
 }
+
+.icon {
+  width: 40px;
+  height: 40px;
+  stroke: black;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}

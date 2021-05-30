@@ -5,7 +5,7 @@ use crate::{
   redirect::redirect,
 };
 use hyper::{header, Body, Request, Response, StatusCode};
-use maud::{html, PreEscaped, DOCTYPE};
+use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
 use std::{ffi::OsString, fmt::Debug, fs::FileType, path::Path};
@@ -137,16 +137,9 @@ impl Files {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  fn download_icon(size: u8) -> PreEscaped<String> {
+  fn download_icon(size: u8) -> Markup {
     html! {
-    svg
-      width=(size)
-      height=(size)
-      fill="none"
-      stroke="black"
-      stroke-width=(2)
-      stroke-linecap="round"
-      stroke-linejoin="round" {
+      svg class="icon" {
         use xlink:href="/static/feather-sprite.svg#download" {}
       }
     }
