@@ -39,5 +39,4 @@ You can run approximately the same tests locally with `just all`.
 
 ## License
 
-This software is licensed under [cc0-1.0](https://choosealicense.com/licenses/cc0-1.0/),
-unless stated otherwise in the `ATTRIBUTION.md` file.
+Agora is licensed under [the CC0](https://choosealicense.com/licenses/cc0-1.0) with the exception of third-party components listed in [`ATTRIBUTION.md`](ATTRIBUTION.md).
