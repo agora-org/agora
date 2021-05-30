@@ -9,8 +9,6 @@ BIN=agora
 
 echo "Packaging $BIN $VERSION for $TARGET..."
 
-test -f Cargo.lock || cargo generate-lockfile
-
 echo "Building $BIN..."
 
 case $OS in
