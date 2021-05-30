@@ -36,3 +36,8 @@ You can run the tests locally with `cargo test`.
 Pull requests are tested on github actions, with the workflow defined in `.github/workflows/build.yaml`.
 You can run approximately the same tests locally with `just all`.
 (See [just](https://github.com/casey/just).)
+
+## License
+
+This software is licensed under [cc0-1.0](https://choosealicense.com/licenses/cc0-1.0/),
+unless stated otherwise in the `ATTRIBUTION.md` file.

@@ -306,7 +306,7 @@ pub(crate) mod tests {
       .unwrap();
       let html = html(&context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
-      assert_eq!(a.inner_html(), "download");
+      assert_contains(&a.inner_html(), "download");
       let file_url = a.value().attr("href").unwrap();
       let file_url = context.files_url().join(file_url).unwrap();
       let file_contents = text(&file_url).await;
