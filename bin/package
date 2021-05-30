@@ -28,7 +28,6 @@ echo "Copying release files..."
 mkdir dist
 cp \
   $EXECUTABLE \
-  ATTRIBUTION.md \
   Cargo.lock \
   Cargo.toml \
   LICENSE \
