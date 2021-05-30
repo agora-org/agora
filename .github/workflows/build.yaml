@@ -103,7 +103,6 @@ jobs:
     - name: Package
       id: package
       if: startsWith(github.ref, 'refs/tags/')
-      shell: bash
       env:
         TARGET: ${{ matrix.target }}
         REF: ${{ github.ref }}
