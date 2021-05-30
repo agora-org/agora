@@ -63,8 +63,9 @@ jobs:
 
     - name: Install Rust Toolchain Components
       run: |
-        rustup target add ${{ matrix.target }}
         rustup component add clippy rustfmt
+        rustup target add ${{ matrix.target }}
+        rustup default `cat rust-toolchain`-${{ matrix.target }}
 
     - name: Info
       run: |
