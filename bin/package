@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+set -euxo pipefail
+
+VERSION=${REF#"refs/tags/"}
+SRC=`pwd`
+DIST=$SRC/dist
+BIN=agora
+
+echo "Packaging $BIN $VERSION for $TARGET..."
+
+test -f Cargo.lock || cargo generate-lockfile
+
+echo "Building $BIN..."
+
+case $OS in
+  ubuntu-latest | macos-latest)
+    cargo rustc --bin $BIN --target $TARGET --release
+    EXECUTABLE=target/$TARGET/release/$BIN
+    ;;
+  windows-2016)
+    cargo rustc --bin $BIN --target $TARGET --release -- -C target-feature="+crt-static"
+    EXECUTABLE=target/$TARGET/release/$BIN.exe
+    ;;
+esac
+
+echo "Copying release files..."
+mkdir dist
+cp \
+  $EXECUTABLE \
+  ATTRIBUTION.md \
+  Cargo.lock \
+  Cargo.toml \
+  LICENSE \
+  README.md \
+  $DIST
+
+cd $DIST
+echo "Creating release archive..."
+case $OS in
+  ubuntu-latest | macos-latest)
+    ARCHIVE=$DIST/$BIN-$VERSION-$TARGET.tar.gz
+    tar czf $ARCHIVE *
+    echo "::set-output name=archive::$ARCHIVE"
+    ;;
+  windows-2016)
+    ARCHIVE=$DIST/$BIN-$VERSION-$TARGET.zip
+    7z a $ARCHIVE *
+    echo "::set-output name=archive::`pwd -W`/$BIN-$VERSION-$TARGET.zip"
+    ;;
+esac
