@@ -3,8 +3,7 @@
 set -euxo pipefail
 
 VERSION=${REF#"refs/tags/"}
-SRC=`pwd`
-DIST=$SRC/dist
+DIST=`pwd`/dist
 BIN=agora
 
 echo "Packaging $BIN $VERSION for $TARGET..."
