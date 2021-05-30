@@ -140,7 +140,7 @@ impl Files {
   fn download_icon() -> Markup {
     html! {
       svg class="icon" {
-        use xlink:href="/static/feather-sprite.svg#download" {}
+        use href="/static/feather-sprite.svg#download" {}
       }
     }
   }
