@@ -123,7 +123,7 @@ impl Files {
                 }
                 @if file_type.is_file() {
                   a download href=(encoded) class="download" {
-                    (Files::download_icon(40))
+                    (Files::download_icon())
                   }
                 }
               }
@@ -137,7 +137,7 @@ impl Files {
     Ok(Response::new(Body::from(body.into_string())))
   }
 
-  fn download_icon(size: u8) -> Markup {
+  fn download_icon() -> Markup {
     html! {
       svg class="icon" {
         use xlink:href="/static/feather-sprite.svg#download" {}
