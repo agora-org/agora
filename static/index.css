@@ -10,7 +10,7 @@
   font-family: "Courier New", Courier, monospace;
   display: flex;
   justify-content: space-between;
-  padding: 1em;
+  height: 1.5em;
 }
 
 .view {
@@ -29,8 +29,8 @@
 }
 
 .icon {
-  width: 40px;
-  height: 40px;
+  width: 24px;
+  height: 24px;
   stroke: black;
   stroke-width: 2;
   stroke-linecap: round;
