@@ -109,12 +109,24 @@ jobs:
         OS: ${{ matrix.os }}
       run: ./bin/package
 
+    - name: Prerelease Check
+      id: prerelease
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        REF=${{ github.ref }}
+        VERSION=${REF#"refs/tags/"}
+        if [[ $VERSION =~ ^v[[:digit:]]+[.][[:digit:]]+[.][[:digit:]]+$ ]]; then
+          echo "::set-output name=value::false"
+        else
+          echo "::set-output name=value::true"
+        fi
+
     - name: Publish
       uses: softprops/action-gh-release@v0.1.5
       if: startsWith(github.ref, 'refs/tags/')
       with:
         draft: false
         files: ${{ steps.package.outputs.archive }}
-        prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        prerelease: ${{ steps.prerelease.outputs.value }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
