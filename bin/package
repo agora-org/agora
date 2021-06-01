@@ -16,7 +16,7 @@ case $OS in
     EXECUTABLE=target/$TARGET/release/$BIN
     ;;
   windows-latest)
-    cargo rustc --bin $BIN --target $TARGET --release -- -C target-feature="+crt-static"
+    cargo rustc --bin $BIN --target $TARGET --release -- --codegen target-feature="+crt-static"
     EXECUTABLE=target/$TARGET/release/$BIN.exe
     ;;
 esac
