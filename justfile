@@ -1,4 +1,4 @@
-all: build test smoke clippy fmt-check forbid check-install
+all: build test smoke clippy fmt-check forbid check-install check-lockfile
 
 build:
   cargo build --all
@@ -25,5 +25,19 @@ check-install:
   cargo install --path . --root $tmp
   $tmp/bin/agora --version
 
+check-lockfile:
+  cargo update --locked --package agora
+
 watch +command='test':
-	cargo watch --exec '{{command}}'
+  cargo watch --exec '{{command}}'
+
+publish remote: all
+  #!/usr/bin/env bash
+  set -euxo pipefail
+  VERSION=`cargo run -- --version | cut -d' ' -f2`
+  git diff --no-ext-diff --quiet --exit-code
+  git branch | grep '* master'
+  cargo publish --dry-run
+  git tag -a $VERSION -m "Release version $VERSION"
+  git push {{remote}} $VERSION
+  cargo publish

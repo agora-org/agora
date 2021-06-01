@@ -74,6 +74,10 @@ jobs:
         cargo clippy --version
         cargo fmt --version
 
+    - name: Check Lockfile
+      run: |
+        cargo update --locked --package agora
+
     - name: Build
       run: cargo build --all
 
