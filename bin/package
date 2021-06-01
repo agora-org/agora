@@ -12,7 +12,7 @@ echo "Building $BIN..."
 
 case $OS in
   ubuntu-latest | macos-latest)
-    cargo rustc --bin $BIN --target $TARGET --release
+    cargo build --bin $BIN --target $TARGET --release
     EXECUTABLE=target/$TARGET/release/$BIN
     ;;
   windows-latest)
