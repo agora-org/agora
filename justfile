@@ -28,12 +28,13 @@ check-install:
 watch +command='test':
 	cargo watch --exec '{{command}}'
 
-version := `sed -En 's/version[[:space:]]*=[[:space:]]*"([^"]+)"/\1/p' Cargo.toml | head -1`
-
 publish remote: all
+  #!/usr/bin/env bash
+  set -euxo pipefail
+  VERSION=`cargo run -- --version | cut -d' ' -f2`
 	git diff --no-ext-diff --quiet --exit-code
 	git branch | grep '* master'
 	cargo publish --dry-run
-	git tag -a {{version}} -m 'Release version {{version}}'
-	git push {{remote}} {{version}}
+	git tag -a $VERSION -m "Release version $VERSION"
+	git push {{remote}} $VERSION
 	cargo publish
