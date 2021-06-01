@@ -40,3 +40,7 @@ You can run the tests locally with `cargo test`.
 Pull requests are tested on github actions, with the workflow defined in `.github/workflows/build.yaml`.
 You can run approximately the same tests locally with `just all`.
 (See [just](https://github.com/casey/just).)
+
+## License
+
+Agora is licensed under [the CC0](https://choosealicense.com/licenses/cc0-1.0) with the exception of third-party components listed in [`ATTRIBUTION.md`](ATTRIBUTION.md).

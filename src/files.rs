@@ -5,7 +5,7 @@ use crate::{
   redirect::redirect,
 };
 use hyper::{header, Body, Request, Response, StatusCode};
-use maud::{html, DOCTYPE};
+use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
 use std::{ffi::OsString, fmt::Debug, fs::FileType, path::Path};
@@ -106,7 +106,7 @@ impl Files {
           link rel="stylesheet" href="/static/index.css";
         }
         body {
-          ul {
+          ul class="contents" {
             @for (file_name, file_type) in Self::read_dir(dir).await? {
               @let file_name = {
                 let mut file_name = file_name.to_string_lossy().into_owned();
@@ -117,13 +117,12 @@ impl Files {
               };
               @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
               li {
-                a href=(encoded) {
+                a href=(encoded) class="view" {
                   (file_name)
                 }
                 @if file_type.is_file() {
-                  " - "
-                  a download href=(encoded) class=("download") {
-                    "download"
+                  a download href=(encoded) {
+                    (Files::download_icon())
                   }
                 }
               }
@@ -134,6 +133,14 @@ impl Files {
     };
 
     Ok(Response::new(Body::from(body.into_string())))
+  }
+
+  fn download_icon() -> Markup {
+    html! {
+      svg class="icon" {
+        use href="/static/feather-sprite.svg#download" {}
+      }
+    }
   }
 
   async fn serve_file(path: &InputPath) -> Result<Response<Body>> {

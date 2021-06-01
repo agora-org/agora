@@ -1,3 +1,36 @@
-.download {
-  font-style: italic;
+.contents {
+  border-top: 1px solid black;
+  list-style: none;
+  margin: auto;
+  max-width: 100%;
+  padding: 0%;
+  width: 800px;
+}
+
+.contents > li {
+  border-bottom: 1px solid black;
+  display: flex;
+  font-family: "Courier New", Courier, monospace;
+  height: 1.5em;
+  justify-content: space-between;
+}
+
+.view {
+  color: black;
+  margin-bottom: auto;
+  margin-top: auto;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon {
+  fill: none;
+  height: 24px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  stroke: black;
+  width: 24px;
 }
