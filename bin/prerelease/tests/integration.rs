@@ -20,7 +20,7 @@ fn junk_is_prerelease() {
 #[test]
 fn valid_version_is_not_prerelease() {
   assert_eq!(
-    stdout("refs/tags/v0.0.0"),
+    stdout("refs/tags/0.0.0"),
     "::set-output name=value::false\n"
   );
 }
@@ -28,7 +28,7 @@ fn valid_version_is_not_prerelease() {
 #[test]
 fn valid_version_with_trailing_characters_is_prerelease() {
   assert_eq!(
-    stdout("refs/tags/v0.0.0-rc1"),
+    stdout("refs/tags/0.0.0-rc1"),
     "::set-output name=value::true\n"
   );
 }
@@ -36,7 +36,7 @@ fn valid_version_with_trailing_characters_is_prerelease() {
 #[test]
 fn valid_version_with_lots_of_digits_is_not_prerelease() {
   assert_eq!(
-    stdout("refs/tags/v01232132.098327498374.43268473849734"),
+    stdout("refs/tags/01232132.098327498374.43268473849734"),
     "::set-output name=value::false\n"
   );
 }

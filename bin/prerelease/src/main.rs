@@ -10,7 +10,7 @@ struct Arguments {
 fn main() {
   let arguments = Arguments::from_args();
 
-  let regex = Regex::new("^refs/tags/v[[:digit:]]+[.][[:digit:]]+[.][[:digit:]]+$")
+  let regex = Regex::new("^refs/tags/[[:digit:]]+[.][[:digit:]]+[.][[:digit:]]+$")
     .expect("Failed to compile release regex");
 
   println!(
