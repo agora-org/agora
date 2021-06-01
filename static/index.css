@@ -1,39 +1,36 @@
 .contents {
-  width: 800px;
-  max-width: 100%;
-  margin: auto;
-  padding: 0%;
+  border-top: 1px solid black;
   list-style: none;
+  margin: auto;
+  max-width: 100%;
+  padding: 0%;
+  width: 800px;
 }
 
-.file {
-  font-family: "Courier New", Courier, monospace;
+.contents > li {
+  border-bottom: 1px solid black;
   display: flex;
-  justify-content: space-between;
+  font-family: "Courier New", Courier, monospace;
   height: 1.5em;
+  justify-content: space-between;
 }
 
 .view {
   color: black;
-  text-decoration: none;
-  margin-top: auto;
   margin-bottom: auto;
-  white-space: nowrap;
+  margin-top: auto;
   overflow: hidden;
+  text-decoration: none;
   text-overflow: ellipsis;
-}
-
-.separator {
-  background-color: black;
-  height: 1px;
+  white-space: nowrap;
 }
 
 .icon {
-  width: 24px;
+  fill: none;
   height: 24px;
-  stroke: black;
-  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  fill: none;
+  stroke-width: 2;
+  stroke: black;
+  width: 24px;
 }
