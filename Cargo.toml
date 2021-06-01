@@ -1,6 +1,6 @@
 [package]
 name = "agora"
-version = "0.0.0"
+version = "0.0.1"
 description = "Serve a local directory over HTTP"
 authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
 license = "CC0-1.0"
