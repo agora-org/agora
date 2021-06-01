@@ -109,9 +109,9 @@ jobs:
         OS: ${{ matrix.os }}
       run: ./bin/package
 
-    - name: Pre-release Check
-      id: prerelease
-      run: cargo run -p prerelease -- --reference ${{ github.ref }}
+    - name: Prerelease Check
+      id: is_prerelease
+      run: cargo run --package prerelease -- --reference ${{ github.ref }}
 
     - name: Publish
       uses: softprops/action-gh-release@v0.1.5
@@ -119,6 +119,6 @@ jobs:
       with:
         draft: false
         files: ${{ steps.package.outputs.archive }}
-        prerelease: ${{ steps.prerelease.outputs.value }}
+        prerelease: ${{ steps.is_prerelease.outputs.value }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
