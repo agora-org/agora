@@ -14,7 +14,11 @@ $ curl http://localhost:1234/files/file.txt
 
 See `agora --help` for more configuration options.
 
-## Building
+## Installation
+
+Pre-built binaries for Linux, MacOS, and Windows can be found on [the releases page](https://github.com/soenkehahn/agora/releases).
+
+## Building from Source
 
 `agora` is written in [Rust](https://www.rust-lang.org/) and built with `cargo`.
 You can install Rust with [rustup](https://rustup.rs/).
