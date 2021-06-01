@@ -1,4 +1,4 @@
-all: build test smoke clippy fmt-check forbid check-install
+all: build test smoke clippy fmt-check forbid check-install check-lockfile
 
 build:
   cargo build --all
@@ -24,6 +24,9 @@ check-install:
   tmp=`mktemp -d`
   cargo install --path . --root $tmp
   $tmp/bin/agora --version
+
+check-lockfile:
+  cargo update --locked --package agora
 
 watch +command='test':
 	cargo watch --exec '{{command}}'
