@@ -9,6 +9,9 @@ resolver = "2"
 repository = "https://github.com/soenkehahn/agora"
 homepage = "https://github.com/soenkehahn/agora"
 
+[workspace]
+members = [".", "bin/prerelease"]
+
 [dependencies]
 bytes = "1.0.1"
 futures = "0.3.14"
