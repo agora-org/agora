@@ -32,9 +32,9 @@ watch +command='test':
 	cargo watch --exec '{{command}}'
 
 publish remote: all
-  #!/usr/bin/env bash
-  set -euxo pipefail
-  VERSION=`cargo run -- --version | cut -d' ' -f2`
+	#!/usr/bin/env bash
+	set -euxo pipefail
+	VERSION=`cargo run -- --version | cut -d' ' -f2`
 	git diff --no-ext-diff --quiet --exit-code
 	git branch | grep '* master'
 	cargo publish --dry-run
