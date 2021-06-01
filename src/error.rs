@@ -8,7 +8,7 @@ use tokio::task::JoinError;
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 pub(crate) enum Error {
   #[snafu(display("Failed to resolve `{}` to an IP address: {}", input, source))]
   AddressResolutionIo { input: String, source: io::Error },
