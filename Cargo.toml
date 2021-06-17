@@ -10,7 +10,7 @@ repository = "https://github.com/soenkehahn/agora"
 homepage = "https://github.com/soenkehahn/agora"
 
 [workspace]
-members = [".", "bin/prerelease"]
+members = [".", "bin/prerelease", "lnd-client"]
 
 [dependencies]
 bytes = "1.0.1"
