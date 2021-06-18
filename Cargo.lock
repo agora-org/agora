@@ -380,6 +380,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
+name = "cradle"
+version = "0.0.2"
+source = "git+https://github.com/soenkehahn/cradle?rev=508c646#508c646a6ffb06ff45cc6f72b8ef241a36ffb960"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1119,6 +1127,7 @@ dependencies = [
 name = "lnd-client"
 version = "0.0.0"
 dependencies = [
+ "cradle",
  "httpmock",
  "pretty_assertions",
  "reqwest",

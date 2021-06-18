@@ -40,9 +40,11 @@ impl Client {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use cradle::*;
   use httpmock::{Method::GET, MockServer, Then, When};
   use pretty_assertions::assert_eq;
   use reqwest::StatusCode;
+  use std::path::PathBuf;
 
   fn test<Setup, Test>(setup: Setup, test: Test)
   where
@@ -82,5 +84,48 @@ mod tests {
         )
       },
     );
+  }
+
+  fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
+    let tarball_path = target_dir.join("bitcoin-0.21.1-x86_64-linux-gnu.tar.gz");
+    if !tarball_path.exists() {
+      let mut response = reqwest::blocking::get(
+        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-x86_64-linux-gnu.tar.gz",
+      )
+      .unwrap();
+      let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
+      std::io::copy(&mut response, &mut tarball_file).unwrap();
+    }
+    tarball_path
+  }
+
+  fn bitcoind_executable() -> PathBuf {
+    let target_dir = Path::new("../target");
+    let binary = target_dir.join("bitcoind");
+    if !binary.exists() {
+      let tarball_path = bitcoind_tarball(target_dir);
+      cmd_unit!(
+        Stdin(
+          format!(
+            "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b {}",
+            tarball_path.to_str().unwrap()
+          ).as_str()
+        ),
+        %"sha256sum -c -"
+      );
+      cmd_unit!(
+        %"tar -xzvf",
+        tarball_path.to_str().unwrap(),
+        "-C", target_dir.to_str().unwrap(),
+        %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
+      );
+    }
+    binary
+  }
+
+  #[test]
+  fn installs_bitcoind_test_executable() {
+    let StdoutTrimmed(version) = cmd!(bitcoind_executable().to_str().unwrap(), "--version");
+    assert!(version.contains("v0.21.1"));
   }
 }

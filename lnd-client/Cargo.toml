@@ -8,5 +8,6 @@ edition = "2018"
 reqwest = { version = "0.11.3", features = ["blocking"] }
 
 [dev-dependencies]
+cradle = { git = "https://github.com/soenkehahn/cradle", rev = "508c646" }
 httpmock = "0.5.8"
 pretty_assertions = "0.7.2"
