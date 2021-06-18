@@ -86,12 +86,25 @@ mod tests {
     );
   }
 
+  const TARGET: &str = if cfg!(target_os = "macos") {
+    "osx64"
+  } else {
+    "x64_64-linux-gnu"
+  };
+
+  const BITCOIN_TARBALL_HASH: &str = if cfg!(target_os = "macos") {
+    "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
+  } else {
+    "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
+  };
+
   fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
-    let tarball_path = target_dir.join("bitcoin-0.21.1-x86_64-linux-gnu.tar.gz");
+    let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", TARGET));
     if !tarball_path.exists() {
-      let mut response = reqwest::blocking::get(
-        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-x86_64-linux-gnu.tar.gz",
-      )
+      let mut response = reqwest::blocking::get(format!(
+        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}.tar.gz",
+        TARGET
+      ))
       .unwrap();
       let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
@@ -107,11 +120,12 @@ mod tests {
       cmd_unit!(
         Stdin(
           format!(
-            "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b {}",
-            tarball_path.to_str().unwrap()
+            "{}  {}",
+            BITCOIN_TARBALL_HASH,
+            tarball_path.to_str().unwrap(),
           ).as_str()
         ),
-        %"sha256sum -c -"
+        %"shasum -a256 -c -"
       );
       cmd_unit!(
         %"tar -xzvf",
