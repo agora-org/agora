@@ -1131,6 +1131,7 @@ dependencies = [
  "httpmock",
  "pretty_assertions",
  "reqwest",
+ "tempfile",
 ]
 
 [[package]]

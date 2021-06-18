@@ -44,7 +44,7 @@ mod tests {
   use httpmock::{Method::GET, MockServer, Then, When};
   use pretty_assertions::assert_eq;
   use reqwest::StatusCode;
-  use std::path::PathBuf;
+  use std::{path::PathBuf, process::Command};
 
   fn test<Setup, Test>(setup: Setup, test: Test)
   where
@@ -86,31 +86,13 @@ mod tests {
     );
   }
 
-  const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
-    "osx64"
-  } else {
-    "x64_64-linux-gnu"
-  };
-
-  const LND_TARGET: &str = if cfg!(target_os = "macos") {
-    "darwin-amd64"
-  } else {
-    "linux-amd64"
-  };
-
-  const BITCOIN_CORE_TARBALL_HASH: &str = if cfg!(target_os = "macos") {
-    "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
-  } else {
-    "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
-  };
-
-  const LND_TARBALL_HASH: &str = if cfg!(target_os = "macos") {
-    "be1c3e4a97b54e9265636484590d11c530538b5af273b460e9f154fc0d088c94"
-  } else {
-    "3aca477c72435876d208a509410a05e7f629bf5e0054c31b9948b56101768347"
-  };
-
   fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
+    const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
+      "osx64"
+    } else {
+      "x64_64-linux-gnu"
+    };
+
     let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", BITCOIN_CORE_TARGET));
     if !tarball_path.exists() {
       let mut response = reqwest::blocking::get(format!(
@@ -133,7 +115,11 @@ mod tests {
         Stdin(
           format!(
             "{}  {}",
-            BITCOIN_CORE_TARBALL_HASH,
+            if cfg!(target_os = "macos") {
+              "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
+            } else {
+              "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
+            },
             tarball_path.to_str().unwrap(),
           ).as_str()
         ),
@@ -149,7 +135,12 @@ mod tests {
     binary
   }
 
-  fn lnd_tarball(target_dir: &Path) -> PathBuf {
+  fn lnd_tarball(target_dir: &Path) -> (PathBuf, String) {
+    const LND_TARGET: &str = if cfg!(target_os = "macos") {
+      "darwin-amd64"
+    } else {
+      "linux-amd64"
+    };
     let tarball_path = target_dir.join(format!("lnd-{}-v0.13.0-beta.tar.gz", LND_TARGET));
     if !tarball_path.exists() {
       let mut response = reqwest::blocking::get(format!(
@@ -160,20 +151,23 @@ mod tests {
       let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
     }
-    tarball_path
+    (tarball_path, format!("lnd-{}-v0.13.0-beta", LND_TARGET))
   }
 
   fn lnd_executable() -> PathBuf {
     let target_dir = Path::new("../target");
     let binary = target_dir.join("lnd");
     if !binary.exists() {
-      let tarball_path = lnd_tarball(target_dir);
-      let tarball_dir = format!("lnd-{}-v0.13.0-beta", LND_TARGET);
+      let (tarball_path, tarball_dir) = lnd_tarball(target_dir);
       cmd_unit!(
         Stdin(
           format!(
             "{}  {}",
-            LND_TARBALL_HASH,
+            if cfg!(target_os = "macos") {
+              "be1c3e4a97b54e9265636484590d11c530538b5af273b460e9f154fc0d088c94"
+            } else {
+              "3aca477c72435876d208a509410a05e7f629bf5e0054c31b9948b56101768347"
+            },
             tarball_path.to_str().unwrap(),
           ).as_str()
         ),
@@ -191,6 +185,10 @@ mod tests {
     binary
   }
 
+  fn lncli_executable() -> PathBuf {
+    lnd_executable().parent().unwrap().join("lncli")
+  }
+
   #[test]
   fn installs_bitcoind_test_executable() {
     let StdoutTrimmed(version) = cmd!(bitcoind_executable().to_str().unwrap(), "--version");
@@ -201,5 +199,45 @@ mod tests {
   fn installs_lnd_test_executable() {
     let StdoutTrimmed(version) = cmd!(lnd_executable().to_str().unwrap(), "--version");
     assert!(version.contains("0.13.0-beta"));
+  }
+
+  #[test]
+  fn starts_lnd() {
+    let tmp = tempfile::tempdir().unwrap();
+
+    let bitcoinddir = tmp.path().join("bitcoind");
+
+    std::fs::create_dir(&bitcoinddir).unwrap();
+
+    let bitcoind = Command::new(bitcoind_executable())
+      .arg("-chain=regtest")
+      .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
+      .spawn()
+      .unwrap();
+
+    std::thread::sleep(std::time::Duration::from_millis(5000));
+
+    let lnddir = tmp.path().join("lnd");
+    let lnd = Command::new(lnd_executable())
+      .args(&[
+        "--bitcoin.regtest",
+        "--bitcoin.active",
+        "--bitcoin.node=bitcoind",
+      ])
+      .arg("--lnddir")
+      .arg(&lnddir)
+      .arg("--bitcoind.dir")
+      .arg(&bitcoinddir)
+      .spawn()
+      .unwrap();
+
+    cmd_unit!(
+      lncli_executable().to_str().unwrap(),
+      "--network",
+      "regtest",
+      "--lnddir",
+      lnddir.to_str().unwrap(),
+      "getinfo"
+    );
   }
 }
