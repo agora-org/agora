@@ -44,7 +44,7 @@ mod tests {
   use httpmock::{Method::GET, MockServer, Then, When};
   use pretty_assertions::assert_eq;
   use reqwest::StatusCode;
-  use std::{path::PathBuf, process::Command};
+  use std::{path::PathBuf, process::Command, sync::Once};
 
   fn test<Setup, Test>(setup: Setup, test: Test)
   where
@@ -110,29 +110,33 @@ mod tests {
   fn bitcoind_executable() -> PathBuf {
     let target_dir = Path::new("../target");
     let binary = target_dir.join("bitcoind");
-    if !binary.exists() {
-      let tarball_path = bitcoind_tarball(target_dir);
-      cmd_unit!(
-        Stdin(
-          format!(
-            "{}  {}",
-            if cfg!(target_os = "macos") {
-              "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
-            } else {
-              "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
-            },
-            tarball_path.to_str().unwrap(),
-          ).as_str()
-        ),
-        %"shasum -a256 -c -"
-      );
-      cmd_unit!(
-        %"tar -xzvf",
-        tarball_path.to_str().unwrap(),
-        "-C", target_dir.to_str().unwrap(),
-        %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
-      );
-    }
+
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+      if !binary.exists() {
+        let tarball_path = bitcoind_tarball(target_dir);
+        cmd_unit!(
+          Stdin(
+            format!(
+              "{}  {}",
+              if cfg!(target_os = "macos") {
+                "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
+              } else {
+                "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
+              },
+              tarball_path.to_str().unwrap(),
+            ).as_str()
+          ),
+          %"shasum -a256 -c -"
+        );
+        cmd_unit!(
+          %"tar -xzvf",
+          tarball_path.to_str().unwrap(),
+          "-C", target_dir.to_str().unwrap(),
+          %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
+        );
+      }
+    });
     binary
   }
 
@@ -159,31 +163,34 @@ mod tests {
   fn lnd_executable() -> PathBuf {
     let target_dir = Path::new("../target");
     let binary = target_dir.join("lnd");
-    if !binary.exists() {
-      let (tarball_path, tarball_dir) = lnd_tarball(target_dir);
-      cmd_unit!(
-        Stdin(
-          format!(
-            "{}  {}",
-            if cfg!(target_os = "macos") {
-              "be1c3e4a97b54e9265636484590d11c530538b5af273b460e9f154fc0d088c94"
-            } else {
-              "3aca477c72435876d208a509410a05e7f629bf5e0054c31b9948b56101768347"
-            },
-            tarball_path.to_str().unwrap(),
-          ).as_str()
-        ),
-        %"shasum -a256 -c -"
-      );
-      cmd_unit!(
-        %"tar -xzvf",
-        tarball_path.to_str().unwrap(),
-        "-C", target_dir.to_str().unwrap(),
-        "--strip-components=1",
-        format!("{}/lnd", tarball_dir),
-        format!("{}/lncli", tarball_dir)
-      );
-    }
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+      if !binary.exists() {
+        let (tarball_path, tarball_dir) = lnd_tarball(target_dir);
+        cmd_unit!(
+          Stdin(
+            format!(
+              "{}  {}",
+              if cfg!(target_os = "macos") {
+                "be1c3e4a97b54e9265636484590d11c530538b5af273b460e9f154fc0d088c94"
+              } else {
+                "3aca477c72435876d208a509410a05e7f629bf5e0054c31b9948b56101768347"
+              },
+              tarball_path.to_str().unwrap(),
+            ).as_str()
+          ),
+          %"shasum -a256 -c -"
+        );
+        cmd_unit!(
+          %"tar -xzvf",
+          tarball_path.to_str().unwrap(),
+          "-C", target_dir.to_str().unwrap(),
+          "--strip-components=1",
+          format!("{}/lnd", tarball_dir),
+          format!("{}/lncli", tarball_dir)
+        );
+      }
+    });
     binary
   }
 
