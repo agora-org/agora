@@ -90,7 +90,7 @@ mod tests {
     const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
       "osx64"
     } else {
-      "x64_64-linux-gnu"
+      "x86_64-linux-gnu"
     };
 
     let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", BITCOIN_CORE_TARGET));
@@ -100,6 +100,7 @@ mod tests {
         BITCOIN_CORE_TARGET
       ))
       .unwrap();
+      assert_eq!(response.status(), 200);
       let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
     }
@@ -148,6 +149,7 @@ mod tests {
         LND_TARGET
       ))
       .unwrap();
+      assert_eq!(response.status(), 200);
       let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
     }
