@@ -275,8 +275,9 @@ mod tests {
       .unwrap();
 
     let lnddir = tmp.path().join("lnd");
-    let start_lnd = || {
-      Command::new(lnd_executable())
+
+    let lnd = 'outer: loop {
+      let mut lnd = Command::new(lnd_executable())
         .args(&[
           "--bitcoin.regtest",
           "--bitcoin.active",
@@ -297,27 +298,25 @@ mod tests {
         .arg("--noseedbackup")
         .arg("--no-macaroons")
         .spawn_owned()
-        .unwrap()
-    };
-    let mut lnd = start_lnd();
-
-    loop {
-      let Exit(status) = cmd!(
-        lncli_executable().to_str().unwrap(),
-        "--network",
-        "regtest",
-        "--lnddir",
-        lnddir.to_str().unwrap(),
-        "--no-macaroons",
-        "getinfo"
-      );
-      if status.success() {
-        break;
-      } else if lnd.inner.try_wait().unwrap().is_some() {
-        lnd = start_lnd();
+        .unwrap();
+      loop {
+        let Exit(status) = cmd!(
+          lncli_executable().to_str().unwrap(),
+          "--network",
+          "regtest",
+          "--lnddir",
+          lnddir.to_str().unwrap(),
+          "--no-macaroons",
+          "getinfo"
+        );
+        if status.success() {
+          break 'outer lnd;
+        } else if lnd.inner.try_wait().unwrap().is_some() {
+          break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
       }
-      std::thread::sleep(std::time::Duration::from_millis(500));
-    }
+    };
     cmd_unit!("tree", lnddir.to_str().unwrap());
   }
 }
