@@ -60,8 +60,8 @@ impl TestContext {
         );
         cmd_unit!(
           %"tar -xzvf",
-          tarball_path.to_str().unwrap(),
-          "-C", target_dir.to_str().unwrap(),
+          tarball_path,
+          "-C", target_dir,
           %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
         );
       }
@@ -101,8 +101,8 @@ impl TestContext {
         );
         cmd_unit!(
           %"tar -xzvf",
-          tarball_path.to_str().unwrap(),
-          "-C", target_dir.to_str().unwrap()
+          tarball_path,
+          "-C", target_dir
         );
         let src_dir = target_dir.join("lnd-source");
         cmd_unit!(
@@ -195,11 +195,11 @@ impl TestContext {
         .unwrap();
       loop {
         let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
-          Self::lncli_executable().to_str().unwrap(),
+          Self::lncli_executable(),
           "--network",
           "regtest",
           "--lnddir",
-          lnddir.to_str().unwrap(),
+          &lnddir,
           "--rpcserver",
           format!("localhost:{}", lnd_rpc_port),
           "--no-macaroons",
