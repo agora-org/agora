@@ -1,7 +1,9 @@
 use super::*;
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
+use hex_literal::hex;
 use pretty_assertions::assert_eq;
+use sha2::{Digest, Sha256};
 use std::{net::TcpListener, path::PathBuf, process::Command, sync::Once};
 use tempfile::TempDir;
 
@@ -44,19 +46,14 @@ impl TestContext {
     ONCE.call_once(|| {
       if !binary.exists() {
         let tarball_path = Self::bitcoind_tarball(target_dir);
-        cmd_unit!(
-          Stdin(
-            format!(
-              "{}  {}",
-              if cfg!(target_os = "macos") {
-                "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
-              } else {
-                "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
-              },
-              tarball_path.to_str().unwrap(),
-            ).as_str()
-          ),
-          %"shasum -a256 -c -"
+        let tarball_bytes = std::fs::read(&tarball_path).unwrap();
+        assert_eq!(
+          Sha256::digest(&tarball_bytes).as_slice(),
+          if cfg!(target_os = "macos") {
+            &hex!("1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7")
+          } else {
+            &hex!("366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b")
+          },
         );
         cmd_unit!(
           %"tar -xzvf",
@@ -90,14 +87,10 @@ impl TestContext {
     ONCE.call_once(|| {
       if !binary.exists() {
         let tarball_path = Self::lnd_tarball(target_dir);
-        cmd_unit!(
-          Stdin(
-            format!(
-              "fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912  {}",
-              tarball_path.to_str().unwrap(),
-            ).as_str()
-          ),
-          %"shasum -a256 -c -"
+        let tarball_bytes = std::fs::read(&tarball_path).unwrap();
+        assert_eq!(
+          Sha256::digest(&tarball_bytes).as_slice(),
+          &hex!("fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912")
         );
         cmd_unit!(
           %"tar -xzvf",

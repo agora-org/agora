@@ -41,3 +41,6 @@ publish remote: all
   git tag -a $VERSION -m "Release version $VERSION"
   git push {{remote}} $VERSION
   cargo publish
+
+clean-binaries:
+  rm -rf target/{bitcoin*,ln*}
