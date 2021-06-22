@@ -50,6 +50,7 @@ mod tests {
     process::{Child, Command},
     sync::Once,
   };
+  use tempfile::TempDir;
 
   fn test<Setup, Test>(setup: Setup, test: Test)
   where
@@ -64,14 +65,107 @@ mod tests {
     test(client);
   }
 
+  struct TestContext {
+    lnd: OwnedChild,
+    bitcoind: OwnedChild,
+    tmpdir: TempDir,
+  }
+
+  impl TestContext {
+    fn new() -> Self {
+      let tmpdir = tempfile::tempdir().unwrap();
+
+      let bitcoinddir = tmpdir.path().join("bitcoind");
+
+      std::fs::create_dir(&bitcoinddir).unwrap();
+      std::fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
+
+      let rpc_port = guess_free_port();
+      let zmqpubrawblock = guess_free_port();
+      let zmqpubrawtx = guess_free_port();
+      let bitcoind = Command::new(bitcoind_executable())
+        .arg("-chain=regtest")
+        .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
+        .arg(format!("-rpcport={}", rpc_port))
+        .arg("-rpcuser=user")
+        .arg("-rpcpassword=password")
+        .arg(format!("-port={}", guess_free_port()))
+        .arg(format!("-bind=127.0.0.1:{}=onion", guess_free_port()))
+        .arg(format!(
+          "-zmqpubrawblock=tcp://127.0.0.1:{}",
+          zmqpubrawblock
+        ))
+        .arg(format!("-zmqpubrawtx=tcp://127.0.0.1:{}", zmqpubrawtx))
+        .spawn_owned()
+        .unwrap();
+
+      let lnddir = tmpdir.path().join("lnd");
+
+      let lnd = 'outer: loop {
+        let mut lnd = Command::new(lnd_executable())
+          .args(&[
+            "--bitcoin.regtest",
+            "--bitcoin.active",
+            "--bitcoin.node=bitcoind",
+          ])
+          .arg("--lnddir")
+          .arg(&lnddir)
+          .arg("--bitcoind.dir")
+          .arg(&bitcoinddir)
+          .arg(format!("--bitcoind.rpchost=127.0.0.1:{}", rpc_port))
+          .arg("--bitcoind.rpcuser=user")
+          .arg("--bitcoind.rpcpass=password")
+          .arg(format!(
+            "--bitcoind.zmqpubrawblock=127.0.0.1:{}",
+            zmqpubrawblock
+          ))
+          .arg(format!("--bitcoind.zmqpubrawtx=127.0.0.1:{}", zmqpubrawtx))
+          .arg("--noseedbackup")
+          .arg("--no-macaroons")
+          .arg("--debuglevel=trace")
+          .spawn_owned()
+          .unwrap();
+        loop {
+          let Exit(status) = cmd!(
+            lncli_executable().to_str().unwrap(),
+            "--network",
+            "regtest",
+            "--lnddir",
+            lnddir.to_str().unwrap(),
+            "--no-macaroons",
+            "getinfo"
+          );
+          if status.success() {
+            break 'outer lnd;
+          } else if lnd.inner.try_wait().unwrap().is_some() {
+            break;
+          }
+          std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+      };
+
+      Self {
+        tmpdir,
+        lnd,
+        bitcoind,
+      }
+    }
+
+    fn client(&self) -> Client {
+      Client::new(
+        &self.tmpdir.path().join("lnd/tls.cert"),
+        "https://localhost:8080".into(),
+      )
+      .unwrap()
+      .unwrap()
+    }
+  }
+
   #[test]
   fn state() {
-    test(
-      |when, then| {
-        when.method(GET).path("/v1/state");
-        then.status(200).body("test-state");
-      },
-      |client| assert_eq!(client.state().unwrap(), "test-state"),
+    assert_eq!(
+      TestContext::new().client().state().unwrap(),
+      r#"{"state":"RPC_ACTIVE"}"#
     );
   }
 
@@ -245,75 +339,6 @@ mod tests {
 
   #[test]
   fn starts_lnd() {
-    let tmp = tempfile::tempdir().unwrap();
-
-    let bitcoinddir = tmp.path().join("bitcoind");
-
-    std::fs::create_dir(&bitcoinddir).unwrap();
-    std::fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
-
-    let rpc_port = guess_free_port();
-    let zmqpubrawblock = guess_free_port();
-    let zmqpubrawtx = guess_free_port();
-    let bitcoind = Command::new(bitcoind_executable())
-      .arg("-chain=regtest")
-      .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
-      .arg(format!("-rpcport={}", rpc_port))
-      .arg("-rpcuser=user")
-      .arg("-rpcpassword=password")
-      .arg(format!("-port={}", guess_free_port()))
-      .arg(format!("-bind=127.0.0.1:{}=onion", guess_free_port()))
-      .arg(format!(
-        "-zmqpubrawblock=tcp://127.0.0.1:{}",
-        zmqpubrawblock
-      ))
-      .arg(format!("-zmqpubrawtx=tcp://127.0.0.1:{}", zmqpubrawtx))
-      .spawn_owned()
-      .unwrap();
-
-    let lnddir = tmp.path().join("lnd");
-
-    let lnd = 'outer: loop {
-      let mut lnd = Command::new(lnd_executable())
-        .args(&[
-          "--bitcoin.regtest",
-          "--bitcoin.active",
-          "--bitcoin.node=bitcoind",
-        ])
-        .arg("--lnddir")
-        .arg(&lnddir)
-        .arg("--bitcoind.dir")
-        .arg(&bitcoinddir)
-        .arg(format!("--bitcoind.rpchost=127.0.0.1:{}", rpc_port))
-        .arg("--bitcoind.rpcuser=user")
-        .arg("--bitcoind.rpcpass=password")
-        .arg(format!(
-          "--bitcoind.zmqpubrawblock=127.0.0.1:{}",
-          zmqpubrawblock
-        ))
-        .arg(format!("--bitcoind.zmqpubrawtx=127.0.0.1:{}", zmqpubrawtx))
-        .arg("--noseedbackup")
-        .arg("--no-macaroons")
-        .spawn_owned()
-        .unwrap();
-      loop {
-        let Exit(status) = cmd!(
-          lncli_executable().to_str().unwrap(),
-          "--network",
-          "regtest",
-          "--lnddir",
-          lnddir.to_str().unwrap(),
-          "--no-macaroons",
-          "getinfo"
-        );
-        if status.success() {
-          break 'outer lnd;
-        } else if lnd.inner.try_wait().unwrap().is_some() {
-          break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(500));
-      }
-    };
-    cmd_unit!("tree", lnddir.to_str().unwrap());
+    TestContext::new();
   }
 }
