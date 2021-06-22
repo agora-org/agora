@@ -5,115 +5,6 @@ use pretty_assertions::assert_eq;
 use std::{net::TcpListener, path::PathBuf, process::Command, sync::Once};
 use tempfile::TempDir;
 
-fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
-  const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
-    "osx64"
-  } else {
-    "x86_64-linux-gnu"
-  };
-
-  let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", BITCOIN_CORE_TARGET));
-  if !tarball_path.exists() {
-    let mut response = reqwest::blocking::get(format!(
-      "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}.tar.gz",
-      BITCOIN_CORE_TARGET
-    ))
-    .unwrap();
-    assert_eq!(response.status(), 200);
-    let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
-    std::io::copy(&mut response, &mut tarball_file).unwrap();
-  }
-  tarball_path
-}
-
-fn bitcoind_executable() -> PathBuf {
-  let target_dir = Path::new("../target");
-  let binary = target_dir.join("bitcoind");
-
-  static ONCE: Once = Once::new();
-  ONCE.call_once(|| {
-    if !binary.exists() {
-      let tarball_path = bitcoind_tarball(target_dir);
-      cmd_unit!(
-        Stdin(
-          format!(
-            "{}  {}",
-            if cfg!(target_os = "macos") {
-              "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
-            } else {
-              "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
-            },
-            tarball_path.to_str().unwrap(),
-          ).as_str()
-        ),
-        %"shasum -a256 -c -"
-      );
-      cmd_unit!(
-        %"tar -xzvf",
-        tarball_path.to_str().unwrap(),
-        "-C", target_dir.to_str().unwrap(),
-        %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
-      );
-    }
-  });
-  binary
-}
-
-fn lnd_tarball(target_dir: &Path) -> PathBuf {
-  let tarball_path = target_dir.join("lnd-source-v0.13.0-beta.tar.gz");
-  if !tarball_path.exists() {
-    let mut response = reqwest::blocking::get(
-        "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-source-v0.13.0-beta.tar.gz"
-      )
-      .unwrap();
-    assert_eq!(response.status(), 200);
-    let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
-    std::io::copy(&mut response, &mut tarball_file).unwrap();
-  }
-  tarball_path
-}
-
-fn lnd_executable() -> PathBuf {
-  let target_dir = Path::new("../target");
-  let binary = target_dir.join("lnd-itest");
-  static ONCE: Once = Once::new();
-  ONCE.call_once(|| {
-    if !binary.exists() {
-      let tarball_path = lnd_tarball(target_dir);
-      cmd_unit!(
-        Stdin(
-          format!(
-            "fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912  {}",
-            tarball_path.to_str().unwrap(),
-          ).as_str()
-        ),
-        %"shasum -a256 -c -"
-      );
-      cmd_unit!(
-        %"tar -xzvf",
-        tarball_path.to_str().unwrap(),
-        "-C", target_dir.to_str().unwrap()
-      );
-      let src_dir = target_dir.join("lnd-source");
-      cmd_unit!(
-        %"make build build-itest",
-        CurrentDir(&src_dir)
-      );
-      std::fs::copy(src_dir.join("lncli-debug"), target_dir.join("lncli-debug")).unwrap();
-      std::fs::copy(
-        src_dir.join("lntest/itest/lnd-itest"),
-        target_dir.join("lnd-itest"),
-      )
-      .unwrap();
-    }
-  });
-  binary
-}
-
-fn lncli_executable() -> PathBuf {
-  lnd_executable().parent().unwrap().join("lncli-debug")
-}
-
 pub(crate) struct TestContext {
   #[allow(unused)]
   bitcoind: OwnedChild,
@@ -124,6 +15,115 @@ pub(crate) struct TestContext {
 }
 
 impl TestContext {
+  fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
+    const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
+      "osx64"
+    } else {
+      "x86_64-linux-gnu"
+    };
+
+    let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", BITCOIN_CORE_TARGET));
+    if !tarball_path.exists() {
+      let mut response = reqwest::blocking::get(format!(
+        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}.tar.gz",
+        BITCOIN_CORE_TARGET
+      ))
+      .unwrap();
+      assert_eq!(response.status(), 200);
+      let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
+      std::io::copy(&mut response, &mut tarball_file).unwrap();
+    }
+    tarball_path
+  }
+
+  fn bitcoind_executable() -> PathBuf {
+    let target_dir = Path::new("../target");
+    let binary = target_dir.join("bitcoind");
+
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+      if !binary.exists() {
+        let tarball_path = Self::bitcoind_tarball(target_dir);
+        cmd_unit!(
+          Stdin(
+            format!(
+              "{}  {}",
+              if cfg!(target_os = "macos") {
+                "1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7"
+              } else {
+                "366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b"
+              },
+              tarball_path.to_str().unwrap(),
+            ).as_str()
+          ),
+          %"shasum -a256 -c -"
+        );
+        cmd_unit!(
+          %"tar -xzvf",
+          tarball_path.to_str().unwrap(),
+          "-C", target_dir.to_str().unwrap(),
+          %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
+        );
+      }
+    });
+    binary
+  }
+
+  fn lnd_tarball(target_dir: &Path) -> PathBuf {
+    let tarball_path = target_dir.join("lnd-source-v0.13.0-beta.tar.gz");
+    if !tarball_path.exists() {
+      let mut response = reqwest::blocking::get(
+        "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-source-v0.13.0-beta.tar.gz"
+      )
+      .unwrap();
+      assert_eq!(response.status(), 200);
+      let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
+      std::io::copy(&mut response, &mut tarball_file).unwrap();
+    }
+    tarball_path
+  }
+
+  fn lnd_executable() -> PathBuf {
+    let target_dir = Path::new("../target");
+    let binary = target_dir.join("lnd-itest");
+    static ONCE: Once = Once::new();
+    ONCE.call_once(|| {
+      if !binary.exists() {
+        let tarball_path = Self::lnd_tarball(target_dir);
+        cmd_unit!(
+          Stdin(
+            format!(
+              "fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912  {}",
+              tarball_path.to_str().unwrap(),
+            ).as_str()
+          ),
+          %"shasum -a256 -c -"
+        );
+        cmd_unit!(
+          %"tar -xzvf",
+          tarball_path.to_str().unwrap(),
+          "-C", target_dir.to_str().unwrap()
+        );
+        let src_dir = target_dir.join("lnd-source");
+        cmd_unit!(
+          %"make build build-itest",
+          CurrentDir(&src_dir)
+        );
+        std::fs::copy(src_dir.join("lncli-debug"), target_dir.join("lncli-debug")).unwrap();
+        std::fs::copy(
+          src_dir.join("lntest/itest/lnd-itest"),
+          target_dir.join("lnd-itest"),
+        )
+        .unwrap();
+      }
+    });
+    binary
+  }
+
+  fn lncli_executable() -> PathBuf {
+    Self::lnd_executable().parent().unwrap().join("lncli-debug")
+  }
+
   fn guess_free_port() -> u16 {
     TcpListener::bind(("127.0.0.1", 0))
       .unwrap()
@@ -143,7 +143,7 @@ impl TestContext {
     let rpc_port = Self::guess_free_port();
     let zmqpubrawblock = Self::guess_free_port();
     let zmqpubrawtx = Self::guess_free_port();
-    let bitcoind = Command::new(bitcoind_executable())
+    let bitcoind = Command::new(Self::bitcoind_executable())
       .arg("-chain=regtest")
       .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
       .arg(format!("-rpcport={}", rpc_port))
@@ -166,7 +166,7 @@ impl TestContext {
     let lnd_rpc_port = Self::guess_free_port();
 
     let lnd = 'outer: loop {
-      let mut lnd = Command::new(lnd_executable())
+      let mut lnd = Command::new(Self::lnd_executable())
         .args(&[
           "--bitcoin.regtest",
           "--bitcoin.active",
@@ -195,7 +195,7 @@ impl TestContext {
         .unwrap();
       loop {
         let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
-          lncli_executable().to_str().unwrap(),
+          Self::lncli_executable().to_str().unwrap(),
           "--network",
           "regtest",
           "--lnddir",

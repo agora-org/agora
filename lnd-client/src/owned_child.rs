@@ -1,9 +1,5 @@
 use std::process::{Child, Command};
 
-pub(crate) trait CommandExt {
-  fn spawn_owned(&mut self) -> std::io::Result<OwnedChild>;
-}
-
 pub(crate) struct OwnedChild {
   pub(crate) inner: Child,
 }
@@ -21,4 +17,7 @@ impl Drop for OwnedChild {
     let _ = self.inner.kill();
     let _ = self.inner.wait();
   }
+}
+pub(crate) trait CommandExt {
+  fn spawn_owned(&mut self) -> std::io::Result<OwnedChild>;
 }
