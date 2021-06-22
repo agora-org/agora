@@ -381,8 +381,8 @@ checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
 name = "cradle"
-version = "0.0.2"
-source = "git+https://github.com/soenkehahn/cradle?rev=508c646#508c646a6ffb06ff45cc6f72b8ef241a36ffb960"
+version = "0.0.4"
+source = "git+https://github.com/soenkehahn/cradle?rev=5f7ac9970395543cc186efaaf517db654d668c9f#5f7ac9970395543cc186efaaf517db654d668c9f"
 dependencies = [
  "rustversion",
 ]
