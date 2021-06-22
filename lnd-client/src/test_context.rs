@@ -17,25 +17,27 @@ pub(crate) struct TestContext {
 }
 
 impl TestContext {
-  fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
-    const BITCOIN_CORE_TARGET: &str = if cfg!(target_os = "macos") {
-      "osx64"
+  fn bitcoind_archive(target_dir: &Path) -> PathBuf {
+    const ARCHIVE_SUFFIX: &str = if cfg!(target_os = "macos") {
+      "osx64.tar.gz"
+    } else if cfg!(target_os = "windows") {
+      "win64.zip"
     } else {
-      "x86_64-linux-gnu"
+      "x86_64-linux-gnu.tar.gz"
     };
 
-    let tarball_path = target_dir.join(format!("bitcoin-0.21.1-{}.tar.gz", BITCOIN_CORE_TARGET));
-    if !tarball_path.exists() {
+    let archive_path = target_dir.join(format!("bitcoin-0.21.1-{}", ARCHIVE_SUFFIX));
+    if !archive_path.exists() {
       let mut response = reqwest::blocking::get(format!(
-        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}.tar.gz",
-        BITCOIN_CORE_TARGET
+        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}",
+        ARCHIVE_SUFFIX
       ))
       .unwrap();
       assert_eq!(response.status(), 200);
-      let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
-      std::io::copy(&mut response, &mut tarball_file).unwrap();
+      let mut archive_file = std::fs::File::create(&archive_path).unwrap();
+      std::io::copy(&mut response, &mut archive_file).unwrap();
     }
-    tarball_path
+    archive_path
   }
 
   fn bitcoind_executable() -> PathBuf {
@@ -45,19 +47,21 @@ impl TestContext {
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
       if !binary.exists() {
-        let tarball_path = Self::bitcoind_tarball(target_dir);
-        let tarball_bytes = std::fs::read(&tarball_path).unwrap();
+        let archive_path = Self::bitcoind_archive(target_dir);
+        let archive_bytes = std::fs::read(&archive_path).unwrap();
         assert_eq!(
-          Sha256::digest(&tarball_bytes).as_slice(),
+          Sha256::digest(&archive_bytes).as_slice(),
           if cfg!(target_os = "macos") {
             &hex!("1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7")
+          } else if cfg!(target_os = "windows") {
+            &hex!("94c80f90184cdc7e7e75988a55b38384de262336abd80b1b30121c6e965dc74e")
           } else {
             &hex!("366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b")
           },
         );
         cmd_unit!(
           %"tar -xzvf",
-          tarball_path,
+          archive_path,
           "-C", target_dir,
           %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
         );
