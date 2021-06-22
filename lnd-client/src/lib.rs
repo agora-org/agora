@@ -145,42 +145,31 @@ mod tests {
     binary
   }
 
-  fn lnd_tarball(target_dir: &Path) -> (PathBuf, String) {
-    const LND_TARGET: &str = if cfg!(target_os = "macos") {
-      "darwin-amd64"
-    } else {
-      "linux-amd64"
-    };
-    let tarball_path = target_dir.join(format!("lnd-{}-v0.13.0-beta.tar.gz", LND_TARGET));
+  fn lnd_tarball(target_dir: &Path) -> PathBuf {
+    let tarball_path = target_dir.join("lnd-source-v0.13.0-beta.tar.gz");
     if !tarball_path.exists() {
-      let mut response = reqwest::blocking::get(format!(
-        "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-{}-v0.13.0-beta.tar.gz",
-        LND_TARGET
-      ))
+      let mut response = reqwest::blocking::get(
+        "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-source-v0.13.0-beta.tar.gz"
+      )
       .unwrap();
       assert_eq!(response.status(), 200);
       let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
     }
-    (tarball_path, format!("lnd-{}-v0.13.0-beta", LND_TARGET))
+    tarball_path
   }
 
   fn lnd_executable() -> PathBuf {
     let target_dir = Path::new("../target");
-    let binary = target_dir.join("lnd");
+    let binary = target_dir.join("lnd-itest");
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
       if !binary.exists() {
-        let (tarball_path, tarball_dir) = lnd_tarball(target_dir);
+        let tarball_path = lnd_tarball(target_dir);
         cmd_unit!(
           Stdin(
             format!(
-              "{}  {}",
-              if cfg!(target_os = "macos") {
-                "be1c3e4a97b54e9265636484590d11c530538b5af273b460e9f154fc0d088c94"
-              } else {
-                "3aca477c72435876d208a509410a05e7f629bf5e0054c31b9948b56101768347"
-              },
+              "fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912  {}",
               tarball_path.to_str().unwrap(),
             ).as_str()
           ),
@@ -189,18 +178,26 @@ mod tests {
         cmd_unit!(
           %"tar -xzvf",
           tarball_path.to_str().unwrap(),
-          "-C", target_dir.to_str().unwrap(),
-          "--strip-components=1",
-          format!("{}/lnd", tarball_dir),
-          format!("{}/lncli", tarball_dir)
+          "-C", target_dir.to_str().unwrap()
         );
+        let src_dir = target_dir.join("lnd-source");
+        cmd_unit!(
+          %"make build build-itest",
+          CurrentDir(&src_dir)
+        );
+        std::fs::copy(src_dir.join("lncli-debug"), target_dir.join("lncli-debug")).unwrap();
+        std::fs::copy(
+          src_dir.join("lntest/itest/lnd-itest"),
+          target_dir.join("lnd-itest"),
+        )
+        .unwrap();
       }
     });
     binary
   }
 
   fn lncli_executable() -> PathBuf {
-    lnd_executable().parent().unwrap().join("lncli")
+    lnd_executable().parent().unwrap().join("lncli-debug")
   }
 
   #[test]
