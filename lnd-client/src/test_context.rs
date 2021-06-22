@@ -2,12 +2,7 @@ use super::*;
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use pretty_assertions::assert_eq;
-use std::{
-  net::TcpListener,
-  path::PathBuf,
-  process::{Child, Command},
-  sync::Once,
-};
+use std::{net::TcpListener, path::PathBuf, process::Command, sync::Once};
 use tempfile::TempDir;
 
 fn bitcoind_tarball(target_dir: &Path) -> PathBuf {
