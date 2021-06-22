@@ -84,6 +84,7 @@ mod tests {
           zmqpubrawblock
         ))
         .arg(format!("-zmqpubrawtx=tcp://127.0.0.1:{}", zmqpubrawtx))
+        .stderr(std::process::Stdio::null())
         .spawn_owned()
         .unwrap();
 
@@ -113,14 +114,14 @@ mod tests {
           .arg(format!("--bitcoind.zmqpubrawtx=127.0.0.1:{}", zmqpubrawtx))
           .arg("--noseedbackup")
           .arg("--no-macaroons")
-          .arg("--debuglevel=trace")
           .arg(format!("--restlisten=127.0.0.1:{}", lnd_rest_port))
           .arg(format!("--rpclisten=127.0.0.1:{}", lnd_rpc_port))
           .arg(format!("--listen=127.0.0.1:{}", guess_free_port()))
+          .stderr(std::process::Stdio::null())
           .spawn_owned()
           .unwrap();
         loop {
-          let Exit(status) = cmd!(
+          let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
             lncli_executable().to_str().unwrap(),
             "--network",
             "regtest",
