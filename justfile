@@ -43,4 +43,4 @@ publish remote: all
   cargo publish
 
 clean-binaries:
-  rm -rf target/{bitcoin*,ln*}
+  rm -rf target/bitcoin* target/ln*
