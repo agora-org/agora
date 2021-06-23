@@ -65,7 +65,7 @@ impl TestContext {
           "-C", target_dir,
           "--strip-components=2",
           format!("bitcoin-0.21.1/bin/bitcoin-cli{}", EXE_SUFFIX),
-          format!("bitcoin-0.21.1/bin/bitcoind{}" EXE_SUFFIX)
+          format!("bitcoin-0.21.1/bin/bitcoind{}", EXE_SUFFIX)
         );
       }
     });
