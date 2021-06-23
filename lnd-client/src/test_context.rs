@@ -64,11 +64,8 @@ impl TestContext {
           archive_path,
           "-C", target_dir,
           "--strip-components=2",
-          %if cfg!(target_os = "windows") {
-            "bitcoin-0.21.1/bin/bitcoin-cli.exe bitcoin-0.21.1/bin/bitcoind.exe"
-          } else {
-            "bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
-          }
+          format!("bitcoin-0.21.1/bin/bitcoin-cli{}", EXE_SUFFIX),
+          format!("bitcoin-0.21.1/bin/bitcoind{}" EXE_SUFFIX)
         );
       }
     });
