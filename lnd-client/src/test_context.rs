@@ -1,10 +1,19 @@
-use super::*;
-use crate::owned_child::{CommandExt, OwnedChild};
+use crate::{
+  owned_child::{CommandExt, OwnedChild},
+  Client,
+};
 use cradle::*;
 use hex_literal::hex;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
-use std::{env::consts::EXE_SUFFIX, net::TcpListener, path::PathBuf, process::Command, sync::Once};
+use std::{
+  env::consts::EXE_SUFFIX,
+  fs,
+  net::TcpListener,
+  path::{Path, PathBuf},
+  process::Command,
+  sync::Once,
+};
 use tempfile::TempDir;
 
 pub(crate) struct TestContext {
@@ -34,7 +43,7 @@ impl TestContext {
       ))
       .unwrap();
       assert_eq!(response.status(), 200);
-      let mut archive_file = std::fs::File::create(&archive_path).unwrap();
+      let mut archive_file = fs::File::create(&archive_path).unwrap();
       std::io::copy(&mut response, &mut archive_file).unwrap();
     }
     archive_path
@@ -48,7 +57,7 @@ impl TestContext {
     ONCE.call_once(|| {
       if !binary.exists() {
         let archive_path = Self::bitcoind_archive(target_dir);
-        let archive_bytes = std::fs::read(&archive_path).unwrap();
+        let archive_bytes = fs::read(&archive_path).unwrap();
         assert_eq!(
           Sha256::digest(&archive_bytes).as_slice(),
           if cfg!(target_os = "macos") {
@@ -80,7 +89,7 @@ impl TestContext {
       )
       .unwrap();
       assert_eq!(response.status(), 200);
-      let mut tarball_file = std::fs::File::create(&tarball_path).unwrap();
+      let mut tarball_file = fs::File::create(&tarball_path).unwrap();
       std::io::copy(&mut response, &mut tarball_file).unwrap();
     }
     tarball_path
@@ -96,7 +105,7 @@ impl TestContext {
     ONCE.call_once(|| {
       if !lnd_itest.exists() {
         let tarball_path = Self::lnd_tarball(target_dir);
-        let tarball_bytes = std::fs::read(&tarball_path).unwrap();
+        let tarball_bytes = fs::read(&tarball_path).unwrap();
         assert_eq!(
           Sha256::digest(&tarball_bytes).as_slice(),
           &hex!("fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912")
@@ -111,8 +120,8 @@ impl TestContext {
           %"make build build-itest",
           CurrentDir(&src_dir)
         );
-        std::fs::copy(src_dir.join("lncli-debug"), &lncli_debug).unwrap();
-        std::fs::copy(src_dir.join("lntest/itest/lnd-itest"), &lnd_itest).unwrap();
+        fs::copy(src_dir.join("lncli-debug"), &lncli_debug).unwrap();
+        fs::copy(src_dir.join("lntest/itest/lnd-itest"), &lnd_itest).unwrap();
       }
     });
     (lnd_itest, lncli_debug)
@@ -139,8 +148,8 @@ impl TestContext {
 
     let bitcoinddir = tmpdir.path().join("bitcoind");
 
-    std::fs::create_dir(&bitcoinddir).unwrap();
-    std::fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
+    fs::create_dir(&bitcoinddir).unwrap();
+    fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
 
     let rpc_port = Self::guess_free_port();
     let zmqpubrawblock = Self::guess_free_port();
@@ -226,10 +235,9 @@ impl TestContext {
 
   pub(crate) fn client(&self) -> Client {
     Client::new(
-      &self.tmpdir.path().join("lnd/tls.cert"),
+      &fs::read(self.tmpdir.path().join("lnd/tls.cert")).unwrap(),
       format!("https://localhost:{}", self.lnd_rest_port),
     )
-    .unwrap()
     .unwrap()
   }
 }
