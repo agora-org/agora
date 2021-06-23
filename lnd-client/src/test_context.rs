@@ -4,7 +4,7 @@ use cradle::*;
 use hex_literal::hex;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
-use std::{net::TcpListener, path::PathBuf, process::Command, sync::Once};
+use std::{env::consts::EXE_SUFFIX, net::TcpListener, path::PathBuf, process::Command, sync::Once};
 use tempfile::TempDir;
 
 pub(crate) struct TestContext {
@@ -42,7 +42,7 @@ impl TestContext {
 
   fn bitcoind_executable() -> PathBuf {
     let target_dir = Path::new("../target");
-    let binary = target_dir.join("bitcoind");
+    let binary = target_dir.join(format!("bitcoind{}", EXE_SUFFIX));
 
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
@@ -63,7 +63,12 @@ impl TestContext {
           %"tar -xzvf",
           archive_path,
           "-C", target_dir,
-          %"--strip-components=2 bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
+          "--strip-components=2",
+          %if cfg!(target_os = "windows") {
+            "bitcoin-0.21.1/bin/bitcoin-cli.exe bitcoin-0.21.1/bin/bitcoind.exe"
+          } else {
+            "bitcoin-0.21.1/bin/bitcoin-cli bitcoin-0.21.1/bin/bitcoind"
+          }
         );
       }
     });
@@ -84,12 +89,15 @@ impl TestContext {
     tarball_path
   }
 
-  fn lnd_executable() -> PathBuf {
+  fn lnd_executables() -> (PathBuf, PathBuf) {
     let target_dir = Path::new("../target");
-    let binary = target_dir.join("lnd-itest");
+    let lnd_itest_filename = format!("lnd-itest{}", EXE_SUFFIX);
+    let lncli_debug_filename = format!("lncli-debug{}", EXE_SUFFIX);
+    let lnd_itest = target_dir.join(&lnd_itest_filename);
+    let lncli_debug = target_dir.join(&lncli_debug_filename);
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
-      if !binary.exists() {
+      if !lnd_itest.exists() {
         let tarball_path = Self::lnd_tarball(target_dir);
         let tarball_bytes = std::fs::read(&tarball_path).unwrap();
         assert_eq!(
@@ -106,19 +114,23 @@ impl TestContext {
           %"make build build-itest",
           CurrentDir(&src_dir)
         );
-        std::fs::copy(src_dir.join("lncli-debug"), target_dir.join("lncli-debug")).unwrap();
+        std::fs::copy(src_dir.join(lncli_debug_filename), &lncli_debug).unwrap();
         std::fs::copy(
-          src_dir.join("lntest/itest/lnd-itest"),
-          target_dir.join("lnd-itest"),
+          src_dir.join("lntest/itest").join(lnd_itest_filename),
+          &lnd_itest,
         )
         .unwrap();
       }
     });
-    binary
+    (lnd_itest, lncli_debug)
+  }
+
+  fn lnd_executable() -> PathBuf {
+    Self::lnd_executables().0
   }
 
   fn lncli_executable() -> PathBuf {
-    Self::lnd_executable().parent().unwrap().join("lncli-debug")
+    Self::lnd_executables().1
   }
 
   fn guess_free_port() -> u16 {
