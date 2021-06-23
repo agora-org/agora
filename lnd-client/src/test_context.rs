@@ -111,12 +111,8 @@ impl TestContext {
           %"make build build-itest",
           CurrentDir(&src_dir)
         );
-        std::fs::copy(src_dir.join(lncli_debug_filename), &lncli_debug).unwrap();
-        std::fs::copy(
-          src_dir.join("lntest/itest").join(lnd_itest_filename),
-          &lnd_itest,
-        )
-        .unwrap();
+        std::fs::copy(src_dir.join("lncli-debug"), &lncli_debug).unwrap();
+        std::fs::copy(src_dir.join("lntest/itest/lnd-itest"), &lnd_itest).unwrap();
       }
     });
     (lnd_itest, lncli_debug)
