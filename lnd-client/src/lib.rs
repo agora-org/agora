@@ -32,6 +32,7 @@ impl Client {
       .set_certificate_verifier(Arc::new(NoCertVerifier {}));
 
     let channel = Channel::builder(format!("https://localhost:{}", rpc_port).parse().unwrap())
+    // we might be able to use openssl for tonic
         .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
         // .timeout(Duration::from_secs(5))
         // .rate_limit(5, Duration::from_secs(1))
