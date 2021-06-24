@@ -22,6 +22,7 @@ pub(crate) struct TestContext {
   #[allow(unused)]
   lnd: OwnedChild,
   lnd_rest_port: u16,
+  lnd_rpc_port: u16,
   tmpdir: TempDir,
 }
 
@@ -195,6 +196,7 @@ impl TestContext {
           zmqpubrawblock
         ))
         .arg(format!("--bitcoind.zmqpubrawtx=127.0.0.1:{}", zmqpubrawtx))
+        .arg("--debuglevel=trace")
         .arg("--noseedbackup")
         .arg("--no-macaroons")
         .arg(format!("--restlisten=127.0.0.1:{}", lnd_rest_port))
@@ -227,18 +229,18 @@ impl TestContext {
 
     Self {
       lnd_rest_port,
+      lnd_rpc_port,
       tmpdir,
       lnd,
       bitcoind,
     }
   }
 
-  pub(crate) fn client(&self) -> Client {
-    Client::new(
-      &fs::read(self.tmpdir.path().join("lnd/tls.cert")).unwrap(),
-      format!("https://localhost:{}", self.lnd_rest_port),
-    )
-    .unwrap()
+  pub(crate) async fn client(&self) -> Client {
+    let junk = fs::read(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
+    String::from_utf8_lossy(&junk);
+    fs::write("test.tls.cert", &junk);
+    Client::new(&junk, self.lnd_rpc_port).await.unwrap()
   }
 }
 

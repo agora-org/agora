@@ -5,7 +5,17 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 edition = "2018"
 
 [dependencies]
+prost = "0.7.0"
 reqwest = { version = "0.11.3", features = ["blocking"] }
+webpki = "0.21.4"
+
+[dependencies.rustls]
+version = "0.19.1"
+features = ["dangerous_configuration"]
+
+[dependencies.tonic]
+version = "0.4.3"
+features = ["transport", "tls", "h2"]
 
 [dev-dependencies]
 cradle = "0.0.4"
@@ -14,3 +24,7 @@ httpmock = "0.5.8"
 pretty_assertions = "0.7.2"
 sha2 = "0.9.5"
 tempfile = "3.2.0"
+tokio = "1.7.1"
+
+[build-dependencies]
+tonic-build = "0.4.2"
