@@ -75,11 +75,14 @@ impl rustls::ServerCertVerifier for SingleCertVerifier {
           Ok(rustls::ServerCertVerified::assertion())
         } else {
           Err(rustls::TLSError::General(
-            "unexpected certificate".to_owned(),
+            "unexpected certificate presented".to_owned(),
           ))
         }
       }
-      _ => todo!(),
+      [] => Err(rustls::TLSError::NoCertificatesPresented),
+      [..] => Err(rustls::TLSError::General(
+        "more than one certificate presented".to_owned(),
+      )),
     }
   }
 }
@@ -117,7 +120,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .client_with_cert(INVALID_TEST_CERT)
       .await
       .unwrap_err();
-    let expected = "unexpected certificate";
+    let expected = "unexpected certificate presented";
     assert!(
       error.to_string().contains(expected),
       "{}\ndidn't contain\n{}",
