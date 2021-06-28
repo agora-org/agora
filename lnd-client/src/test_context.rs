@@ -239,7 +239,7 @@ impl TestContext {
   pub(crate) async fn client(&self) -> Client {
     let junk = fs::read(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
     String::from_utf8_lossy(&junk);
-    fs::write("test.tls.cert", &junk);
+    // fs::write("test.tls.cert", &junk);
     Client::new(&junk, self.lnd_rpc_port).await.unwrap()
   }
 }

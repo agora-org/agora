@@ -1,11 +1,11 @@
-use lnrpc::state_client::StateClient;
-use lnrpc::{GetStateRequest, GetStateResponse};
+use lnrpc::lightning_client::LightningClient;
+use lnrpc::{GetInfoRequest, GetInfoResponse};
 use rustls::ClientConfig;
 use std::sync::Arc;
 use tonic::transport::channel::Channel;
 use tonic::transport::Certificate;
 use tonic::transport::ClientTlsConfig;
-use tonic::Response;
+use tonic::Status;
 
 #[cfg(test)]
 mod owned_child;
@@ -13,7 +13,7 @@ mod owned_child;
 mod test_context;
 
 pub struct Client {
-  client: StateClient<Channel>,
+  client: LightningClient<Channel>,
 }
 
 impl Client {
@@ -31,25 +31,17 @@ impl Client {
       .dangerous()
       .set_certificate_verifier(Arc::new(NoCertVerifier {}));
 
-    let channel = Channel::builder(format!("https://localhost:{}", rpc_port).parse().unwrap())
     // we might be able to use openssl for tonic
-        .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
-        // .timeout(Duration::from_secs(5))
-        // .rate_limit(5, Duration::from_secs(1))
-        // .concurrency_limit(256)
-        .connect()
-        .await?;
-    let client = StateClient::new(channel);
+    let channel = Channel::builder(format!("https://localhost:{}", rpc_port).parse().unwrap())
+      .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
+      .connect()
+      .await?;
+    let client = LightningClient::new(channel);
     Ok(Client { client })
   }
 
-  pub async fn state(&mut self) -> Result<String, Box<dyn std::error::Error>> {
-    let foo: GetStateResponse = self
-      .client
-      .get_state(GetStateRequest {})
-      .await?
-      .into_inner();
-    Ok(format!("{:?}", foo))
+  pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
+    Ok(self.client.get_info(GetInfoRequest {}).await?.into_inner())
   }
 }
 
@@ -73,11 +65,9 @@ mod tests {
   use pretty_assertions::assert_eq;
 
   #[tokio::test]
-  async fn state() {
-    assert_eq!(
-      TestContext::new().client().await.state().await.unwrap(),
-      r#"GetStateResponse { state: RpcActive }"#
-    );
+  async fn info() {
+    let response = TestContext::new().client().await.get_info().await.unwrap();
+    assert_eq!(response.version, "0.13.0-beta commit=0.0.1-12-ge7e246d");
   }
 }
 
