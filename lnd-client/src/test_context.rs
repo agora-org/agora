@@ -21,7 +21,6 @@ pub(crate) struct TestContext {
   bitcoind: OwnedChild,
   #[allow(unused)]
   lnd: OwnedChild,
-  lnd_rest_port: u16,
   lnd_rpc_port: u16,
   tmpdir: TempDir,
 }
@@ -174,7 +173,6 @@ impl TestContext {
 
     let lnddir = tmpdir.path().join("lnd");
 
-    let lnd_rest_port = Self::guess_free_port();
     let lnd_rpc_port = Self::guess_free_port();
 
     let lnd = 'outer: loop {
@@ -199,7 +197,7 @@ impl TestContext {
         .arg("--debuglevel=trace")
         .arg("--noseedbackup")
         .arg("--no-macaroons")
-        .arg(format!("--restlisten=127.0.0.1:{}", lnd_rest_port))
+        .arg("--norest")
         .arg(format!("--rpclisten=127.0.0.1:{}", lnd_rpc_port))
         .arg(format!("--listen=127.0.0.1:{}", Self::guess_free_port()))
         .stdout(std::process::Stdio::null())
@@ -228,7 +226,6 @@ impl TestContext {
     };
 
     Self {
-      lnd_rest_port,
       lnd_rpc_port,
       tmpdir,
       lnd,
