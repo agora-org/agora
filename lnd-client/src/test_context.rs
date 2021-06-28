@@ -236,11 +236,16 @@ impl TestContext {
     }
   }
 
+  pub(crate) async fn client_with_cert(
+    &self,
+    cert: &str,
+  ) -> Result<Client, tonic::transport::Error> {
+    Client::new(&cert, self.lnd_rpc_port).await
+  }
+
   pub(crate) async fn client(&self) -> Client {
-    let junk = fs::read(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
-    String::from_utf8_lossy(&junk);
-    // fs::write("test.tls.cert", &junk);
-    Client::new(&junk, self.lnd_rpc_port).await.unwrap()
+    let cert = fs::read_to_string(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
+    self.client_with_cert(&cert).await.unwrap()
   }
 }
 
