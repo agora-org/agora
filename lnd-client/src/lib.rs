@@ -9,11 +9,6 @@ use tonic::transport::channel::Channel;
 use tonic::transport::ClientTlsConfig;
 use tonic::Status;
 
-#[cfg(test)]
-mod owned_child;
-#[cfg(test)]
-mod test_context;
-
 mod single_cert_verifier;
 
 pub mod lnrpc {
@@ -54,11 +49,11 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-  use crate::test_context::TestContext;
+  use lnd_test_context::LndTestContext;
 
   #[tokio::test]
   async fn info() {
-    let response = TestContext::new()
+    let response = LndTestContext::new()
       .await
       .client()
       .await
@@ -90,7 +85,7 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let error = TestContext::new()
+    let error = LndTestContext::new()
       .await
       .client_with_cert(INVALID_TEST_CERT)
       .await

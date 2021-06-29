@@ -733,6 +733,7 @@ version = "0.0.0"
 dependencies = [
  "cradle",
  "hex-literal",
+ "lnd-test-context",
  "pretty_assertions",
  "prost",
  "reqwest",
@@ -743,6 +744,21 @@ dependencies = [
  "tonic",
  "tonic-build",
  "webpki",
+]
+
+[[package]]
+name = "lnd-test-context"
+version = "0.0.0"
+dependencies = [
+ "cradle",
+ "hex-literal",
+ "lnd-client",
+ "pretty_assertions",
+ "reqwest",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tonic",
 ]
 
 [[package]]

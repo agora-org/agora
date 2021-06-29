@@ -1,9 +1,7 @@
-use crate::{
-  owned_child::{CommandExt, OwnedChild},
-  Client,
-};
+use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use hex_literal::hex;
+use lnd_client::Client;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::{
@@ -16,7 +14,9 @@ use std::{
 };
 use tempfile::TempDir;
 
-pub(crate) struct TestContext {
+mod owned_child;
+
+pub struct LndTestContext {
   #[allow(unused)]
   bitcoind: OwnedChild,
   #[allow(unused)]
@@ -25,7 +25,7 @@ pub(crate) struct TestContext {
   tmpdir: TempDir,
 }
 
-impl TestContext {
+impl LndTestContext {
   async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
     const ARCHIVE_SUFFIX: &str = if cfg!(target_os = "macos") {
       "osx64.tar.gz"
@@ -147,7 +147,7 @@ impl TestContext {
       .port()
   }
 
-  pub(crate) async fn new() -> Self {
+  pub async fn new() -> Self {
     let tmpdir = tempfile::tempdir().unwrap();
 
     let bitcoinddir = tmpdir.path().join("bitcoind");
@@ -237,14 +237,11 @@ impl TestContext {
     }
   }
 
-  pub(crate) async fn client_with_cert(
-    &self,
-    cert: &str,
-  ) -> Result<Client, tonic::transport::Error> {
+  pub async fn client_with_cert(&self, cert: &str) -> Result<Client, tonic::transport::Error> {
     Client::new(&cert, self.lnd_rpc_port).await
   }
 
-  pub(crate) async fn client(&self) -> Client {
+  pub async fn client(&self) -> Client {
     let cert = fs::read_to_string(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
     self.client_with_cert(&cert).await.unwrap()
   }
@@ -256,6 +253,6 @@ mod tests {
 
   #[tokio::test]
   async fn starts_lnd() {
-    TestContext::new().await;
+    LndTestContext::new().await;
   }
 }
