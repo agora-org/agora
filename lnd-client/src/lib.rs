@@ -1,7 +1,7 @@
+use crate::single_cert_verifier::SingleCertVerifier;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{GetInfoRequest, GetInfoResponse};
 use rustls::internal::pemfile;
-use rustls::Certificate;
 use rustls::ClientConfig;
 use std::io::Cursor;
 use std::sync::Arc;
@@ -13,6 +13,8 @@ use tonic::Status;
 mod owned_child;
 #[cfg(test)]
 mod test_context;
+
+mod single_cert_verifier;
 
 pub mod lnrpc {
   tonic::include_proto!("lnrpc");
@@ -47,42 +49,6 @@ impl Client {
 
   pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
     Ok(self.client.get_info(GetInfoRequest {}).await?.into_inner())
-  }
-}
-
-struct SingleCertVerifier {
-  certificate: Certificate,
-}
-
-impl SingleCertVerifier {
-  fn new(certificate: Certificate) -> SingleCertVerifier {
-    SingleCertVerifier { certificate }
-  }
-}
-
-impl rustls::ServerCertVerifier for SingleCertVerifier {
-  fn verify_server_cert(
-    &self,
-    _: &rustls::RootCertStore,
-    certificates: &[Certificate],
-    _: webpki::DNSNameRef,
-    _: &[u8],
-  ) -> Result<rustls::ServerCertVerified, rustls::TLSError> {
-    match certificates {
-      [end_entity_cert] => {
-        if end_entity_cert == &self.certificate {
-          Ok(rustls::ServerCertVerified::assertion())
-        } else {
-          Err(rustls::TLSError::General(
-            "unexpected certificate presented".to_owned(),
-          ))
-        }
-      }
-      [] => Err(rustls::TLSError::NoCertificatesPresented),
-      [..] => Err(rustls::TLSError::General(
-        "more than one certificate presented".to_owned(),
-      )),
-    }
   }
 }
 
