@@ -9,7 +9,7 @@ doctest = false
 
 [dependencies]
 prost = "0.7.0"
-reqwest = { version = "0.11.3", features = ["blocking"] }
+reqwest = "0.11.3"
 webpki = "0.21.4"
 
 [dependencies.rustls]
@@ -26,7 +26,10 @@ hex-literal = "0.3.1"
 pretty_assertions = "0.7.2"
 sha2 = "0.9.5"
 tempfile = "3.2.0"
-tokio = "1.7.1"
+
+[dev-dependencies.tokio]
+version = "1.7.1"
+features = ["parking_lot"]
 
 [build-dependencies]
 tonic-build = "0.4.2"

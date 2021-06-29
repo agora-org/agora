@@ -37,7 +37,6 @@ impl Client {
       .dangerous()
       .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
 
-    // we might be able to use openssl for tonic
     let channel = Channel::builder(format!("https://localhost:{}", rpc_port).parse().unwrap())
       .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
       .connect()
@@ -65,7 +64,7 @@ impl rustls::ServerCertVerifier for SingleCertVerifier {
   fn verify_server_cert(
     &self,
     _: &rustls::RootCertStore,
-    certificates: &[rustls::Certificate],
+    certificates: &[Certificate],
     _: webpki::DNSNameRef,
     _: &[u8],
   ) -> Result<rustls::ServerCertVerified, rustls::TLSError> {
@@ -90,12 +89,21 @@ impl rustls::ServerCertVerifier for SingleCertVerifier {
 #[cfg(test)]
 mod tests {
   use crate::test_context::TestContext;
-  use pretty_assertions::assert_eq;
 
   #[tokio::test]
   async fn info() {
-    let response = TestContext::new().client().await.get_info().await.unwrap();
-    assert_eq!(response.version, "0.13.0-beta commit=0.0.1-12-ge7e246d");
+    let response = TestContext::new()
+      .await
+      .client()
+      .await
+      .get_info()
+      .await
+      .unwrap();
+    assert!(
+      response.version.starts_with("0.13.0-beta "),
+      "Unexpected LND version: {}",
+      response.version
+    );
   }
 
   #[tokio::test]
@@ -117,6 +125,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
     let error = TestContext::new()
+      .await
       .client_with_cert(INVALID_TEST_CERT)
       .await
       .unwrap_err();
