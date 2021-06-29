@@ -10,6 +10,8 @@ dependencies = [
  "guard",
  "hyper",
  "libc",
+ "lnd-client",
+ "lnd-test-context",
  "maud",
  "mime_guess",
  "nix",

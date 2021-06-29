@@ -41,6 +41,8 @@ pub(crate) enum Error {
   SymlinkAccess { path: PathBuf },
   #[snafu(display("Static asset not found: {}", uri_path))]
   StaticAssetNotFound { uri_path: String },
+  #[snafu(display("IO error writing to stderr: {}", source))]
+  StderrWrite { source: io::Error },
 }
 
 impl Error {
@@ -61,7 +63,8 @@ impl Error {
       | FilesystemIo { .. }
       | Internal { .. }
       | RequestHandlerPanic { .. }
-      | ServerRun { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      | ServerRun { .. }
+      | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
 

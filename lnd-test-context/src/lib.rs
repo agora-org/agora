@@ -5,7 +5,7 @@ use lnd_client::Client;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::{
-  env::consts::EXE_SUFFIX,
+  env::{self, consts::EXE_SUFFIX},
   fs,
   io::{self, Write},
   net::TcpListener,
@@ -21,11 +21,21 @@ pub struct LndTestContext {
   bitcoind: OwnedChild,
   #[allow(unused)]
   lnd: OwnedChild,
-  lnd_rpc_port: u16,
+  pub lnd_rpc_port: u16,
   tmpdir: TempDir,
 }
 
 impl LndTestContext {
+  fn target_dir() -> PathBuf {
+    let mut dir = env::current_dir().unwrap();
+
+    while !dir.join("target").exists() {
+      assert!(dir.pop(), "could not find target directory");
+    }
+
+    dir.join("target")
+  }
+
   async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
     const ARCHIVE_SUFFIX: &str = if cfg!(target_os = "macos") {
       "osx64.tar.gz"
@@ -57,12 +67,12 @@ impl LndTestContext {
   }
 
   async fn bitcoind_executable() -> PathBuf {
-    let target_dir = Path::new("../target");
+    let target_dir = Self::target_dir();
     let binary = target_dir.join(format!("bitcoind{}", EXE_SUFFIX));
     static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = MUTEX.lock().await;
     if !binary.exists() {
-      let archive_path = Self::bitcoind_archive(target_dir).await;
+      let archive_path = Self::bitcoind_archive(&target_dir).await;
       let archive_bytes = fs::read(&archive_path).unwrap();
       assert_eq!(
         Sha256::digest(&archive_bytes).as_slice(),
@@ -101,7 +111,7 @@ impl LndTestContext {
   }
 
   async fn lnd_executables() -> (PathBuf, PathBuf) {
-    let target_dir = Path::new("../target");
+    let target_dir = Self::target_dir();
     let lnd_itest_filename = format!("lnd-itest{}", EXE_SUFFIX);
     let lncli_debug_filename = format!("lncli-debug{}", EXE_SUFFIX);
     let lnd_itest = target_dir.join(&lnd_itest_filename);
@@ -109,7 +119,7 @@ impl LndTestContext {
     static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = MUTEX.lock().await;
     if !lnd_itest.exists() {
-      let tarball_path = Self::lnd_tarball(target_dir).await;
+      let tarball_path = Self::lnd_tarball(&target_dir).await;
       let tarball_bytes = fs::read(&tarball_path).unwrap();
       assert_eq!(
         Sha256::digest(&tarball_bytes).as_slice(),
@@ -118,7 +128,7 @@ impl LndTestContext {
       cmd_unit!(
         %"tar -xzvf",
         tarball_path,
-        "-C", target_dir
+        "-C", &target_dir
       );
       let src_dir = target_dir.join("lnd-source");
       cmd_unit!(
@@ -237,8 +247,18 @@ impl LndTestContext {
     }
   }
 
+  pub fn lnd_dir(&self) -> PathBuf {
+    self.tmpdir.path().join("lnd")
+  }
+
   pub async fn client_with_cert(&self, cert: &str) -> Result<Client, tonic::transport::Error> {
-    Client::new(&cert, self.lnd_rpc_port).await
+    Client::new(
+      &format!("https://localhost:{}", self.lnd_rpc_port)
+        .parse()
+        .unwrap(),
+      cert,
+    )
+    .await
   }
 
   pub async fn client(&self) -> Client {

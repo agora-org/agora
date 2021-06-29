@@ -2,6 +2,7 @@ use crate::{
   error::{self, Result},
   stderr::Stderr,
 };
+use hyper::Uri;
 use snafu::ResultExt;
 use std::{env, ffi::OsString, path::PathBuf};
 use structopt::StructOpt;
@@ -19,6 +20,10 @@ pub(crate) struct Arguments {
   pub(crate) directory: PathBuf,
   #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
   pub(crate) port: u16,
+  #[structopt(long)]
+  pub(crate) lnd_rpc_url: Option<Uri>,
+  #[structopt(long)]
+  pub(crate) lnd_rpc_cert_path: Option<PathBuf>,
 }
 
 pub(crate) struct Environment {

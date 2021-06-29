@@ -19,6 +19,16 @@ macro_rules! assert_matches {
   }
 }
 
+#[track_caller]
+pub(crate) fn assert_contains(haystack: &str, needle: &str) {
+  assert!(
+    haystack.contains(needle),
+    "\n{:?} does not contain {:?}\n",
+    haystack,
+    needle
+  );
+}
+
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
@@ -40,10 +50,13 @@ where
   let www = environment.working_directory.join("www");
   std::fs::create_dir(&www).unwrap();
 
-  test_with_environment(&environment, f)
+  test_with_environment(&mut environment, f)
 }
 
-pub(crate) fn test_with_environment<Function, F>(environment: &Environment, f: Function) -> String
+pub(crate) fn test_with_environment<Function, F>(
+  environment: &mut Environment,
+  f: Function,
+) -> String
 where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()>,
@@ -53,7 +66,7 @@ where
     .build()
     .unwrap()
     .block_on(async {
-      let server = Server::setup(&environment).unwrap();
+      let server = Server::setup(environment).await.unwrap();
       let files_directory = server.directory().to_owned();
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });

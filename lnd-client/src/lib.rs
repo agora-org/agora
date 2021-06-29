@@ -5,6 +5,7 @@ use rustls::internal::pemfile;
 use rustls::ClientConfig;
 use std::io::Cursor;
 use std::sync::Arc;
+use tonic::codegen::http::Uri;
 use tonic::transport::channel::Channel;
 use tonic::transport::ClientTlsConfig;
 use tonic::Status;
@@ -21,7 +22,7 @@ pub struct Client {
 }
 
 impl Client {
-  pub async fn new(certificate: &str, rpc_port: u16) -> Result<Client, tonic::transport::Error> {
+  pub async fn new(url: &Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
     let mut certificates = pemfile::certs(&mut Cursor::new(certificate)).unwrap();
     assert_eq!(certificates.len(), 1);
     let certificate = certificates.pop().unwrap();
@@ -34,7 +35,7 @@ impl Client {
       .dangerous()
       .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
 
-    let channel = Channel::builder(format!("https://localhost:{}", rpc_port).parse().unwrap())
+    let channel = Channel::builder(url.clone())
       .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
       .connect()
       .await?;
