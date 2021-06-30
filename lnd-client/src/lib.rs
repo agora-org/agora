@@ -1,5 +1,5 @@
 use crate::grpc_service::GrpcService;
-use hyper::http::Uri;
+use http::uri::Authority;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{GetInfoRequest, GetInfoResponse};
 use openssl::x509::X509;
@@ -17,9 +17,12 @@ pub struct Client {
 }
 
 impl Client {
-  pub async fn new(base_uri: Uri, certificate: X509) -> Result<Client, tonic::transport::Error> {
+  pub async fn new(
+    authority: Authority,
+    certificate: X509,
+  ) -> Result<Client, openssl::error::ErrorStack> {
     Ok(Client {
-      client: LightningClient::new(GrpcService::new(base_uri, certificate)),
+      client: LightningClient::new(GrpcService::new(authority, certificate)?),
     })
   }
 
@@ -69,8 +72,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
     let mut client = LndTestContext::new()
       .await
       .client_with_cert(INVALID_TEST_CERT)
-      .await
-      .unwrap();
+      .await;
     let error = client.get_info().await.unwrap_err();
     let expected = "error trying to connect: tcp connect error: Connection refused";
     assert!(

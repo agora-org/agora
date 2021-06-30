@@ -13,25 +13,28 @@ pub(crate) struct GrpcService {
 }
 
 impl GrpcService {
-  pub(crate) fn new(base_uri: Uri, certificate: X509) -> GrpcService {
-    let mut ssl_connector = SslConnector::builder(SslMethod::tls_client()).unwrap();
-    ssl_connector
-      .cert_store_mut()
-      .add_cert(certificate)
-      .unwrap();
+  pub(crate) fn new(
+    authority: Authority,
+    certificate: X509,
+  ) -> Result<GrpcService, openssl::error::ErrorStack> {
+    let mut ssl_connector = SslConnector::builder(SslMethod::tls_client())?;
+    ssl_connector.cert_store_mut().add_cert(certificate)?;
 
     let mut http_connector = HttpConnector::new();
     http_connector.enforce_http(false);
 
-    let hyper_client = hyper::Client::builder()
-      .http2_only(true)
-      .build(HttpsConnector::with_connector(http_connector, ssl_connector).unwrap());
-    let parts = base_uri.into_parts();
-    GrpcService {
-      base_uri_scheme: parts.scheme.unwrap(),
-      base_uri_authority: parts.authority.unwrap(),
+    let hyper_client =
+      hyper::Client::builder()
+        .http2_only(true)
+        .build(HttpsConnector::with_connector(
+          http_connector,
+          ssl_connector,
+        )?);
+    Ok(GrpcService {
+      base_uri_scheme: Scheme::HTTPS,
+      base_uri_authority: authority,
       hyper_client,
-    }
+    })
   }
 }
 
@@ -51,7 +54,9 @@ impl tonic::client::GrpcService<BoxBody> for GrpcService {
     if let Some(path_and_query) = req.uri().path_and_query() {
       builder = builder.path_and_query(path_and_query.clone());
     }
-    *req.uri_mut() = builder.build().unwrap();
+    *req.uri_mut() = builder
+      .build()
+      .expect("GrpcService::call: Uri constructed from valid parts cannot fail");
     self.hyper_client.request(req)
   }
 }

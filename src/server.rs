@@ -27,7 +27,7 @@ impl Server {
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
-    let lnd_client = if let Some(lnd_rpc_url) = arguments.lnd_rpc_url {
+    let lnd_client = if let Some(lnd_rpc_authority) = arguments.lnd_rpc_authority {
       let lnd_rpc_cert = if let Some(path) = arguments.lnd_rpc_cert_path {
         tokio::fs::read_to_string(&path)
           .await
@@ -37,14 +37,14 @@ impl Server {
       };
 
       let certificate = X509::from_pem(lnd_rpc_cert.as_bytes()).unwrap();
-      let client = lnd_client::Client::new(lnd_rpc_url.clone(), certificate)
+      let client = lnd_client::Client::new(lnd_rpc_authority.clone(), certificate)
         .await
         .unwrap();
 
       write!(
         environment.stderr,
         "Connected to LND RPC server at {}",
-        lnd_rpc_url
+        lnd_rpc_authority
       )
       .context(error::StderrWrite)?;
 
@@ -150,12 +150,12 @@ mod tests {
       .unwrap()
       .block_on(async { LndTestContext::new().await });
 
-    let lnd_rpc_url = format!("https://localhost:{}", lnd_test_context.lnd_rpc_port);
+    let lnd_rpc_authority = format!("localhost:{}", lnd_test_context.lnd_rpc_port);
 
     let stderr = test_with_arguments(
       &[
-        "--lnd-rpc-url",
-        &lnd_rpc_url,
+        "--lnd-rpc-authority",
+        &lnd_rpc_authority,
         "--lnd-rpc-cert-path",
         lnd_test_context
           .lnd_dir()
@@ -168,7 +168,7 @@ mod tests {
 
     assert_contains(
       &stderr,
-      &format!("Connected to LND RPC server at {}", lnd_rpc_url),
+      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
     );
   }
 }

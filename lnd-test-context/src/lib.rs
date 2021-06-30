@@ -252,19 +252,18 @@ impl LndTestContext {
     self.tmpdir.path().join("lnd")
   }
 
-  pub async fn client_with_cert(&self, cert: &str) -> Result<Client, tonic::transport::Error> {
+  pub async fn client_with_cert(&self, cert: &str) -> Client {
     Client::new(
-      format!("https://localhost:{}", self.lnd_rpc_port)
-        .parse()
-        .unwrap(),
+      format!("localhost:{}", self.lnd_rpc_port).parse().unwrap(),
       X509::from_pem(cert.as_bytes()).unwrap(),
     )
     .await
+    .unwrap()
   }
 
   pub async fn client(&self) -> Client {
     let cert = fs::read_to_string(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
-    self.client_with_cert(&cert).await.unwrap()
+    self.client_with_cert(&cert).await
   }
 }
 

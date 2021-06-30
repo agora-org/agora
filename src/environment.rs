@@ -2,7 +2,7 @@ use crate::{
   error::{self, Result},
   stderr::Stderr,
 };
-use hyper::Uri;
+use http::uri::Authority;
 use snafu::ResultExt;
 use std::{env, ffi::OsString, path::PathBuf};
 use structopt::StructOpt;
@@ -21,7 +21,7 @@ pub(crate) struct Arguments {
   #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
   pub(crate) port: u16,
   #[structopt(long)]
-  pub(crate) lnd_rpc_url: Option<Uri>,
+  pub(crate) lnd_rpc_authority: Option<Authority>,
   #[structopt(long)]
   pub(crate) lnd_rpc_cert_path: Option<PathBuf>,
 }
