@@ -13,6 +13,7 @@ pretty_assertions = "0.7.2"
 sha2 = "0.9.5"
 tempfile = "3.2.0"
 lnd-client = { path = "../lnd-client" }
+openssl = "0.10.35"
 
 [dependencies.tonic]
 version = "0.4.3"

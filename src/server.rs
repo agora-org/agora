@@ -4,6 +4,7 @@ use crate::{
   request_handler::RequestHandler,
 };
 use hyper::server::conn::AddrIncoming;
+use openssl::x509::X509;
 use snafu::ResultExt;
 use std::{fmt::Debug, io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
@@ -35,7 +36,8 @@ impl Server {
         todo!("need cert");
       };
 
-      let client = lnd_client::Client::new(&lnd_rpc_url, &lnd_rpc_cert)
+      let certificate = X509::from_pem(lnd_rpc_cert.as_bytes()).unwrap();
+      let client = lnd_client::Client::new(lnd_rpc_url.clone(), certificate)
         .await
         .unwrap();
 

@@ -17,8 +17,7 @@ pub struct Client {
 }
 
 impl Client {
-  pub async fn new(base_uri: Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
-    let certificate = X509::from_pem(certificate.as_bytes()).unwrap();
+  pub async fn new(base_uri: Uri, certificate: X509) -> Result<Client, tonic::transport::Error> {
     Ok(Client {
       client: LightningClient::new(GrpcService::new(base_uri, certificate)),
     })

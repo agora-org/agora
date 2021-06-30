@@ -13,6 +13,7 @@ hyper-openssl = "0.9.1"
 prost = "0.7.0"
 tonic = "0.4.3"
 tower = "0.4.8"
+http = "0.2.4"
 
 [dependencies.openssl]
 version = "0.10.35"

@@ -15,6 +15,7 @@ dependencies = [
  "maud",
  "mime_guess",
  "nix",
+ "openssl",
  "percent-encoding",
  "pin-project",
  "pretty_assertions",
@@ -770,6 +771,7 @@ version = "0.0.0"
 dependencies = [
  "cradle",
  "hex-literal",
+ "http",
  "hyper",
  "hyper-openssl",
  "lnd-test-context",
@@ -792,6 +794,7 @@ dependencies = [
  "cradle",
  "hex-literal",
  "lnd-client",
+ "openssl",
  "pretty_assertions",
  "reqwest",
  "sha2",

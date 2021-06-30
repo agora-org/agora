@@ -2,6 +2,7 @@ use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use hex_literal::hex;
 use lnd_client::Client;
+use openssl::x509::X509;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::{
@@ -256,7 +257,7 @@ impl LndTestContext {
       format!("https://localhost:{}", self.lnd_rpc_port)
         .parse()
         .unwrap(),
-      cert,
+      X509::from_pem(cert.as_bytes()).unwrap(),
     )
     .await
   }

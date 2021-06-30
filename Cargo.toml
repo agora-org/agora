@@ -23,6 +23,7 @@ rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
 lnd-client = { path = "lnd-client" }
+openssl = "0.10.35"
 
 [dependencies.tower]
 version = "0.4.6"
