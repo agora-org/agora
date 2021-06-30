@@ -36,10 +36,11 @@ impl Server {
         todo!("need cert");
       };
 
-      let certificate = X509::from_pem(lnd_rpc_cert.as_bytes()).unwrap();
+      let certificate =
+        X509::from_pem(lnd_rpc_cert.as_bytes()).context(error::LndGrpcCertificateParse)?;
       let client = lnd_client::Client::new(lnd_rpc_authority.clone(), certificate)
         .await
-        .unwrap();
+        .context(error::LndGrpcConnect)?;
 
       write!(
         environment.stderr,
