@@ -74,7 +74,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .client_with_cert(INVALID_TEST_CERT)
       .await;
     let error = client.get_info().await.unwrap_err();
-    let expected = "error trying to connect: tcp connect error: Connection refused";
+    let expected = "error trying to connect: tcp connect error: ";
     assert!(
       error.to_string().contains(expected),
       "{}\ndidn't contain\n{}",
