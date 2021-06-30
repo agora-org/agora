@@ -2,6 +2,7 @@ use crate::grpc_service::GrpcService;
 use hyper::http::Uri;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{GetInfoRequest, GetInfoResponse};
+use openssl::x509::X509;
 use tonic::Status;
 
 mod grpc_service;
@@ -17,6 +18,7 @@ pub struct Client {
 
 impl Client {
   pub async fn new(base_uri: Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
+    let certificate = X509::from_pem(certificate.as_bytes()).unwrap();
     Ok(Client {
       client: LightningClient::new(GrpcService::new(base_uri, certificate)),
     })
