@@ -36,7 +36,7 @@ impl Client {
 
     let https = hyper_openssl::HttpsConnector::with_connector(http, connector).unwrap();
     let hyper = hyper::Client::builder().http2_only(true).build(https);
-    let url_clone = dbg!(url.clone());
+    let url_clone = url.clone();
     let service: MyBox = Box::new(tower::service_fn(
       move |mut req: hyper::Request<tonic::body::BoxBody>| -> hyper::client::ResponseFuture {
         let uri = Uri::builder()
@@ -46,7 +46,6 @@ impl Client {
           .build()
           .unwrap();
         *req.uri_mut() = uri;
-        dbg!(&req);
         hyper.request(req)
       },
     ));
@@ -55,7 +54,7 @@ impl Client {
   }
 
   pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
-    let foo = dbg!(self.client.get_info(GetInfoRequest {}).await);
+    let foo = self.client.get_info(GetInfoRequest {}).await;
     Ok(foo?.into_inner())
   }
 }
@@ -103,7 +102,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .client_with_cert(INVALID_TEST_CERT)
       .await
       .unwrap();
-    let error = dbg!(client.get_info().await).unwrap_err();
+    let error = client.get_info().await.unwrap_err();
     let expected = "error trying to connect: tcp connect error: Connection refused";
     assert!(
       error.to_string().contains(expected),

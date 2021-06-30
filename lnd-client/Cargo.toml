@@ -10,10 +10,13 @@ doctest = false
 [dependencies]
 hyper = "0.14.9"
 hyper-openssl = "0.9.1"
-openssl = "0.10.35"
 prost = "0.7.0"
 tonic = "0.4.3"
 tower = "0.4.8"
+
+[dependencies.openssl]
+version = "0.10.35"
+features = ["vendored"]
 
 [dev-dependencies]
 cradle = "0.0.4"
