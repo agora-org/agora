@@ -253,7 +253,7 @@ impl LndTestContext {
 
   pub async fn client_with_cert(&self, cert: &str) -> Result<Client, tonic::transport::Error> {
     Client::new(
-      &format!("https://localhost:{}", self.lnd_rpc_port)
+      format!("https://localhost:{}", self.lnd_rpc_port)
         .parse()
         .unwrap(),
       cert,

@@ -1,8 +1,9 @@
+use hyper::http::Uri;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{GetInfoRequest, GetInfoResponse};
-use tonic::codegen::http::Uri;
+use std::task::{Context, Poll};
+use tonic::body::BoxBody;
 use tonic::Status;
-
 
 pub mod lnrpc {
   tonic::include_proto!("lnrpc");
@@ -10,23 +11,20 @@ pub mod lnrpc {
 
 #[derive(Debug)]
 pub struct Client {
-  client: LightningClient<MyBox>,
+  client: LightningClient<GrpcService>,
 }
 
-type MyBox = Box<
-  dyn tower::Service<
-    hyper::Request<tonic::body::BoxBody>,
-    Response = hyper::Response<hyper::Body>,
-    Error = hyper::Error,
-    Future = hyper::client::ResponseFuture,
-  >,
->;
+struct GrpcService {
+  base_uri: Uri,
+  hyper_client:
+    hyper::Client<hyper_openssl::HttpsConnector<hyper::client::connect::HttpConnector>, BoxBody>,
+}
 
-impl Client {
-  pub async fn new(url: &Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
-    let ca = openssl::x509::X509::from_pem(certificate.as_bytes()).unwrap();
+impl GrpcService {
+  fn new(base_uri: Uri, certificate: &str) -> GrpcService {
     let mut connector =
       openssl::ssl::SslConnector::builder(openssl::ssl::SslMethod::tls()).unwrap();
+    let ca = openssl::x509::X509::from_pem(certificate.as_bytes()).unwrap();
     connector.cert_store_mut().add_cert(ca).unwrap();
     const ALPN_H2_WIRE: &[u8] = b"\x02h2";
     connector.set_alpn_protos(ALPN_H2_WIRE).unwrap();
@@ -35,27 +33,44 @@ impl Client {
     http.enforce_http(false);
 
     let https = hyper_openssl::HttpsConnector::with_connector(http, connector).unwrap();
-    let hyper = hyper::Client::builder().http2_only(true).build(https);
-    let url_clone = url.clone();
-    let service: MyBox = Box::new(tower::service_fn(
-      move |mut req: hyper::Request<tonic::body::BoxBody>| -> hyper::client::ResponseFuture {
-        let uri = Uri::builder()
-          .scheme(url_clone.scheme().unwrap().clone())
-          .authority(url_clone.authority().unwrap().clone())
-          .path_and_query(req.uri().path_and_query().unwrap().clone())
-          .build()
-          .unwrap();
-        *req.uri_mut() = uri;
-        hyper.request(req)
-      },
-    ));
-    let client = LightningClient::new(service);
-    Ok(Client { client })
+    let hyper_client = hyper::Client::builder().http2_only(true).build(https);
+    GrpcService {
+      base_uri,
+      hyper_client,
+    }
+  }
+}
+
+impl tonic::client::GrpcService<BoxBody> for GrpcService {
+  type ResponseBody = hyper::Body;
+  type Error = hyper::Error;
+  type Future = hyper::client::ResponseFuture;
+
+  fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    Ok(()).into()
+  }
+
+  fn call(&mut self, mut req: hyper::Request<BoxBody>) -> Self::Future {
+    let uri = Uri::builder()
+      .scheme(self.base_uri.scheme().unwrap().clone())
+      .authority(self.base_uri.authority().unwrap().clone())
+      .path_and_query(req.uri().path_and_query().unwrap().clone())
+      .build()
+      .unwrap();
+    *req.uri_mut() = uri;
+    self.hyper_client.request(req)
+  }
+}
+
+impl Client {
+  pub async fn new(base_uri: Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
+    Ok(Client {
+      client: LightningClient::new(GrpcService::new(base_uri, certificate)),
+    })
   }
 
   pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
-    let foo = self.client.get_info(GetInfoRequest {}).await;
-    Ok(foo?.into_inner())
+    Ok(self.client.get_info(GetInfoRequest {}).await?.into_inner())
   }
 }
 
