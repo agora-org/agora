@@ -18,8 +18,19 @@ pub mod lnrpc {
 
 #[derive(Debug)]
 pub struct Client {
-  client: LightningClient<Channel>,
+  client: LightningClient<MyBox>,
 }
+
+struct Foo;
+
+type MyBox = Box<
+  dyn tower::Service<
+    hyper::Request<tonic::body::BoxBody>,
+    Response = hyper::Response<hyper::Body>,
+    Error = hyper::Error,
+    Future = hyper::client::ResponseFuture,
+  >,
+>;
 
 impl Client {
   pub async fn new(url: &Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
@@ -34,12 +45,31 @@ impl Client {
     config
       .dangerous()
       .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
+    let pem = tokio::fs::read("example/tls/ca.pem").await.unwrap();
+    let ca = openssl::x509::X509::from_pem(&pem[..]).unwrap();
+    let mut connector =
+      openssl::ssl::SslConnector::builder(openssl::ssl::SslMethod::tls()).unwrap();
+    connector.cert_store_mut().add_cert(ca).unwrap();
+    const ALPN_H2_WIRE: &[u8] = b"\x02h2";
+    connector.set_alpn_protos(ALPN_H2_WIRE).unwrap();
 
-    let channel = Channel::builder(url.clone())
-      .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
-      .connect()
-      .await?;
-    let client = LightningClient::new(channel);
+    let mut http = hyper::client::connect::HttpConnector::new();
+    http.enforce_http(false);
+
+    let mut https = hyper_openssl::HttpsConnector::with_connector(http, connector).unwrap();
+    let hyper = hyper::Client::builder().http2_only(true).build(https);
+    // let channel = Channel::builder(url.clone())
+    //   .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
+    //   .connect()
+    //   .await?;
+    let url_clone = url.clone();
+    let service: MyBox = Box::new(tower::service_fn(
+      move |mut req: hyper::Request<tonic::body::BoxBody>| -> hyper::client::ResponseFuture {
+        *req.uri_mut() = url_clone.clone();
+        hyper.request(req)
+      },
+    ));
+    let client = LightningClient::new(service);
     Ok(Client { client })
   }
 
