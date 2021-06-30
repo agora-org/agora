@@ -52,7 +52,7 @@ jobs:
         brew install gnu-tar
         echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
 
-    - name: Use strawberry perl
+    - name: Make openssl-src Use Strawberry Perl
       if: matrix.os == 'windows-latest'
       run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
 
