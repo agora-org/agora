@@ -69,11 +69,13 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let mut client = LndTestContext::new()
+    let error = LndTestContext::new()
       .await
       .client_with_cert(INVALID_TEST_CERT)
-      .await;
-    let error = client.get_info().await.unwrap_err();
+      .await
+      .get_info()
+      .await
+      .unwrap_err();
     let expected = "error trying to connect: tcp connect error: ";
     assert!(
       error.to_string().contains(expected),

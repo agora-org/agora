@@ -8,13 +8,13 @@ edition = "2018"
 doctest = false
 
 [dependencies]
+http = "0.2.4"
 hyper = "0.14.9"
 hyper-openssl = "0.9.1"
 prost = "0.7.0"
+snafu = "0.6.10"
 tonic = "0.4.3"
 tower = "0.4.8"
-http = "0.2.4"
-snafu = "0.6.10"
 
 [dependencies.openssl]
 version = "0.10.35"

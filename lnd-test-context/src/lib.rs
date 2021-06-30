@@ -52,6 +52,7 @@ impl LndTestContext {
         "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}",
         ARCHIVE_SUFFIX
       );
+      #[allow(clippy::explicit_write)]
       writeln!(
         io::stderr(),
         "Downloading Bitcoin Core archive from {}…",
@@ -101,6 +102,7 @@ impl LndTestContext {
     let tarball_path = target_dir.join("lnd-source-v0.13.0-beta.tar.gz");
     if !tarball_path.exists() {
       let url = "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-source-v0.13.0-beta.tar.gz";
+      #[allow(clippy::explicit_write)]
       writeln!(io::stderr(), "Downloading LND archive from {}…", url).unwrap();
       let response = reqwest::get(url).await.unwrap();
       assert_eq!(response.status(), 200);

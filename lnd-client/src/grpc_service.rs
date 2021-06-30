@@ -7,8 +7,7 @@ use std::task::{Context, Poll};
 use tonic::body::BoxBody;
 
 pub(crate) struct GrpcService {
-  base_uri_scheme: Scheme,
-  base_uri_authority: Authority,
+  authority: Authority,
   hyper_client: hyper::Client<HttpsConnector<HttpConnector>, BoxBody>,
 }
 
@@ -17,11 +16,11 @@ impl GrpcService {
     authority: Authority,
     certificate: X509,
   ) -> Result<GrpcService, openssl::error::ErrorStack> {
-    let mut ssl_connector = SslConnector::builder(SslMethod::tls_client())?;
-    ssl_connector.cert_store_mut().add_cert(certificate)?;
-
     let mut http_connector = HttpConnector::new();
     http_connector.enforce_http(false);
+
+    let mut ssl_connector = SslConnector::builder(SslMethod::tls_client())?;
+    ssl_connector.cert_store_mut().add_cert(certificate)?;
 
     let hyper_client =
       hyper::Client::builder()
@@ -31,8 +30,7 @@ impl GrpcService {
           ssl_connector,
         )?);
     Ok(GrpcService {
-      base_uri_scheme: Scheme::HTTPS,
-      base_uri_authority: authority,
+      authority,
       hyper_client,
     })
   }
@@ -49,8 +47,8 @@ impl tonic::client::GrpcService<BoxBody> for GrpcService {
 
   fn call(&mut self, mut req: hyper::Request<BoxBody>) -> Self::Future {
     let mut builder = Uri::builder()
-      .scheme(self.base_uri_scheme.clone())
-      .authority(self.base_uri_authority.clone());
+      .scheme(Scheme::HTTPS)
+      .authority(self.authority.clone());
     if let Some(path_and_query) = req.uri().path_and_query() {
       builder = builder.path_and_query(path_and_query.clone());
     }
