@@ -1,16 +1,8 @@
-use crate::single_cert_verifier::SingleCertVerifier;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{GetInfoRequest, GetInfoResponse};
-use rustls::internal::pemfile;
-use rustls::ClientConfig;
-use std::io::Cursor;
-use std::sync::Arc;
 use tonic::codegen::http::Uri;
-use tonic::transport::channel::Channel;
-use tonic::transport::ClientTlsConfig;
 use tonic::Status;
 
-mod single_cert_verifier;
 
 pub mod lnrpc {
   tonic::include_proto!("lnrpc");
@@ -20,8 +12,6 @@ pub mod lnrpc {
 pub struct Client {
   client: LightningClient<MyBox>,
 }
-
-struct Foo;
 
 type MyBox = Box<
   dyn tower::Service<
@@ -34,18 +24,6 @@ type MyBox = Box<
 
 impl Client {
   pub async fn new(url: &Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
-    // let mut certificates = pemfile::certs(&mut Cursor::new(certificate)).unwrap();
-    // assert_eq!(certificates.len(), 1);
-    // let certificate = certificates.pop().unwrap();
-
-    const ALPN_H2: &str = "h2";
-
-    let mut config = ClientConfig::new();
-    config.set_protocols(&[Vec::from(&ALPN_H2[..])]);
-    // config
-    //   .dangerous()
-    //   .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
-    // let pem = tokio::fs::read("example/tls/ca.pem").await.unwrap();
     let ca = openssl::x509::X509::from_pem(certificate.as_bytes()).unwrap();
     let mut connector =
       openssl::ssl::SslConnector::builder(openssl::ssl::SslMethod::tls()).unwrap();
@@ -56,12 +34,8 @@ impl Client {
     let mut http = hyper::client::connect::HttpConnector::new();
     http.enforce_http(false);
 
-    let mut https = hyper_openssl::HttpsConnector::with_connector(http, connector).unwrap();
+    let https = hyper_openssl::HttpsConnector::with_connector(http, connector).unwrap();
     let hyper = hyper::Client::builder().http2_only(true).build(https);
-    // let channel = Channel::builder(url.clone())
-    //   .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
-    //   .connect()
-    //   .await?;
     let url_clone = dbg!(url.clone());
     let service: MyBox = Box::new(tower::service_fn(
       move |mut req: hyper::Request<tonic::body::BoxBody>| -> hyper::client::ResponseFuture {

@@ -8,21 +8,12 @@ edition = "2018"
 doctest = false
 
 [dependencies]
-prost = "0.7.0"
-webpki = "0.21.4"
-tower = "0.4.8"
 hyper = "0.14.9"
-openssl = "0.10.35"
 hyper-openssl = "0.9.1"
-futures = "0.3.15"
-
-[dependencies.rustls]
-version = "0.19.1"
-features = ["dangerous_configuration"]
-
-[dependencies.tonic]
-version = "0.4.3"
-features = ["transport", "tls", "h2"]
+openssl = "0.10.35"
+prost = "0.7.0"
+tonic = "0.4.3"
+tower = "0.4.8"
 
 [dev-dependencies]
 cradle = "0.0.4"
@@ -33,9 +24,9 @@ reqwest = "0.11.3"
 sha2 = "0.9.5"
 tempfile = "3.2.0"
 
-[dependencies.tokio]
+[dev-dependencies.tokio]
 version = "1.7.1"
-features = ["parking_lot", "fs"]
+features = ["parking_lot"]
 
 [build-dependencies]
 tonic-build = "0.4.2"

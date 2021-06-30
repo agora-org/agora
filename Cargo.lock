@@ -769,7 +769,6 @@ name = "lnd-client"
 version = "0.0.0"
 dependencies = [
  "cradle",
- "futures",
  "hex-literal",
  "hyper",
  "hyper-openssl",
@@ -778,14 +777,12 @@ dependencies = [
  "pretty_assertions",
  "prost",
  "reqwest",
- "rustls",
  "sha2",
  "tempfile",
  "tokio",
  "tonic",
  "tonic-build",
  "tower",
- "webpki",
 ]
 
 [[package]]
