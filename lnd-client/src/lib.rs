@@ -130,7 +130,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .await
       .unwrap();
     let error = dbg!(client.get_info().await).unwrap_err();
-    let expected = "error trying to connect: tcp connect error: Connection refused (os error 111)";
+    let expected = "error trying to connect: tcp connect error: Connection refused";
     assert!(
       error.to_string().contains(expected),
       "{}\ndidn't contain\n{}",
