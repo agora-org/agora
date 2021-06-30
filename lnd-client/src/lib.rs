@@ -34,19 +34,19 @@ type MyBox = Box<
 
 impl Client {
   pub async fn new(url: &Uri, certificate: &str) -> Result<Client, tonic::transport::Error> {
-    let mut certificates = pemfile::certs(&mut Cursor::new(certificate)).unwrap();
-    assert_eq!(certificates.len(), 1);
-    let certificate = certificates.pop().unwrap();
+    // let mut certificates = pemfile::certs(&mut Cursor::new(certificate)).unwrap();
+    // assert_eq!(certificates.len(), 1);
+    // let certificate = certificates.pop().unwrap();
 
     const ALPN_H2: &str = "h2";
 
     let mut config = ClientConfig::new();
     config.set_protocols(&[Vec::from(&ALPN_H2[..])]);
-    config
-      .dangerous()
-      .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
-    let pem = tokio::fs::read("example/tls/ca.pem").await.unwrap();
-    let ca = openssl::x509::X509::from_pem(&pem[..]).unwrap();
+    // config
+    //   .dangerous()
+    //   .set_certificate_verifier(Arc::new(SingleCertVerifier::new(certificate)));
+    // let pem = tokio::fs::read("example/tls/ca.pem").await.unwrap();
+    let ca = openssl::x509::X509::from_pem(certificate.as_bytes()).unwrap();
     let mut connector =
       openssl::ssl::SslConnector::builder(openssl::ssl::SslMethod::tls()).unwrap();
     connector.cert_store_mut().add_cert(ca).unwrap();
@@ -62,10 +62,17 @@ impl Client {
     //   .tls_config(ClientTlsConfig::new().rustls_client_config(config))?
     //   .connect()
     //   .await?;
-    let url_clone = url.clone();
+    let url_clone = dbg!(url.clone());
     let service: MyBox = Box::new(tower::service_fn(
       move |mut req: hyper::Request<tonic::body::BoxBody>| -> hyper::client::ResponseFuture {
-        *req.uri_mut() = url_clone.clone();
+        let uri = Uri::builder()
+          .scheme(url_clone.scheme().unwrap().clone())
+          .authority(url_clone.authority().unwrap().clone())
+          .path_and_query(req.uri().path_and_query().unwrap().clone())
+          .build()
+          .unwrap();
+        *req.uri_mut() = uri;
+        dbg!(&req);
         hyper.request(req)
       },
     ));
@@ -74,7 +81,8 @@ impl Client {
   }
 
   pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
-    Ok(self.client.get_info(GetInfoRequest {}).await?.into_inner())
+    let foo = dbg!(self.client.get_info(GetInfoRequest {}).await);
+    Ok(foo?.into_inner())
   }
 }
 
@@ -116,12 +124,13 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let error = LndTestContext::new()
+    let mut client = LndTestContext::new()
       .await
       .client_with_cert(INVALID_TEST_CERT)
       .await
-      .unwrap_err();
-    let expected = "unexpected certificate presented";
+      .unwrap();
+    let error = dbg!(client.get_info().await).unwrap_err();
+    let expected = "error trying to connect: tcp connect error: Connection refused (os error 111)";
     assert!(
       error.to_string().contains(expected),
       "{}\ndidn't contain\n{}",
