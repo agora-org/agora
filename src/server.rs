@@ -42,7 +42,7 @@ impl Server {
         .await
         .context(error::LndGrpcConnect)?;
 
-      write!(
+      writeln!(
         environment.stderr,
         "Connected to LND RPC server at {}",
         lnd_rpc_authority
@@ -69,7 +69,7 @@ impl Server {
       &arguments.directory,
     )));
 
-    write!(environment.stderr, "Listening on {}", inner.local_addr())
+    writeln!(environment.stderr, "Listening on {}", inner.local_addr())
       .context(error::StderrWrite)?;
 
     Ok(Self {

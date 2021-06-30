@@ -6,8 +6,8 @@ build:
 test pattern='':
   cargo test --all {{pattern}}
 
-smoke:
-  cargo test --test smoke
+smoke +args="":
+  cargo test --test smoke {{args}}
 
 clippy:
   cargo clippy --all-targets --all-features
