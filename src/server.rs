@@ -31,10 +31,10 @@ impl Server {
       Some(lnd_rpc_authority) => {
         let lnd_rpc_cert = match arguments.lnd_rpc_cert_path {
           Some(path) => {
-            let x = tokio::fs::read_to_string(&path)
+            let pem = tokio::fs::read_to_string(&path)
               .await
               .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(x.as_bytes()).context(error::LndGrpcCertificateParse)?)
+            Some(X509::from_pem(pem.as_bytes()).context(error::LndGrpcCertificateParse)?)
           }
           None => None,
         };
