@@ -76,12 +76,17 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .get_info()
       .await
       .unwrap_err();
-    let expected = "error trying to connect: tcp connect error: ";
-    assert!(
-      error.to_string().contains(expected),
-      "{}\ndidn't contain\n{}",
-      error,
-      expected
-    );
+    #[track_caller]
+    fn assert_contains(input: &str, expected: &str) {
+      assert!(
+        input.contains(expected),
+        "assert_contains:\n{}\ndidn't contain\n{}",
+        input,
+        expected
+      );
+    }
+    assert_contains(&error.to_string(), "error trying to connect: ");
+    assert_contains(&error.to_string(), "certificate verify failed");
+    assert_contains(&error.to_string(), "self signed certificate");
   }
 }
