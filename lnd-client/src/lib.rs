@@ -19,7 +19,7 @@ pub struct Client {
 impl Client {
   pub async fn new(
     authority: Authority,
-    certificate: X509,
+    certificate: Option<X509>,
   ) -> Result<Client, openssl::error::ErrorStack> {
     Ok(Client {
       client: LightningClient::new(GrpcService::new(authority, certificate)?),

@@ -14,13 +14,15 @@ pub(crate) struct GrpcService {
 impl GrpcService {
   pub(crate) fn new(
     authority: Authority,
-    certificate: X509,
+    certificate: Option<X509>,
   ) -> Result<GrpcService, openssl::error::ErrorStack> {
     let mut http_connector = HttpConnector::new();
     http_connector.enforce_http(false);
 
     let mut ssl_connector = SslConnector::builder(SslMethod::tls_client())?;
-    ssl_connector.cert_store_mut().add_cert(certificate)?;
+    if let Some(certificate) = certificate {
+      ssl_connector.cert_store_mut().add_cert(certificate)?;
+    }
 
     let hyper_client =
       hyper::Client::builder()

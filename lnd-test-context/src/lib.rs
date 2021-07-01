@@ -12,6 +12,8 @@ use std::{
   net::TcpListener,
   path::{Path, PathBuf},
   process::Command,
+  thread,
+  time::Duration,
 };
 use tempfile::TempDir;
 
@@ -79,8 +81,7 @@ impl LndTestContext {
     archive_path
   }
 
-  async fn bitcoind_executable() -> PathBuf {
-    let target_dir = Self::target_dir();
+  async fn bitcoind_executable(target_dir: &Path) -> PathBuf {
     let binary = target_dir.join(format!("bitcoind{}", EXE_SUFFIX));
     static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = MUTEX.lock().await;
@@ -116,8 +117,7 @@ impl LndTestContext {
     tarball_path
   }
 
-  async fn lnd_executables() -> (PathBuf, PathBuf) {
-    let target_dir = Self::target_dir();
+  async fn lnd_executables(target_dir: &Path) -> (PathBuf, PathBuf) {
     let lnd_itest_filename = format!("lnd-itest{}", EXE_SUFFIX);
     let lncli_debug_filename = format!("lncli-debug{}", EXE_SUFFIX);
     let lnd_itest = target_dir.join(&lnd_itest_filename);
@@ -141,12 +141,12 @@ impl LndTestContext {
     (lnd_itest, lncli_debug)
   }
 
-  async fn lnd_executable() -> PathBuf {
-    Self::lnd_executables().await.0
+  async fn lnd_executable(target_dir: &Path) -> PathBuf {
+    Self::lnd_executables(target_dir).await.0
   }
 
-  async fn lncli_executable() -> PathBuf {
-    Self::lnd_executables().await.1
+  async fn lncli_executable(target_dir: &Path) -> PathBuf {
+    Self::lnd_executables(target_dir).await.1
   }
 
   fn guess_free_port() -> u16 {
@@ -158,6 +158,7 @@ impl LndTestContext {
   }
 
   pub async fn new() -> Self {
+    let target_dir = Self::target_dir();
     let tmpdir = tempfile::tempdir().unwrap();
 
     let bitcoinddir = tmpdir.path().join("bitcoind");
@@ -165,13 +166,13 @@ impl LndTestContext {
     fs::create_dir(&bitcoinddir).unwrap();
     fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
 
-    let rpc_port = Self::guess_free_port();
+    let bitcoind_rpc_port = Self::guess_free_port();
     let zmqpubrawblock = Self::guess_free_port();
     let zmqpubrawtx = Self::guess_free_port();
-    let bitcoind = Command::new(Self::bitcoind_executable().await)
+    let bitcoind = Command::new(Self::bitcoind_executable(&target_dir).await)
       .arg("-chain=regtest")
       .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
-      .arg(format!("-rpcport={}", rpc_port))
+      .arg(format!("-rpcport={}", bitcoind_rpc_port))
       .arg("-rpcuser=user")
       .arg("-rpcpassword=password")
       .arg(format!("-port={}", Self::guess_free_port()))
@@ -190,7 +191,7 @@ impl LndTestContext {
     let lnd_rpc_port = Self::guess_free_port();
 
     let lnd = 'outer: loop {
-      let mut lnd = Command::new(Self::lnd_executable().await)
+      let mut lnd = Command::new(Self::lnd_executable(&target_dir).await)
         .args(&[
           "--bitcoin.regtest",
           "--bitcoin.active",
@@ -200,7 +201,10 @@ impl LndTestContext {
         .arg(&lnddir)
         .arg("--bitcoind.dir")
         .arg(&bitcoinddir)
-        .arg(format!("--bitcoind.rpchost=127.0.0.1:{}", rpc_port))
+        .arg(format!(
+          "--bitcoind.rpchost=127.0.0.1:{}",
+          bitcoind_rpc_port
+        ))
         .arg("--bitcoind.rpcuser=user")
         .arg("--bitcoind.rpcpass=password")
         .arg(format!(
@@ -220,9 +224,8 @@ impl LndTestContext {
         .unwrap();
       loop {
         let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
-          Self::lncli_executable().await,
-          "--network",
-          "regtest",
+          Self::lncli_executable(&target_dir).await,
+          %"--network regtest",
           "--lnddir",
           &lnddir,
           "--rpcserver",
@@ -234,16 +237,17 @@ impl LndTestContext {
           break 'outer lnd;
         } else if lnd.inner.try_wait().unwrap().is_some() {
           break;
+        } else {
+          thread::sleep(Duration::from_millis(50));
         }
-        std::thread::sleep(std::time::Duration::from_millis(500));
       }
     };
 
     Self {
+      bitcoind,
+      lnd,
       lnd_rpc_port,
       tmpdir,
-      lnd,
-      bitcoind,
     }
   }
 
@@ -254,15 +258,16 @@ impl LndTestContext {
   pub async fn client_with_cert(&self, cert: &str) -> Client {
     Client::new(
       format!("localhost:{}", self.lnd_rpc_port).parse().unwrap(),
-      X509::from_pem(cert.as_bytes()).unwrap(),
+      Some(X509::from_pem(cert.as_bytes()).unwrap()),
     )
     .await
     .unwrap()
   }
 
   pub async fn client(&self) -> Client {
-    let cert = fs::read_to_string(self.tmpdir.path().join("lnd/tls.cert")).unwrap();
-    self.client_with_cert(&cert).await
+    self
+      .client_with_cert(&fs::read_to_string(self.lnd_dir().join("tls.cert")).unwrap())
+      .await
   }
 }
 

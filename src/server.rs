@@ -23,35 +23,36 @@ impl Server {
 
     let directory = environment.working_directory.join(&arguments.directory);
 
-    let _ = tokio::fs::read_dir(&directory)
+    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
-    let lnd_client = if let Some(lnd_rpc_authority) = arguments.lnd_rpc_authority {
-      let lnd_rpc_cert = if let Some(path) = arguments.lnd_rpc_cert_path {
-        tokio::fs::read_to_string(&path)
+    let lnd_client = match arguments.lnd_rpc_authority {
+      Some(lnd_rpc_authority) => {
+        let lnd_rpc_cert = match arguments.lnd_rpc_cert_path {
+          Some(path) => {
+            let x = tokio::fs::read_to_string(&path)
+              .await
+              .context(error::FilesystemIo { path })?;
+            Some(X509::from_pem(x.as_bytes()).context(error::LndGrpcCertificateParse)?)
+          }
+          None => None,
+        };
+
+        let client = lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert)
           .await
-          .context(error::FilesystemIo { path })?
-      } else {
-        todo!("need cert");
-      };
+          .context(error::LndGrpcConnect)?;
 
-      let certificate =
-        X509::from_pem(lnd_rpc_cert.as_bytes()).context(error::LndGrpcCertificateParse)?;
-      let client = lnd_client::Client::new(lnd_rpc_authority.clone(), certificate)
-        .await
-        .context(error::LndGrpcConnect)?;
+        writeln!(
+          environment.stderr,
+          "Connected to LND RPC server at {}",
+          lnd_rpc_authority
+        )
+        .context(error::StderrWrite)?;
 
-      writeln!(
-        environment.stderr,
-        "Connected to LND RPC server at {}",
-        lnd_rpc_authority
-      )
-      .context(error::StderrWrite)?;
-
-      Some(client)
-    } else {
-      None
+        Some(client)
+      }
+      None => None,
     };
 
     let socket_addr = (arguments.address.as_str(), arguments.port)

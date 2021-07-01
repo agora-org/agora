@@ -43,9 +43,9 @@ pub(crate) enum Error {
   StaticAssetNotFound { uri_path: String },
   #[snafu(display("IO error writing to stderr: {}", source))]
   StderrWrite { source: io::Error },
-  #[snafu(display("OpenSSL error when parsing LND gRPC certificate: {}", source))]
+  #[snafu(display("OpenSSL error parsing LND gRPC certificate: {}", source))]
   LndGrpcCertificateParse { source: openssl::error::ErrorStack },
-  #[snafu(display("OpenSSL error when connecting to LND gRPC server: {}", source))]
+  #[snafu(display("OpenSSL error connecting to LND gRPC server: {}", source))]
   LndGrpcConnect { source: openssl::error::ErrorStack },
 }
 
