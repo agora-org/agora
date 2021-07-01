@@ -46,11 +46,12 @@ impl LndTestContext {
       "x86_64-linux-gnu.tar.gz"
     };
 
-    let archive_path = target_dir.join(format!("bitcoin-0.21.1-{}", ARCHIVE_SUFFIX));
+    let archive_filename = format!("bitcoin-0.21.1-{}", ARCHIVE_SUFFIX);
+    let archive_path = target_dir.join(&archive_filename);
     if !archive_path.exists() {
       let url = format!(
-        "https://bitcoin.org/bin/bitcoin-core-0.21.1/bitcoin-0.21.1-{}",
-        ARCHIVE_SUFFIX
+        "https://bitcoin.org/bin/bitcoin-core-0.21.1/{}",
+        archive_filename
       );
       #[allow(clippy::explicit_write)]
       writeln!(
@@ -61,9 +62,19 @@ impl LndTestContext {
       .unwrap();
       let response = reqwest::get(url).await.unwrap();
       assert_eq!(response.status(), 200);
-      let mut bytes = io::Cursor::new(response.bytes().await.unwrap().to_vec());
+      let bytes = response.bytes().await.unwrap().to_vec();
+      assert_eq!(
+        Sha256::digest(&bytes).as_slice(),
+        if cfg!(target_os = "macos") {
+          &hex!("1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7")
+        } else if cfg!(target_os = "windows") {
+          &hex!("94c80f90184cdc7e7e75988a55b38384de262336abd80b1b30121c6e965dc74e")
+        } else {
+          &hex!("366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b")
+        },
+      );
       let mut archive_file = fs::File::create(&archive_path).unwrap();
-      std::io::copy(&mut bytes, &mut archive_file).unwrap();
+      std::io::copy(&mut io::Cursor::new(bytes), &mut archive_file).unwrap();
     }
     archive_path
   }
@@ -74,21 +85,9 @@ impl LndTestContext {
     static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = MUTEX.lock().await;
     if !binary.exists() {
-      let archive_path = Self::bitcoind_archive(&target_dir).await;
-      let archive_bytes = fs::read(&archive_path).unwrap();
-      assert_eq!(
-        Sha256::digest(&archive_bytes).as_slice(),
-        if cfg!(target_os = "macos") {
-          &hex!("1ea5cedb64318e9868a66d3ab65de14516f9ada53143e460d50af428b5aec3c7")
-        } else if cfg!(target_os = "windows") {
-          &hex!("94c80f90184cdc7e7e75988a55b38384de262336abd80b1b30121c6e965dc74e")
-        } else {
-          &hex!("366eb44a7a0aa5bd342deea215ec19a184a11f2ca22220304ebb20b9c8917e2b")
-        },
-      );
       cmd_unit!(
         %"tar -xzvf",
-        archive_path,
+        Self::bitcoind_archive(&target_dir).await,
         "-C", target_dir,
         "--strip-components=2",
         format!("bitcoin-0.21.1/bin/bitcoin-cli{}", EXE_SUFFIX),
@@ -106,9 +105,13 @@ impl LndTestContext {
       writeln!(io::stderr(), "Downloading LND archive from {}…", url).unwrap();
       let response = reqwest::get(url).await.unwrap();
       assert_eq!(response.status(), 200);
-      let mut bytes = io::Cursor::new(response.bytes().await.unwrap().to_vec());
+      let bytes = response.bytes().await.unwrap().to_vec();
+      assert_eq!(
+        Sha256::digest(&bytes).as_slice(),
+        &hex!("fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912")
+      );
       let mut tarball_file = fs::File::create(&tarball_path).unwrap();
-      std::io::copy(&mut bytes, &mut tarball_file).unwrap();
+      std::io::copy(&mut io::Cursor::new(bytes), &mut tarball_file).unwrap();
     }
     tarball_path
   }
@@ -122,15 +125,9 @@ impl LndTestContext {
     static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     let _guard = MUTEX.lock().await;
     if !lnd_itest.exists() {
-      let tarball_path = Self::lnd_tarball(&target_dir).await;
-      let tarball_bytes = fs::read(&tarball_path).unwrap();
-      assert_eq!(
-        Sha256::digest(&tarball_bytes).as_slice(),
-        &hex!("fa8a491dfa40d645e8b6cc4e2b27c5291c0aa0f18de79f2548d0c44e3c2e3912")
-      );
       cmd_unit!(
         %"tar -xzvf",
-        tarball_path,
+        Self::lnd_tarball(&target_dir).await,
         "-C", &target_dir
       );
       let src_dir = target_dir.join("lnd-source");
