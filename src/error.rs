@@ -47,6 +47,8 @@ pub(crate) enum Error {
   LndGrpcCertificateParse { source: openssl::error::ErrorStack },
   #[snafu(display("OpenSSL error connecting to LND gRPC server: {}", source))]
   LndGrpcConnect { source: openssl::error::ErrorStack },
+  #[snafu(display("LND gRPC call failed: {}", source))]
+  LndGrpcStatus { source: tonic::Status },
 }
 
 impl Error {
@@ -70,7 +72,8 @@ impl Error {
       | ServerRun { .. }
       | StderrWrite { .. }
       | LndGrpcConnect { .. }
-      | LndGrpcCertificateParse { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      | LndGrpcCertificateParse { .. }
+      | LndGrpcStatus { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
 
