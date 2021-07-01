@@ -27,6 +27,7 @@ dependencies = [
  "structopt",
  "tempfile",
  "tokio",
+ "tonic",
  "tower",
 ]
 

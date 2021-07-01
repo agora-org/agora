@@ -39,14 +39,20 @@ impl Server {
           None => None,
         };
 
-        let client = lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert)
+        let mut client = lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert)
           .await
           .context(error::LndGrpcConnect)?;
 
+        let version = client
+          .get_info()
+          .await
+          .context(error::LndGrpcStatus)?
+          .version;
+
         writeln!(
           environment.stderr,
-          "Connected to LND RPC server at {}",
-          lnd_rpc_authority
+          "Connected to LND RPC server at {}, version {}",
+          lnd_rpc_authority, version,
         )
         .context(error::StderrWrite)?;
 
@@ -170,7 +176,10 @@ mod tests {
 
     assert_contains(
       &stderr,
-      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
+      &format!(
+        "Connected to LND RPC server at {}, version 0.13.0-beta",
+        lnd_rpc_authority
+      ),
     );
   }
 }
