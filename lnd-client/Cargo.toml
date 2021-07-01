@@ -1,0 +1,37 @@
+[package]
+name = "lnd-client"
+version = "0.0.0"
+authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
+edition = "2018"
+
+[lib]
+doctest = false
+
+[dependencies]
+http = "0.2.4"
+hyper = "0.14.9"
+hyper-openssl = "0.9.1"
+prost = "0.7.0"
+snafu = "0.6.10"
+tonic = "0.4.3"
+tower = "0.4.8"
+
+[dependencies.openssl]
+version = "0.10.35"
+features = ["vendored"]
+
+[dev-dependencies]
+cradle = "0.0.4"
+hex-literal = "0.3.1"
+lnd-test-context = { path = "../lnd-test-context" }
+pretty_assertions = "0.7.2"
+reqwest = "0.11.3"
+sha2 = "0.9.5"
+tempfile = "3.2.0"
+
+[dev-dependencies.tokio]
+version = "1.7.1"
+features = ["parking_lot"]
+
+[build-dependencies]
+tonic-build = "0.4.2"

@@ -102,7 +102,7 @@ pub(crate) mod tests {
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{test, test_with_environment},
+    test_utils::{assert_contains, test, test_with_environment},
   };
   use guard::guard_unwrap;
   use hyper::StatusCode;
@@ -114,16 +114,6 @@ pub(crate) mod tests {
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
   };
-
-  #[track_caller]
-  fn assert_contains(haystack: &str, needle: &str) {
-    assert!(
-      haystack.contains(needle),
-      "\n{:?} does not contain {:?}\n",
-      haystack,
-      needle
-    );
-  }
 
   async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
@@ -205,14 +195,14 @@ pub(crate) mod tests {
 
   #[test]
   fn server_aborts_when_directory_does_not_exist() {
-    let environment = Environment::test(&[]);
+    let mut environment = Environment::test(&[]);
 
     tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
       .unwrap()
       .block_on(async {
-        let error = Server::setup(&environment).unwrap_err();
+        let error = Server::setup(&mut environment).await.unwrap_err();
         guard_unwrap!(let Error::FilesystemIo { .. } = error);
       });
   }
@@ -405,13 +395,13 @@ pub(crate) mod tests {
 
   #[test]
   fn configure_source_directory() {
-    let environment = Environment::test(&["--directory", "src"]);
+    let mut environment = Environment::test(&["--directory", "src"]);
 
     let src = environment.working_directory.join("src");
     fs::create_dir(&src).unwrap();
     fs::write(src.join("foo.txt"), "hello").unwrap();
 
-    test_with_environment(&environment, |context| async move {
+    test_with_environment(&mut environment, |context| async move {
       assert_contains(&text(context.files_url()).await, "foo.txt");
 
       let file_contents = text(&context.files_url().join("foo.txt").unwrap()).await;

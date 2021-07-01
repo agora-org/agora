@@ -6,8 +6,8 @@ build:
 test pattern='':
   cargo test --all {{pattern}}
 
-smoke:
-  cargo test --test smoke
+smoke +args="":
+  cargo test --test smoke {{args}}
 
 clippy:
   cargo clippy --all-targets --all-features
@@ -41,3 +41,6 @@ publish remote: all
   git tag -a $VERSION -m "Release version $VERSION"
   git push {{remote}} $VERSION
   cargo publish
+
+clean-binaries:
+  rm -rf target/bitcoin* target/ln*

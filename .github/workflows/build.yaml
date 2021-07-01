@@ -52,6 +52,10 @@ jobs:
         brew install gnu-tar
         echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
 
+    - name: Make openssl-src Use Strawberry Perl
+      if: matrix.os == 'windows-latest'
+      run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
+
     - name: Cache
       uses: actions/cache@v2
       with:

@@ -2,6 +2,7 @@ use crate::{
   error::{self, Result},
   stderr::Stderr,
 };
+use http::uri::Authority;
 use snafu::ResultExt;
 use std::{env, ffi::OsString, path::PathBuf};
 use structopt::StructOpt;
@@ -19,6 +20,16 @@ pub(crate) struct Arguments {
   pub(crate) directory: PathBuf,
   #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
   pub(crate) port: u16,
+  #[structopt(
+    long,
+    help = "Host and port of the LND gRPC server, e.g., `localhost:10009`"
+  )]
+  pub(crate) lnd_rpc_authority: Option<Authority>,
+  #[structopt(
+    long,
+    help = "Path to LND's TLS certificate, e.g., `~/.lnd/tls.cert`, needed if LND is using a self-signed certificate"
+  )]
+  pub(crate) lnd_rpc_cert_path: Option<PathBuf>,
 }
 
 pub(crate) struct Environment {

@@ -10,22 +10,21 @@ repository = "https://github.com/soenkehahn/agora"
 homepage = "https://github.com/soenkehahn/agora"
 
 [workspace]
-members = [".", "bin/prerelease"]
+members = [".", "bin/prerelease", "lnd-client", "lnd-test-context"]
 
 [dependencies]
 bytes = "1.0.1"
 futures = "0.3.14"
+http = "0.2.4"
+lnd-client = { path = "lnd-client" }
 maud = "0.22.2"
 mime_guess = "2.0.3"
+openssl = "0.10.35"
 percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
-
-[dependencies.tower]
-version = "0.4.6"
-features = ["make"]
 
 [dependencies.hyper]
 version = "0.14.7"
@@ -35,10 +34,15 @@ features = ["server", "stream", "tcp", "http1", "http2"]
 version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
 
+[dependencies.tower]
+version = "0.4.6"
+features = ["make"]
+
 [dev-dependencies]
 executable-path = "1.0.0"
 guard = "0.5.1"
 libc = "0.2.94"
+lnd-test-context = { path = "lnd-test-context" }
 nix = "0.20.0"
 pretty_assertions = "0.7.2"
 scraper = "0.12.0"
