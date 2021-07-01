@@ -39,20 +39,26 @@ impl Server {
           None => None,
         };
 
-        let mut client = lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert)
-          .await
-          .context(error::LndGrpcConnect)?;
+        let lnd_rpc_macaroon = match arguments.lnd_rpc_macaroon_path {
+          Some(path) => Some(
+            tokio::fs::read(&path)
+              .await
+              .context(error::FilesystemIo { path })?,
+          ),
+          None => None,
+        };
 
-        let version = client
-          .get_info()
-          .await
-          .context(error::LndGrpcStatus)?
-          .version;
+        let mut client =
+          lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+            .await
+            .context(error::LndGrpcConnect)?;
+
+        client.ping().await.context(error::LndGrpcStatus)?;
 
         writeln!(
           environment.stderr,
-          "Connected to LND RPC server at {}, version {}",
-          lnd_rpc_authority, version,
+          "Connected to LND RPC server at {}",
+          lnd_rpc_authority
         )
         .context(error::StderrWrite)?;
 
@@ -165,21 +171,16 @@ mod tests {
         "--lnd-rpc-authority",
         &lnd_rpc_authority,
         "--lnd-rpc-cert-path",
-        lnd_test_context
-          .lnd_dir()
-          .join("tls.cert")
-          .to_str()
-          .unwrap(),
+        lnd_test_context.cert_path().to_str().unwrap(),
+        "--lnd-rpc-macaroon-path",
+        lnd_test_context.macaroon_path().to_str().unwrap(),
       ],
       |_context| async move {},
     );
 
     assert_contains(
       &stderr,
-      &format!(
-        "Connected to LND RPC server at {}, version 0.13.0-beta",
-        lnd_rpc_authority
-      ),
+      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
     );
   }
 }

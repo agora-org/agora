@@ -8,6 +8,7 @@ edition = "2018"
 doctest = false
 
 [dependencies]
+hex = "0.4.3"
 http = "0.2.4"
 hyper = "0.14.9"
 hyper-openssl = "0.9.1"

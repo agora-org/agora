@@ -20,7 +20,7 @@ tempfile = "3.2.0"
 
 [dependencies.tokio]
 version = "1.7.1"
-features = ["parking_lot"]
+features = ["fs", "parking_lot"]
 
 [dependencies.tonic]
 version = "0.4.3"

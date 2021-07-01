@@ -1,9 +1,9 @@
 use crate::grpc_service::GrpcService;
 use http::uri::Authority;
 use lnrpc::lightning_client::LightningClient;
-use lnrpc::{GetInfoRequest, GetInfoResponse};
+use lnrpc::ListInvoiceRequest;
 use openssl::x509::X509;
-use tonic::Status;
+use tonic::{metadata::AsciiMetadataValue, Status};
 
 mod grpc_service;
 
@@ -14,20 +14,36 @@ pub mod lnrpc {
 #[derive(Debug)]
 pub struct Client {
   client: LightningClient<GrpcService>,
+  macaroon: Option<AsciiMetadataValue>,
 }
 
 impl Client {
   pub async fn new(
     authority: Authority,
     certificate: Option<X509>,
+    macaroon: Option<Vec<u8>>,
   ) -> Result<Client, openssl::error::ErrorStack> {
     Ok(Client {
       client: LightningClient::new(GrpcService::new(authority, certificate)?),
+      macaroon: macaroon.map(|macaroon| hex::encode_upper(macaroon).parse().unwrap()),
     })
   }
 
-  pub async fn get_info(&mut self) -> Result<GetInfoResponse, Status> {
-    Ok(self.client.get_info(GetInfoRequest {}).await?.into_inner())
+  pub async fn ping(&mut self) -> Result<(), Status> {
+    let mut request = tonic::Request::new(ListInvoiceRequest {
+      index_offset: 0,
+      num_max_invoices: 0,
+      pending_only: false,
+      reversed: false,
+    });
+
+    if let Some(macaroon) = &self.macaroon {
+      request.metadata_mut().insert("macaroon", macaroon.clone());
+    }
+
+    self.client.list_invoices(request).await?;
+
+    Ok(())
   }
 }
 
@@ -36,19 +52,14 @@ mod tests {
   use lnd_test_context::LndTestContext;
 
   #[tokio::test]
-  async fn info() {
-    let response = LndTestContext::new()
+  async fn ping() {
+    LndTestContext::new()
       .await
       .client()
       .await
-      .get_info()
+      .ping()
       .await
       .unwrap();
-    assert!(
-      response.version.starts_with("0.13.0-beta "),
-      "Unexpected LND version: {}",
-      response.version
-    );
   }
 
   #[tokio::test]
@@ -73,7 +84,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .await
       .client_with_cert(INVALID_TEST_CERT)
       .await
-      .get_info()
+      .ping()
       .await
       .unwrap_err();
     #[track_caller]

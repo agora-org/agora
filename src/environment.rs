@@ -30,6 +30,11 @@ pub(crate) struct Arguments {
     help = "Path to LND's TLS certificate, e.g., `~/.lnd/tls.cert`, needed if LND is using a self-signed certificate"
   )]
   pub(crate) lnd_rpc_cert_path: Option<PathBuf>,
+  #[structopt(
+    long,
+    help = "Path to an LND gPRC macaroon, e.g., `~/.lnd/data/chain/bitcoin/mainnet/invoice.macaroon`, needed if LND requires macaroon authentication"
+  )]
+  pub(crate) lnd_rpc_macaroon_path: Option<PathBuf>,
 }
 
 pub(crate) struct Environment {
