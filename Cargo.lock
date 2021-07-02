@@ -803,8 +803,6 @@ version = "0.0.0"
 dependencies = [
  "cradle",
  "hex-literal",
- "lnd-client",
- "openssl",
  "pretty_assertions",
  "reqwest",
  "sha2",

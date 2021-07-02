@@ -1,5 +1,7 @@
 use crate::grpc_service::GrpcService;
 use http::uri::Authority;
+#[cfg(test)]
+use lnd_test_context::LndTestContext;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::ListInvoiceRequest;
 use openssl::x509::X509;
@@ -49,17 +51,42 @@ impl Client {
 
     Ok(())
   }
+
+  #[cfg(test)]
+  async fn with_cert(context: &LndTestContext, cert: &str) -> Self {
+    Self::new(
+      format!("localhost:{}", context.lnd_rpc_port)
+        .parse()
+        .unwrap(),
+      Some(X509::from_pem(cert.as_bytes()).unwrap()),
+      Some(
+        tokio::fs::read(context.invoice_macaroon_path())
+          .await
+          .unwrap(),
+      ),
+    )
+    .await
+    .unwrap()
+  }
+
+  #[cfg(test)]
+  async fn with_test_context(context: &LndTestContext) -> Self {
+    Self::with_cert(
+      context,
+      &std::fs::read_to_string(context.cert_path()).unwrap(),
+    )
+    .await
+  }
 }
 
 #[cfg(test)]
 mod tests {
+  use super::*;
   use lnd_test_context::LndTestContext;
 
   #[tokio::test]
   async fn ping() {
-    LndTestContext::new()
-      .await
-      .client()
+    Client::with_test_context(&LndTestContext::new().await)
       .await
       .ping()
       .await
@@ -84,9 +111,7 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let error = LndTestContext::new()
-      .await
-      .client_with_cert(INVALID_TEST_CERT)
+    let error = Client::with_cert(&LndTestContext::new().await, INVALID_TEST_CERT)
       .await
       .ping()
       .await
