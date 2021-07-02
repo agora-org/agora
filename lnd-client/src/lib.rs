@@ -82,7 +82,6 @@ impl Client {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use lnd_test_context::LndTestContext;
 
   #[tokio::test]
   async fn ping() {
