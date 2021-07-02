@@ -102,8 +102,6 @@ impl Server {
 
     let request_handler = Self::setup_request_handler(environment, &arguments)?;
 
-    let _: RequestHandler = request_handler.deref();
-
     Ok(Self {
       request_handler,
       #[cfg(test)]
