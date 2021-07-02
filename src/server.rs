@@ -1,4 +1,5 @@
 use crate::{
+  arguments::Arguments,
   environment::Environment,
   error::{self, Error, Result},
   request_handler::RequestHandler,
@@ -11,25 +12,20 @@ use tower::make::Shared;
 
 #[derive(Debug)]
 pub(crate) struct Server {
-  inner: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
   lnd_client: Option<lnd_client::Client>,
 }
 
 impl Server {
-  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
-    let arguments = environment.arguments()?;
-
-    let directory = environment.working_directory.join(&arguments.directory);
-
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
-      .await
-      .context(error::FilesystemIo { path: &directory })?;
-
-    let lnd_client = match arguments.lnd_rpc_authority {
+  async fn setup_lnd_client(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<Option<lnd_client::Client>> {
+    match &arguments.lnd_rpc_authority {
       Some(lnd_rpc_authority) => {
-        let lnd_rpc_cert = match arguments.lnd_rpc_cert_path {
+        let lnd_rpc_cert = match &arguments.lnd_rpc_cert_path {
           Some(path) => {
             let pem = tokio::fs::read_to_string(&path)
               .await
@@ -39,7 +35,7 @@ impl Server {
           None => None,
         };
 
-        let lnd_rpc_macaroon = match arguments.lnd_rpc_macaroon_path {
+        let lnd_rpc_macaroon = match &arguments.lnd_rpc_macaroon_path {
           Some(path) => Some(
             tokio::fs::read(&path)
               .await
@@ -62,31 +58,54 @@ impl Server {
         )
         .context(error::StderrWrite)?;
 
-        Some(client)
+        Ok(Some(client))
       }
-      None => None,
-    };
+      None => Ok(None),
+    }
+  }
 
+  fn setup_request_handler(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let socket_addr = (arguments.address.as_str(), arguments.port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
-        input: arguments.address.clone(),
+        input: &arguments.address,
       })?
       .next()
-      .ok_or(Error::AddressResolutionNoAddresses {
-        input: arguments.address,
+      .ok_or_else(|| Error::AddressResolutionNoAddresses {
+        input: arguments.address.clone(),
       })?;
 
-    let inner = hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(
-      &environment,
-      &arguments.directory,
-    )));
+    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
+      RequestHandler::new(&environment, &arguments.directory),
+    ));
+    writeln!(
+      environment.stderr,
+      "Listening on {}",
+      request_handler.local_addr()
+    )
+    .context(error::StderrWrite)?;
+    Ok(request_handler)
+  }
 
-    writeln!(environment.stderr, "Listening on {}", inner.local_addr())
-      .context(error::StderrWrite)?;
+  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
+    let arguments = environment.arguments()?;
+
+    let directory = environment.working_directory.join(&arguments.directory);
+    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+      .await
+      .context(error::FilesystemIo { path: &directory })?;
+
+    let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+
+    let request_handler = Self::setup_request_handler(environment, &arguments)?;
+
+    let _: RequestHandler = request_handler.deref();
 
     Ok(Self {
-      inner,
+      request_handler,
       #[cfg(test)]
       directory,
       lnd_client,
@@ -94,7 +113,7 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    self.inner.await.context(error::ServerRun)
+    self.request_handler.await.context(error::ServerRun)
   }
 
   #[cfg(test)]
@@ -173,7 +192,7 @@ mod tests {
         "--lnd-rpc-cert-path",
         lnd_test_context.cert_path().to_str().unwrap(),
         "--lnd-rpc-macaroon-path",
-        lnd_test_context.macaroon_path().to_str().unwrap(),
+        lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
       ],
       |_context| async move {},
     );

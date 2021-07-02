@@ -5,6 +5,7 @@ use environment::Environment;
 #[macro_use]
 mod test_utils;
 
+mod arguments;
 mod environment;
 mod error;
 mod file_stream;

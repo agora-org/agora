@@ -25,7 +25,11 @@ impl Client {
   ) -> Result<Client, openssl::error::ErrorStack> {
     Ok(Client {
       client: LightningClient::new(GrpcService::new(authority, certificate)?),
-      macaroon: macaroon.map(|macaroon| hex::encode_upper(macaroon).parse().unwrap()),
+      macaroon: macaroon.map(|macaroon| {
+        hex::encode_upper(macaroon)
+          .parse()
+          .expect("Client::new: hex characters are valid metadata values")
+      }),
     })
   }
 

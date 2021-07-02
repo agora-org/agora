@@ -253,7 +253,7 @@ impl LndTestContext {
     self.tmpdir.path().join("lnd")
   }
 
-  pub fn macaroon_path(&self) -> PathBuf {
+  pub fn invoice_macaroon_path(&self) -> PathBuf {
     self
       .lnd_dir()
       .join("data/chain/bitcoin/regtest/invoice.macaroon")
@@ -267,7 +267,7 @@ impl LndTestContext {
     Client::new(
       format!("localhost:{}", self.lnd_rpc_port).parse().unwrap(),
       Some(X509::from_pem(cert.as_bytes()).unwrap()),
-      Some(tokio::fs::read(self.macaroon_path()).await.unwrap()),
+      Some(tokio::fs::read(self.invoice_macaroon_path()).await.unwrap()),
     )
     .await
     .unwrap()
