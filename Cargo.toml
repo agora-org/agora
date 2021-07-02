@@ -57,3 +57,6 @@ features = ["blocking", "stream"]
 name = "smoke"
 path = "tests/smoke.rs"
 test = false
+
+[profile.dev]
+debug = false
