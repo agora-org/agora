@@ -30,7 +30,7 @@ impl Server {
             let pem = tokio::fs::read_to_string(&path)
               .await
               .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(pem.as_bytes()).context(error::LndGrpcCertificateParse)?)
+            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
           }
           None => None,
         };
@@ -47,9 +47,9 @@ impl Server {
         let mut client =
           lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
             .await
-            .context(error::LndGrpcConnect)?;
+            .context(error::LndRpcConnect)?;
 
-        client.ping().await.context(error::LndGrpcStatus)?;
+        client.ping().await.context(error::LndRpcStatus)?;
 
         writeln!(
           environment.stderr,

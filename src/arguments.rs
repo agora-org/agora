@@ -14,7 +14,7 @@ pub(crate) struct Arguments {
   pub(crate) port: u16,
   #[structopt(
     long,
-    help = "Host and port of the LND gRPC server, e.g., `localhost:10009`"
+    help = "Host and port of the LND RPC server, e.g., `localhost:10009`"
   )]
   pub(crate) lnd_rpc_authority: Option<Authority>,
   #[structopt(
