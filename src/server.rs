@@ -1,4 +1,5 @@
 use crate::{
+  arguments::Arguments,
   environment::Environment,
   error::{self, Error, Result},
   request_handler::RequestHandler,
@@ -11,76 +12,98 @@ use tower::make::Shared;
 
 #[derive(Debug)]
 pub(crate) struct Server {
-  inner: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
   lnd_client: Option<lnd_client::Client>,
 }
 
 impl Server {
-  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
-    let arguments = environment.arguments()?;
-
-    let directory = environment.working_directory.join(&arguments.directory);
-
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
-      .await
-      .context(error::FilesystemIo { path: &directory })?;
-
-    let lnd_client = match arguments.lnd_rpc_authority {
+  async fn setup_lnd_client(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<Option<lnd_client::Client>> {
+    match &arguments.lnd_rpc_authority {
       Some(lnd_rpc_authority) => {
-        let lnd_rpc_cert = match arguments.lnd_rpc_cert_path {
+        let lnd_rpc_cert = match &arguments.lnd_rpc_cert_path {
           Some(path) => {
             let pem = tokio::fs::read_to_string(&path)
               .await
               .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(pem.as_bytes()).context(error::LndGrpcCertificateParse)?)
+            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
           }
           None => None,
         };
 
-        let mut client = lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert)
-          .await
-          .context(error::LndGrpcConnect)?;
+        let lnd_rpc_macaroon = match &arguments.lnd_rpc_macaroon_path {
+          Some(path) => Some(
+            tokio::fs::read(&path)
+              .await
+              .context(error::FilesystemIo { path })?,
+          ),
+          None => None,
+        };
 
-        let version = client
-          .get_info()
-          .await
-          .context(error::LndGrpcStatus)?
-          .version;
+        let mut client =
+          lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+            .await
+            .context(error::LndRpcConnect)?;
+
+        client.ping().await.context(error::LndRpcStatus)?;
 
         writeln!(
           environment.stderr,
-          "Connected to LND RPC server at {}, version {}",
-          lnd_rpc_authority, version,
+          "Connected to LND RPC server at {}",
+          lnd_rpc_authority
         )
         .context(error::StderrWrite)?;
 
-        Some(client)
+        Ok(Some(client))
       }
-      None => None,
-    };
+      None => Ok(None),
+    }
+  }
 
+  fn setup_request_handler(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let socket_addr = (arguments.address.as_str(), arguments.port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
-        input: arguments.address.clone(),
+        input: &arguments.address,
       })?
       .next()
-      .ok_or(Error::AddressResolutionNoAddresses {
-        input: arguments.address,
+      .ok_or_else(|| Error::AddressResolutionNoAddresses {
+        input: arguments.address.clone(),
       })?;
 
-    let inner = hyper::Server::bind(&socket_addr).serve(Shared::new(RequestHandler::new(
-      &environment,
-      &arguments.directory,
-    )));
+    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
+      RequestHandler::new(&environment, &arguments.directory),
+    ));
+    writeln!(
+      environment.stderr,
+      "Listening on {}",
+      request_handler.local_addr()
+    )
+    .context(error::StderrWrite)?;
+    Ok(request_handler)
+  }
 
-    writeln!(environment.stderr, "Listening on {}", inner.local_addr())
-      .context(error::StderrWrite)?;
+  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
+    let arguments = environment.arguments()?;
+
+    let directory = environment.working_directory.join(&arguments.directory);
+    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+      .await
+      .context(error::FilesystemIo { path: &directory })?;
+
+    let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+
+    let request_handler = Self::setup_request_handler(environment, &arguments)?;
 
     Ok(Self {
-      inner,
+      request_handler,
       #[cfg(test)]
       directory,
       lnd_client,
@@ -88,12 +111,12 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    self.inner.await.context(error::ServerRun)
+    self.request_handler.await.context(error::ServerRun)
   }
 
   #[cfg(test)]
   pub(crate) fn port(&self) -> u16 {
-    self.inner.local_addr().port()
+    self.request_handler.local_addr().port()
   }
 
   #[cfg(test)]
@@ -122,7 +145,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&mut environment).await.unwrap();
-        let ip = server.inner.local_addr().ip();
+        let ip = server.request_handler.local_addr().ip();
         assert!(
           ip == IpAddr::from([127, 0, 0, 1])
             || ip == IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
@@ -165,21 +188,16 @@ mod tests {
         "--lnd-rpc-authority",
         &lnd_rpc_authority,
         "--lnd-rpc-cert-path",
-        lnd_test_context
-          .lnd_dir()
-          .join("tls.cert")
-          .to_str()
-          .unwrap(),
+        lnd_test_context.cert_path().to_str().unwrap(),
+        "--lnd-rpc-macaroon-path",
+        lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
       ],
       |_context| async move {},
     );
 
     assert_contains(
       &stderr,
-      &format!(
-        "Connected to LND RPC server at {}, version 0.13.0-beta",
-        lnd_rpc_authority
-      ),
+      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
     );
   }
 }

@@ -214,7 +214,6 @@ impl LndTestContext {
         .arg(format!("--bitcoind.zmqpubrawtx=127.0.0.1:{}", zmqpubrawtx))
         .arg("--debuglevel=trace")
         .arg("--noseedbackup")
-        .arg("--no-macaroons")
         .arg("--norest")
         .arg(format!("--rpclisten=127.0.0.1:{}", lnd_rpc_port))
         .arg(format!("--listen=127.0.0.1:{}", Self::guess_free_port()))
@@ -230,7 +229,6 @@ impl LndTestContext {
           &lnddir,
           "--rpcserver",
           format!("localhost:{}", lnd_rpc_port),
-          "--no-macaroons",
           "getinfo"
         );
         if status.success() {
@@ -255,10 +253,21 @@ impl LndTestContext {
     self.tmpdir.path().join("lnd")
   }
 
+  pub fn invoice_macaroon_path(&self) -> PathBuf {
+    self
+      .lnd_dir()
+      .join("data/chain/bitcoin/regtest/invoice.macaroon")
+  }
+
+  pub fn cert_path(&self) -> PathBuf {
+    self.lnd_dir().join("tls.cert")
+  }
+
   pub async fn client_with_cert(&self, cert: &str) -> Client {
     Client::new(
       format!("localhost:{}", self.lnd_rpc_port).parse().unwrap(),
       Some(X509::from_pem(cert.as_bytes()).unwrap()),
+      Some(tokio::fs::read(self.invoice_macaroon_path()).await.unwrap()),
     )
     .await
     .unwrap()
@@ -266,7 +275,7 @@ impl LndTestContext {
 
   pub async fn client(&self) -> Client {
     self
-      .client_with_cert(&fs::read_to_string(self.lnd_dir().join("tls.cert")).unwrap())
+      .client_with_cert(&fs::read_to_string(self.cert_path()).unwrap())
       .await
   }
 }

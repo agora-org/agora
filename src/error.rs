@@ -43,12 +43,12 @@ pub(crate) enum Error {
   StaticAssetNotFound { uri_path: String },
   #[snafu(display("IO error writing to stderr: {}", source))]
   StderrWrite { source: io::Error },
-  #[snafu(display("OpenSSL error parsing LND gRPC certificate: {}", source))]
-  LndGrpcCertificateParse { source: openssl::error::ErrorStack },
-  #[snafu(display("OpenSSL error connecting to LND gRPC server: {}", source))]
-  LndGrpcConnect { source: openssl::error::ErrorStack },
-  #[snafu(display("LND gRPC call failed: {}", source))]
-  LndGrpcStatus { source: tonic::Status },
+  #[snafu(display("OpenSSL error parsing LND RPC certificate: {}", source))]
+  LndRpcCertificateParse { source: openssl::error::ErrorStack },
+  #[snafu(display("OpenSSL error connecting to LND RPC server: {}", source))]
+  LndRpcConnect { source: openssl::error::ErrorStack },
+  #[snafu(display("LND RPC call failed: {}", source))]
+  LndRpcStatus { source: tonic::Status },
 }
 
 impl Error {
@@ -71,9 +71,9 @@ impl Error {
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
       | StderrWrite { .. }
-      | LndGrpcConnect { .. }
-      | LndGrpcCertificateParse { .. }
-      | LndGrpcStatus { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      | LndRpcConnect { .. }
+      | LndRpcCertificateParse { .. }
+      | LndRpcStatus { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
 
