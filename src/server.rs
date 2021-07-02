@@ -116,7 +116,7 @@ impl Server {
 
   #[cfg(test)]
   pub(crate) fn port(&self) -> u16 {
-    self.inner.local_addr().port()
+    self.request_handler.local_addr().port()
   }
 
   #[cfg(test)]
@@ -145,7 +145,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&mut environment).await.unwrap();
-        let ip = server.inner.local_addr().ip();
+        let ip = server.request_handler.local_addr().ip();
         assert!(
           ip == IpAddr::from([127, 0, 0, 1])
             || ip == IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
