@@ -1,8 +1,6 @@
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use hex_literal::hex;
-use lnd_client::Client;
-use openssl::x509::X509;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::{
@@ -261,22 +259,6 @@ impl LndTestContext {
 
   pub fn cert_path(&self) -> PathBuf {
     self.lnd_dir().join("tls.cert")
-  }
-
-  pub async fn client_with_cert(&self, cert: &str) -> Client {
-    Client::new(
-      format!("localhost:{}", self.lnd_rpc_port).parse().unwrap(),
-      Some(X509::from_pem(cert.as_bytes()).unwrap()),
-      Some(tokio::fs::read(self.invoice_macaroon_path()).await.unwrap()),
-    )
-    .await
-    .unwrap()
-  }
-
-  pub async fn client(&self) -> Client {
-    self
-      .client_with_cert(&fs::read_to_string(self.cert_path()).unwrap())
-      .await
   }
 }
 
