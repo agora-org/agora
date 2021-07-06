@@ -20,6 +20,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "pretty_assertions",
+ "regex",
  "reqwest",
  "rust-embed",
  "scraper",

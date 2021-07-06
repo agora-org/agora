@@ -102,11 +102,13 @@ pub(crate) mod tests {
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, test, test_with_environment},
+    test_utils::{assert_contains, test, test_with_arguments, test_with_environment},
   };
   use guard::guard_unwrap;
   use hyper::StatusCode;
+  use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
+  use regex::Regex;
   use reqwest::{redirect::Policy, Client, Url};
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, path::MAIN_SEPARATOR, str};
@@ -709,4 +711,50 @@ pub(crate) mod tests {
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
   }
+
+  #[test]
+  fn redirects_to_invoice_url() {
+    let lnd_test_context = tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(async { LndTestContext::new().await });
+
+    let lnd_rpc_authority = format!("localhost:{}", lnd_test_context.lnd_rpc_port);
+
+    test_with_arguments(
+      &[
+        "--lnd-rpc-authority",
+        &lnd_rpc_authority,
+        "--lnd-rpc-cert-path",
+        lnd_test_context.cert_path().to_str().unwrap(),
+        "--lnd-rpc-macaroon-path",
+        lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
+      ],
+      |context| async move {
+        std::fs::write(context.files_directory().join("foo"), "").unwrap();
+        let response = reqwest::get(context.files_url().join("foo/").unwrap())
+          .await
+          .unwrap();
+        let regex = Regex::new("^/invoices/a+$").unwrap();
+        assert!(
+          regex.is_match(response.url().path()),
+          "Response URL path was not invoice path: {}",
+          response.url().path(),
+        );
+      },
+    );
+  }
+
+  #[test]
+  #[ignore]
+  fn non_existant_files_dont_redirect_to_invoice() {}
+
+  #[test]
+  #[ignore]
+  fn invoice_url_contains_bech32_encoded_invoice() {}
+
+  #[test]
+  #[ignore]
+  fn paying_invoice_allows_downloading_file() {}
 }
