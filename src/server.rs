@@ -5,14 +5,17 @@ use crate::{
   request_handler::RequestHandler,
 };
 use hyper::server::conn::AddrIncoming;
+use layer_playground::{LogHeaders, WithLogHeaders};
 use openssl::x509::X509;
 use snafu::ResultExt;
 use std::{fmt::Debug, io::Write, net::ToSocketAddrs};
-use tower::make::Shared;
+use tower::{make::Shared, Layer};
+
+type WrappedRequestHandler = hyper::Server<AddrIncoming, Shared<WithLogHeaders<RequestHandler>>>;
 
 #[derive(Debug)]
 pub(crate) struct Server {
-  request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  request_handler: WrappedRequestHandler,
   #[cfg(test)]
   directory: std::path::PathBuf,
   lnd_client: Option<lnd_client::Client>,
@@ -67,7 +70,7 @@ impl Server {
   fn setup_request_handler(
     environment: &mut Environment,
     arguments: &Arguments,
-  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
+  ) -> Result<WrappedRequestHandler> {
     let socket_addr = (arguments.address.as_str(), arguments.port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
@@ -79,7 +82,7 @@ impl Server {
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(&environment, &arguments.directory),
+      LogHeaders.layer(RequestHandler::new(&environment, &arguments.directory)),
     ));
     writeln!(
       environment.stderr,

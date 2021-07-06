@@ -31,7 +31,7 @@ async fn main() {
 
 async fn run() -> Result<()> {
   let mut environment = Environment::production()?;
-  let server = Server::setup(&mut environment).await?;
+  let server: Server = Server::setup(&mut environment).await?;
   server.run().await
 }
 

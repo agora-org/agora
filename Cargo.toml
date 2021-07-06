@@ -10,13 +10,14 @@ repository = "https://github.com/soenkehahn/agora"
 homepage = "https://github.com/soenkehahn/agora"
 
 [workspace]
-members = [".", "bin/prerelease", "lnd-client", "lnd-test-context"]
+members = [".", "bin/prerelease", "lnd-client", "lnd-test-context", "layer-playground"]
 
 [dependencies]
 bytes = "1.0.1"
 futures = "0.3.14"
 http = "0.2.4"
 lnd-client = { path = "lnd-client" }
+layer-playground = { path = "layer-playground" }
 maud = "0.22.2"
 mime_guess = "2.0.3"
 openssl = "0.10.35"
