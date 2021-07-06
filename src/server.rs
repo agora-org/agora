@@ -67,6 +67,7 @@ impl Server {
   fn setup_request_handler(
     environment: &mut Environment,
     arguments: &Arguments,
+    lnd_client: Option<lnd_client::Client>,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let socket_addr = (arguments.address.as_str(), arguments.port)
       .to_socket_addrs()
@@ -79,7 +80,7 @@ impl Server {
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(&environment, &arguments.directory),
+      RequestHandler::new(&environment, &arguments.directory, lnd_client),
     ));
     writeln!(
       environment.stderr,
@@ -100,7 +101,7 @@ impl Server {
 
     let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
 
-    let request_handler = Self::setup_request_handler(environment, &arguments)?;
+    let request_handler = Self::setup_request_handler(environment, &arguments, lnd_client.clone())?;
 
     Ok(Self {
       request_handler,

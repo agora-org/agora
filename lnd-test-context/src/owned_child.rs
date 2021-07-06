@@ -4,6 +4,7 @@ pub(crate) trait CommandExt {
   fn spawn_owned(&mut self) -> std::io::Result<OwnedChild>;
 }
 
+#[derive(Debug)]
 pub(crate) struct OwnedChild {
   pub(crate) inner: Child,
 }

@@ -13,11 +13,15 @@ use std::{ffi::OsString, fmt::Debug, fs::FileType, path::Path};
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   base_directory: InputPath,
+  lnd_client: Option<lnd_client::Client>,
 }
 
 impl Files {
-  pub(crate) fn new(base_directory: InputPath) -> Self {
-    Self { base_directory }
+  pub(crate) fn new(base_directory: InputPath, lnd_client: Option<lnd_client::Client>) -> Self {
+    Self {
+      base_directory,
+      lnd_client,
+    }
   }
 
   pub(crate) async fn serve(
@@ -60,7 +64,7 @@ impl Files {
     if file_type.is_dir() {
       Self::list(&file_path).await
     } else {
-      Self::serve_file(&file_path).await
+      self.serve_file(&file_path).await
     }
   }
 
@@ -143,7 +147,12 @@ impl Files {
     }
   }
 
-  async fn serve_file(path: &InputPath) -> Result<Response<Body>> {
+  async fn serve_file(&self, path: &InputPath) -> Result<Response<Body>> {
+    dbg!(path);
+    if let Some(lnd_client) = &self.lnd_client {
+      let invoice_id = "foooooo";
+      return redirect(format!("/invoices/{}", invoice_id));
+    }
     let mut builder = Response::builder().status(StatusCode::OK);
 
     if let Some(guess) = path.mime_guess().first() {

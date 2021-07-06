@@ -3,8 +3,9 @@ use http::uri::Authority;
 #[cfg(test)]
 use lnd_test_context::LndTestContext;
 use lnrpc::lightning_client::LightningClient;
-use lnrpc::ListInvoiceRequest;
+use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest};
 use openssl::x509::X509;
+use std::sync::Arc;
 use tonic::{metadata::AsciiMetadataValue, Status};
 
 mod grpc_service;
@@ -13,10 +14,12 @@ pub mod lnrpc {
   tonic::include_proto!("lnrpc");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
   client: LightningClient<GrpcService>,
   macaroon: Option<AsciiMetadataValue>,
+  #[cfg(test)]
+  lnd_test_context: Arc<LndTestContext>,
 }
 
 impl Client {
@@ -24,6 +27,7 @@ impl Client {
     authority: Authority,
     certificate: Option<X509>,
     macaroon: Option<Vec<u8>>,
+    #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
     Ok(Client {
       client: LightningClient::new(GrpcService::new(authority, certificate)?),
@@ -32,6 +36,8 @@ impl Client {
           .parse()
           .expect("Client::new: hex characters are valid metadata values")
       }),
+      #[cfg(test)]
+      lnd_test_context: Arc::new(lnd_test_context),
     })
   }
 
@@ -52,30 +58,39 @@ impl Client {
     Ok(())
   }
 
+  pub async fn add_invoice(&mut self) -> Result<AddInvoiceResponse, Status> {
+    let mut request = tonic::Request::new(Invoice {
+      ..Invoice::default()
+    });
+    // fixme: dry up
+    if let Some(macaroon) = &self.macaroon {
+      request.metadata_mut().insert("macaroon", macaroon.clone());
+    }
+    Ok(self.client.add_invoice(request).await?.into_inner())
+  }
+
   #[cfg(test)]
-  async fn with_cert(context: &LndTestContext, cert: &str) -> Self {
+  async fn with_cert(lnd_test_context: LndTestContext, cert: &str) -> Self {
     Self::new(
-      format!("localhost:{}", context.lnd_rpc_port)
+      format!("localhost:{}", lnd_test_context.lnd_rpc_port)
         .parse()
         .unwrap(),
       Some(X509::from_pem(cert.as_bytes()).unwrap()),
       Some(
-        tokio::fs::read(context.invoice_macaroon_path())
+        tokio::fs::read(lnd_test_context.invoice_macaroon_path())
           .await
           .unwrap(),
       ),
+      lnd_test_context,
     )
     .await
     .unwrap()
   }
 
   #[cfg(test)]
-  async fn with_test_context(context: &LndTestContext) -> Self {
-    Self::with_cert(
-      context,
-      &std::fs::read_to_string(context.cert_path()).unwrap(),
-    )
-    .await
+  async fn with_test_context(context: LndTestContext) -> Self {
+    let cert = std::fs::read_to_string(context.cert_path()).unwrap();
+    Self::with_cert(context, &cert).await
   }
 }
 
@@ -85,7 +100,7 @@ mod tests {
 
   #[tokio::test]
   async fn ping() {
-    Client::with_test_context(&LndTestContext::new().await)
+    Client::with_test_context(LndTestContext::new().await)
       .await
       .ping()
       .await
@@ -110,7 +125,7 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let error = Client::with_cert(&LndTestContext::new().await, INVALID_TEST_CERT)
+    let error = Client::with_cert(LndTestContext::new().await, INVALID_TEST_CERT)
       .await
       .ping()
       .await
@@ -127,5 +142,12 @@ jlZBq5hr8Nv2qStFfw9qzw==
     assert_contains(&error.to_string(), "error trying to connect: ");
     assert_contains(&error.to_string(), "certificate verify failed");
     assert_contains(&error.to_string(), "self signed certificate");
+  }
+
+  #[tokio::test]
+  async fn add_invoice() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let invoice = client.add_invoice().await.unwrap();
+    assert_eq!(invoice.add_index, 1);
   }
 }

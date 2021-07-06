@@ -6,6 +6,7 @@ use openssl::x509::X509;
 use std::task::{Context, Poll};
 use tonic::body::BoxBody;
 
+#[derive(Clone)]
 pub(crate) struct GrpcService {
   authority: Authority,
   hyper_client: hyper::Client<HttpsConnector<HttpConnector>, BoxBody>,

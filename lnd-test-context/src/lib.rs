@@ -17,6 +17,7 @@ use tempfile::TempDir;
 
 mod owned_child;
 
+#[derive(Debug)]
 pub struct LndTestContext {
   #[allow(unused)]
   bitcoind: OwnedChild,

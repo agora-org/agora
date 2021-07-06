@@ -29,10 +29,14 @@ pub(crate) struct RequestHandler {
 }
 
 impl RequestHandler {
-  pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
+  pub(crate) fn new(
+    environment: &Environment,
+    base_directory: &Path,
+    lnd_client: Option<lnd_client::Client>,
+  ) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      files: Files::new(InputPath::new(environment, base_directory)),
+      files: Files::new(InputPath::new(environment, base_directory), lnd_client),
     }
   }
 
@@ -714,6 +718,7 @@ pub(crate) mod tests {
 
   #[test]
   fn redirects_to_invoice_url() {
+    // fixme: dry up
     let lnd_test_context = tokio::runtime::Builder::new_current_thread()
       .enable_all()
       .build()
@@ -733,7 +738,7 @@ pub(crate) mod tests {
       ],
       |context| async move {
         std::fs::write(context.files_directory().join("foo"), "").unwrap();
-        let response = reqwest::get(context.files_url().join("foo/").unwrap())
+        let response = reqwest::get(context.files_url().join("foo").unwrap())
           .await
           .unwrap();
         let regex = Regex::new("^/invoices/a+$").unwrap();
