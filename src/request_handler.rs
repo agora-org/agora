@@ -55,7 +55,7 @@ impl RequestHandler {
     }
   }
 
-  async fn response_result(self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn response_result(mut self, request: Request<Body>) -> Result<Response<Body>> {
     tokio::spawn(async move { self.dispatch(request).await.map(Self::add_global_headers) })
       .await
       .context(error::RequestHandlerPanic)?
@@ -69,7 +69,7 @@ impl RequestHandler {
     response
   }
 
-  async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
     let components = request
       .uri()
       .path()
@@ -741,7 +741,7 @@ pub(crate) mod tests {
         let response = reqwest::get(context.files_url().join("foo").unwrap())
           .await
           .unwrap();
-        let regex = Regex::new("^/invoices/a+$").unwrap();
+        let regex = Regex::new("^/invoices/[0-9]+$").unwrap();
         assert!(
           regex.is_match(response.url().path()),
           "Response URL path was not invoice path: {}",

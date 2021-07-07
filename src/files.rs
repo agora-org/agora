@@ -1,5 +1,5 @@
 use crate::{
-  error::{Error, Result},
+  error::{self, Error, Result},
   file_stream::FileStream,
   input_path::InputPath,
   redirect::redirect,
@@ -25,7 +25,7 @@ impl Files {
   }
 
   pub(crate) async fn serve(
-    &self,
+    &mut self,
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
@@ -147,11 +147,13 @@ impl Files {
     }
   }
 
-  async fn serve_file(&self, path: &InputPath) -> Result<Response<Body>> {
-    dbg!(path);
-    if let Some(lnd_client) = &self.lnd_client {
-      let invoice_id = "foooooo";
-      return redirect(format!("/invoices/{}", invoice_id));
+  async fn serve_file(&mut self, path: &InputPath) -> Result<Response<Body>> {
+    if let Some(lnd_client) = &mut self.lnd_client {
+      let invoice = lnd_client
+        .add_invoice()
+        .await
+        .context(error::LndRpcStatus)?;
+      return redirect(format!("/invoices/{}", invoice.add_index));
     }
     let mut builder = Response::builder().status(StatusCode::OK);
 

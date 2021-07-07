@@ -5,7 +5,6 @@ use lnd_test_context::LndTestContext;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest};
 use openssl::x509::X509;
-use std::sync::Arc;
 use tonic::{metadata::AsciiMetadataValue, Status};
 
 mod grpc_service;
