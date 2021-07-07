@@ -732,8 +732,24 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[ignore]
-  fn non_existant_files_dont_redirect_to_invoice() {}
+  fn non_existant_files_dont_redirect_to_invoice() {
+    let (_, stderr) = test_with_lnd(|context| async move {
+      assert_eq!(
+        reqwest::get(context.files_url().join("foo.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}foo.txt`",
+        MAIN_SEPARATOR
+      ),
+    );
+  }
 
   #[test]
   #[ignore]
