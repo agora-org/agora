@@ -70,7 +70,7 @@ impl Client {
     Ok(self.client.add_invoice(request).await?.into_inner())
   }
 
-  async fn get_invoice(&mut self, invoice_index: u64) -> Result<Option<Invoice>, Status> {
+  pub async fn get_invoice(&mut self, invoice_index: u64) -> Result<Option<Invoice>, Status> {
     let mut request = tonic::Request::new(ListInvoiceRequest {
       index_offset: invoice_index - 1,
       num_max_invoices: 1,

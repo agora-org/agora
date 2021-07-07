@@ -79,9 +79,11 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
-      _ => Err(Error::RouteNotFound {
-        uri_path: request.uri().path().to_owned(),
-      }),
+      ["/", "invoices/", invoice_index] => match invoice_index.parse() {
+        Ok(invoice_index) => self.files.serve_invoice(&request, invoice_index).await,
+        Err(_) => Err(Error::not_found(&request)),
+      },
+      _ => Err(Error::not_found(&request)),
     }
   }
 }
@@ -752,8 +754,13 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[ignore]
-  fn invoice_url_contains_bech32_encoded_invoice() {}
+  fn invoice_url_serves_bech32_encoded_invoice() {
+    test_with_lnd(|context| async move {
+      std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      let html = text(&context.files_url().join("foo").unwrap()).await;
+      assert_contains(&html, "lnbcrt1");
+    });
+  }
 
   #[test]
   #[ignore]

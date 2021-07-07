@@ -1,5 +1,5 @@
 use crate::input_path::InputPath;
-use hyper::StatusCode;
+use hyper::{Body, Request, StatusCode};
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
@@ -86,6 +86,12 @@ impl Error {
   pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<PathBuf> {
     FilesystemIo {
       path: file_path.display_path().to_owned(),
+    }
+  }
+
+  pub(crate) fn not_found(request: &Request<Body>) -> Self {
+    Error::RouteNotFound {
+      uri_path: request.uri().path().to_owned(),
     }
   }
 }

@@ -96,12 +96,10 @@ impl Files {
     Ok(entries)
   }
 
-  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
-
-  async fn list(dir: &InputPath) -> Result<Response<Body>> {
-    let body = html! {
-      (DOCTYPE)
+  fn serve_html(contents: Markup) -> Response<Body> {
+    let html = html! {
       html {
+        (DOCTYPE)
         head {
           meta charset="utf-8";
           title {
@@ -111,32 +109,40 @@ impl Files {
         }
         body {
           ul class="contents" {
-            @for (file_name, file_type) in Self::read_dir(dir).await? {
-              @let file_name = {
-                let mut file_name = file_name.to_string_lossy().into_owned();
-                if file_type.is_dir() {
-                  file_name.push('/');
-                }
-                file_name
-              };
-              @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
-              li {
-                a href=(encoded) class="view" {
-                  (file_name)
-                }
-                @if file_type.is_file() {
-                  a download href=(encoded) {
-                    (Files::download_icon())
-                  }
-                }
-              }
+            (contents)
+          }
+        }
+      }
+    };
+    Response::new(Body::from(html.into_string()))
+  }
+
+  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+
+  async fn list(dir: &InputPath) -> Result<Response<Body>> {
+    let contents = html! {
+      @for (file_name, file_type) in Self::read_dir(dir).await? {
+        @let file_name = {
+          let mut file_name = file_name.to_string_lossy().into_owned();
+          if file_type.is_dir() {
+            file_name.push('/');
+          }
+          file_name
+        };
+        @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
+        li {
+          a href=(encoded) class="view" {
+            (file_name)
+          }
+          @if file_type.is_file() {
+            a download href=(encoded) {
+              (Files::download_icon())
             }
           }
         }
       }
     };
-
-    Ok(Response::new(Body::from(body.into_string())))
+    Ok(Files::serve_html(contents))
   }
 
   fn download_icon() -> Markup {
@@ -164,5 +170,26 @@ impl Files {
     builder
       .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
       .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
+  }
+
+  pub(crate) async fn serve_invoice(
+    &mut self,
+    request: &Request<Body>,
+    invoice_index: u64,
+  ) -> Result<Response<Body>> {
+    let lnd_client = self
+      .lnd_client
+      .as_mut()
+      .ok_or_else(|| Error::not_found(request))?;
+    let invoice = lnd_client
+      .get_invoice(invoice_index)
+      .await
+      .context(error::LndRpcStatus)?;
+    let invoice = invoice.ok_or_else(|| Error::not_found(request))?;
+    let contents = html! {
+      ("todo: style html")
+      (invoice.payment_request)
+    };
+    Ok(Files::serve_html(contents))
   }
 }
