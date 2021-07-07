@@ -8,7 +8,7 @@ For example, you can point it at a directory full of PDFs, allowing users to bro
 ```bash
 $ mkdir files
 $ echo 'amazing content' > files/file.txt
-$ agora --direcory files --port 1234
+$ agora --directory files --port 1234
 $ curl http://localhost:1234/files/file.txt
 ```
 
