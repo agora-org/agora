@@ -1,4 +1,5 @@
 use crate::{environment::Environment, server::Server};
+use lnd_test_context::LndTestContext;
 use reqwest::Url;
 use std::{
   ffi::OsString,
@@ -35,6 +36,31 @@ where
   F: Future<Output = ()>,
 {
   test_with_arguments(&[], f)
+}
+
+pub(crate) fn test_with_lnd<Function, Fut>(f: Function) -> (LndTestContext, String)
+where
+  Function: FnOnce(TestContext) -> Fut,
+  Fut: Future<Output = ()>,
+{
+  let lnd_test_context = tokio::runtime::Builder::new_current_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async { LndTestContext::new().await });
+
+  let stderr = test_with_arguments(
+    &[
+      "--lnd-rpc-authority",
+      &lnd_test_context.lnd_rpc_authority(),
+      "--lnd-rpc-cert-path",
+      lnd_test_context.cert_path().to_str().unwrap(),
+      "--lnd-rpc-macaroon-path",
+      lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
+    ],
+    f,
+  );
+  (lnd_test_context, stderr)
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String

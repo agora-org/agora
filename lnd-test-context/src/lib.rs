@@ -248,6 +248,10 @@ impl LndTestContext {
     }
   }
 
+  pub fn lnd_rpc_authority(&self) -> String {
+    format!("localhost:{}", self.lnd_rpc_port)
+  }
+
   pub fn lnd_dir(&self) -> PathBuf {
     self.tmpdir.path().join("lnd")
   }

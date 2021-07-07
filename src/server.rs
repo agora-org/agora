@@ -129,8 +129,7 @@ impl Server {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_utils::{assert_contains, test_with_arguments};
-  use lnd_test_context::LndTestContext;
+  use crate::test_utils::{assert_contains, test_with_lnd};
   use std::net::IpAddr;
 
   #[test]
@@ -176,29 +175,14 @@ mod tests {
 
   #[test]
   fn connect_to_lnd() {
-    let lnd_test_context = tokio::runtime::Builder::new_current_thread()
-      .enable_all()
-      .build()
-      .unwrap()
-      .block_on(async { LndTestContext::new().await });
-
-    let lnd_rpc_authority = format!("localhost:{}", lnd_test_context.lnd_rpc_port);
-
-    let stderr = test_with_arguments(
-      &[
-        "--lnd-rpc-authority",
-        &lnd_rpc_authority,
-        "--lnd-rpc-cert-path",
-        lnd_test_context.cert_path().to_str().unwrap(),
-        "--lnd-rpc-macaroon-path",
-        lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
-      ],
-      |_context| async move {},
-    );
+    let (lnd_test_context, stderr) = test_with_lnd(|_context| async move {});
 
     assert_contains(
       &stderr,
-      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
+      &format!(
+        "Connected to LND RPC server at {}",
+        lnd_test_context.lnd_rpc_authority()
+      ),
     );
   }
 }
