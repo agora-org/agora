@@ -5,6 +5,8 @@ use lnd_test_context::LndTestContext;
 use lnrpc::lightning_client::LightningClient;
 use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest};
 use openssl::x509::X509;
+#[cfg(test)]
+use std::sync::Arc;
 use tonic::{metadata::AsciiMetadataValue, Status};
 
 mod grpc_service;
@@ -66,6 +68,26 @@ impl Client {
       request.metadata_mut().insert("macaroon", macaroon.clone());
     }
     Ok(self.client.add_invoice(request).await?.into_inner())
+  }
+
+  async fn get_invoice(&mut self, invoice_index: u64) -> Result<Option<Invoice>, Status> {
+    let mut request = tonic::Request::new(ListInvoiceRequest {
+      index_offset: invoice_index - 1,
+      num_max_invoices: 1,
+      pending_only: false,
+      reversed: false,
+    });
+    if let Some(macaroon) = &self.macaroon {
+      request.metadata_mut().insert("macaroon", macaroon.clone());
+    }
+    let response = self.client.list_invoices(request).await?.into_inner();
+    match response.invoices.as_slice() {
+      [x] => Ok(Some(x.clone())),
+      [] => Ok(None),
+      _ => Err(Status::internal(
+        "lnd-client::Client::get_invoice: LND returned more results than specified in num_max_invoices",
+      )),
+    }
   }
 
   #[cfg(test)]
@@ -148,5 +170,38 @@ jlZBq5hr8Nv2qStFfw9qzw==
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let invoice = client.add_invoice().await.unwrap();
     assert_eq!(invoice.add_index, 1);
+  }
+
+  #[tokio::test]
+  async fn get_invoice() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let _ignored = client.add_invoice().await.unwrap();
+    let created = client.add_invoice().await.unwrap();
+    let retrieved = client
+      .get_invoice(created.add_index)
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(
+      (
+        created.add_index,
+        created.r_hash,
+        created.payment_request,
+        created.payment_addr
+      ),
+      (
+        retrieved.add_index,
+        retrieved.r_hash,
+        retrieved.payment_request,
+        retrieved.payment_addr
+      )
+    );
+  }
+
+  #[tokio::test]
+  async fn get_invoice_not_found() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let retrieved = client.get_invoice(42).await.unwrap();
+    assert_eq!(retrieved, None);
   }
 }
