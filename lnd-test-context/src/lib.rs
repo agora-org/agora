@@ -132,6 +132,14 @@ impl LndTestContext {
     }
   }
 
+  pub fn new_blocking() -> Self {
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(async { LndTestContext::new().await })
+  }
+
   fn bitcoind_dir(&self) -> String {
     self
       .tmpdir
@@ -197,12 +205,23 @@ impl LndTestContext {
   }
 
   pub async fn run_lncli_command(&self, input: &[&str]) -> serde_json::Value {
-    let StdoutUntrimmed(json) = cmd!(self.lncli_command().await, input);
-    serde_json::from_str(&json).unwrap()
+    let (Exit(status), StdoutUntrimmed(output)) = cmd!(self.lncli_command().await, input);
+    if !status.success() {
+      eprintln!("{}", output);
+      panic!("LndTestContext::run_lncli_command failed");
+    }
+    match serde_json::from_str(&output) {
+      Ok(value) => value,
+      Err(_) => {
+        eprintln!("{}", output);
+        panic!("LndTestContext::run_lncli_command: failed to parse json");
+      }
+    }
   }
 
   async fn bitcoind_new_address(&self) -> String {
-    let (Exit(status), Stderr(output)) = cmd!(self.bitcoin_cli_command().await, "getwalletinfo");
+    let (Exit(status), Stderr(output), StdoutUntrimmed(_)) =
+      cmd!(self.bitcoin_cli_command().await, "getwalletinfo");
     if !status.success() {
       let expected = "No wallet is loaded.";
       assert!(
@@ -221,21 +240,27 @@ impl LndTestContext {
     address
   }
 
-  async fn generate_bitcoind_wallet_with_money(&self) -> String {
-    let address = self.bitcoind_new_address().await;
+  async fn generatetoaddress(&self, n: i32) {
+    let StdoutUntrimmed(_) = cmd!(
+      self.bitcoin_cli_command().await,
+      "generatetoaddress",
+      n.to_string(),
+      self.bitcoind_new_address().await
+    );
+  }
+
+  async fn generate_bitcoind_wallet_with_money(&self) {
     loop {
-      let StdoutUntrimmed(_) = cmd!(self
-      .bitcoin_cli_command().await, %"generatetoaddress 10", &address);
+      self.generatetoaddress(10).await;
       let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
-      if balance.parse::<f64>().unwrap() >= 2.0 {
+      if balance.parse::<f64>().unwrap() >= 3.0 {
         break;
       }
     }
-    address
   }
 
   pub async fn generate_money_into_lnd(&self) {
-    let bitcoind_address = self.generate_bitcoind_wallet_with_money().await;
+    self.generate_bitcoind_wallet_with_money().await;
     let lnd_new_address = self.run_lncli_command(&["newaddress", "p2wkh"]).await["address"]
       .as_str()
       .unwrap()
@@ -243,15 +268,11 @@ impl LndTestContext {
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
       // fixme: convert all bitcoin_cli invocations to --named?
-      %"-named sendtoaddress amount=1 fee_rate=100",
+      %"-named sendtoaddress amount=2 fee_rate=100",
       format!("address={}", &lnd_new_address),
     );
     loop {
-      let StdoutUntrimmed(_) = cmd!(
-        self.bitcoin_cli_command().await,
-        %"generatetoaddress 1",
-        &bitcoind_address
-      );
+      self.generatetoaddress(1).await;
       let walletbalance = self.run_lncli_command(&["walletbalance"]).await;
       let confirmed_balance = &walletbalance["confirmed_balance"]
         .as_str()
@@ -288,15 +309,22 @@ impl LndTestContext {
     }
   }
 
-  async fn connect_lnds(&self, other: &LndTestContext) {
-    let other_pub_key = other.run_lncli_command(&["getinfo"]).await["identity_pubkey"]
+  async fn lnd_pub_key(&self) -> String {
+    self.run_lncli_command(&["getinfo"]).await["identity_pubkey"]
       .as_str()
       .unwrap()
-      .to_string();
+      .to_string()
+  }
+
+  async fn connect_lnds(&self, other: &LndTestContext) {
     self
       .run_lncli_command(&[
         "connect",
-        &format!("{}@localhost:{}", other_pub_key, other.lnd_peer_port),
+        &format!(
+          "{}@localhost:{}",
+          other.lnd_pub_key().await,
+          other.lnd_peer_port
+        ),
       ])
       .await;
   }
@@ -304,6 +332,33 @@ impl LndTestContext {
   async fn connect(&self, other: &LndTestContext) {
     self.connect_bitcoinds(other).await;
     self.connect_lnds(other).await;
+  }
+
+  async fn open_channel_to(&self, other: &LndTestContext, amount: i128) {
+    self
+      .run_lncli_command(&[
+        "openchannel",
+        "--node_key",
+        &other.lnd_pub_key().await,
+        "--local_amt",
+        &amount.to_string(),
+      ])
+      .await;
+    self.generatetoaddress(10).await;
+    loop {
+      let self_channels = self.run_lncli_command(&["listchannels"]).await["channels"]
+        .as_array()
+        .unwrap()
+        .len();
+      let other_channels = self.run_lncli_command(&["listchannels"]).await["channels"]
+        .as_array()
+        .unwrap()
+        .len();
+      if self_channels == 1 && other_channels == 1 {
+        break;
+      }
+      thread::sleep(Duration::from_millis(50));
+    }
   }
 }
 
@@ -380,5 +435,33 @@ mod tests {
         .len(),
       1
     );
+  }
+
+  #[tokio::test]
+  async fn open_channel() {
+    let sender = LndTestContext::new().await;
+    let receiver = LndTestContext::new().await;
+    sender.connect(&receiver).await;
+    sender.generate_money_into_lnd().await;
+    sender.open_channel_to(&receiver, 1_000_000).await;
+
+    let payment_request = &receiver.run_lncli_command(&["addinvoice"]).await["payment_request"]
+      .as_str()
+      .unwrap()
+      .to_string();
+    let status = sender
+      .run_lncli_command(&[
+        "payinvoice",
+        "--force",
+        "--json",
+        "--amt",
+        "10000",
+        payment_request,
+      ])
+      .await["status"]
+      .as_str()
+      .unwrap()
+      .to_string();
+    assert_eq!(status, "SUCCEEDED");
   }
 }
