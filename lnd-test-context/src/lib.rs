@@ -17,9 +17,11 @@ mod owned_child;
 pub struct LndTestContext {
   #[allow(unused)]
   bitcoind: OwnedChild,
+  bitcoind_peer_port: u16,
   bitcoind_rpc_port: u16,
   #[allow(unused)]
   lnd: OwnedChild,
+  lnd_peer_port: u16,
   pub lnd_rpc_port: u16,
   tmpdir: TempDir,
 }
@@ -42,6 +44,7 @@ impl LndTestContext {
     fs::create_dir(&bitcoinddir).unwrap();
     fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
 
+    let bitcoind_peer_port = Self::guess_free_port();
     let bitcoind_rpc_port = Self::guess_free_port();
     let zmqpubrawblock = Self::guess_free_port();
     let zmqpubrawtx = Self::guess_free_port();
@@ -51,7 +54,7 @@ impl LndTestContext {
       .arg(format!("-rpcport={}", bitcoind_rpc_port))
       .arg("-rpcuser=user")
       .arg("-rpcpassword=password")
-      .arg(format!("-port={}", Self::guess_free_port()))
+      .arg(format!("-port={}", bitcoind_peer_port))
       .arg(format!("-bind=127.0.0.1:{}=onion", Self::guess_free_port()))
       .arg(format!(
         "-zmqpubrawblock=tcp://127.0.0.1:{}",
@@ -64,6 +67,7 @@ impl LndTestContext {
 
     let lnddir = tmpdir.path().join("lnd");
 
+    let lnd_peer_port = Self::guess_free_port();
     let lnd_rpc_port = Self::guess_free_port();
 
     let lnd = 'outer: loop {
@@ -92,7 +96,7 @@ impl LndTestContext {
         .arg("--noseedbackup")
         .arg("--norest")
         .arg(format!("--rpclisten=127.0.0.1:{}", lnd_rpc_port))
-        .arg(format!("--listen=127.0.0.1:{}", Self::guess_free_port()))
+        .arg(format!("--listen=127.0.0.1:{}", lnd_peer_port))
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn_owned()
@@ -119,8 +123,10 @@ impl LndTestContext {
 
     Self {
       bitcoind,
+      bitcoind_peer_port,
       bitcoind_rpc_port,
       lnd,
+      lnd_peer_port,
       lnd_rpc_port,
       tmpdir,
     }
@@ -195,22 +201,37 @@ impl LndTestContext {
     serde_json::from_str(&json).unwrap()
   }
 
+  async fn bitcoind_new_address(&self) -> String {
+    let (Exit(status), Stderr(output)) = cmd!(self.bitcoin_cli_command().await, "getwalletinfo");
+    if !status.success() {
+      let expected = "No wallet is loaded.";
+      assert!(
+        output.contains(expected),
+        "{:?}\ndoes not contain\n{:?}",
+        output,
+        expected
+      );
+      let StdoutUntrimmed(_) = cmd!(
+        self.bitcoin_cli_command().await,
+        "createwallet",
+        "bitcoin-core-test-wallet"
+      );
+    }
+    let StdoutTrimmed(address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
+    address
+  }
+
   async fn generate_bitcoind_wallet_with_money(&self) -> String {
-    let StdoutUntrimmed(_) = cmd!(
-      self.bitcoin_cli_command().await,
-      "createwallet",
-      "bitcoin-core-test-wallet"
-    );
-    let StdoutTrimmed(bitcoind_address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
+    let address = self.bitcoind_new_address().await;
     loop {
       let StdoutUntrimmed(_) = cmd!(self
-      .bitcoin_cli_command().await, %"generatetoaddress 10", &bitcoind_address);
+      .bitcoin_cli_command().await, %"generatetoaddress 10", &address);
       let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
       if balance.parse::<f64>().unwrap() >= 2.0 {
         break;
       }
     }
-    bitcoind_address
+    address
   }
 
   pub async fn generate_money_into_lnd(&self) {
@@ -221,6 +242,7 @@ impl LndTestContext {
       .to_string();
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
+      // fixme: convert all bitcoin_cli invocations to --named?
       %"-named sendtoaddress amount=1 fee_rate=100",
       format!("address={}", &lnd_new_address),
     );
@@ -240,6 +262,48 @@ impl LndTestContext {
         break;
       }
     }
+  }
+
+  async fn connect_bitcoinds(&self, other: &LndTestContext) {
+    cmd_unit!(
+      self.bitcoin_cli_command().await,
+      "addnode",
+      format!("localhost:{}", other.bitcoind_peer_port),
+      "add"
+    );
+
+    async fn get_number_of_peers(context: &LndTestContext) -> usize {
+      let StdoutUntrimmed(json) = cmd!(context.bitcoin_cli_command().await, "getpeerinfo");
+      serde_json::from_str::<serde_json::Value>(&json)
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .len()
+    }
+    loop {
+      if get_number_of_peers(self).await == 1 && get_number_of_peers(other).await == 1 {
+        break;
+      }
+      thread::sleep(Duration::from_millis(50));
+    }
+  }
+
+  async fn connect_lnds(&self, other: &LndTestContext) {
+    let other_pub_key = other.run_lncli_command(&["getinfo"]).await["identity_pubkey"]
+      .as_str()
+      .unwrap()
+      .to_string();
+    self
+      .run_lncli_command(&[
+        "connect",
+        &format!("{}@localhost:{}", other_pub_key, other.lnd_peer_port),
+      ])
+      .await;
+  }
+
+  async fn connect(&self, other: &LndTestContext) {
+    self.connect_bitcoinds(other).await;
+    self.connect_lnds(other).await;
   }
 }
 
@@ -273,5 +337,48 @@ mod tests {
       .parse::<i64>()
       .unwrap();
     assert!(balance > 0, "{} not greater than 0", balance);
+  }
+
+  #[tokio::test]
+  async fn connecting_bitcoinds() {
+    let a = LndTestContext::new().await;
+    let b = LndTestContext::new().await;
+    a.connect(&b).await;
+
+    let StdoutUntrimmed(_) = cmd!(
+      a.bitcoin_cli_command().await,
+      %"generatetoaddress 42",
+      a.bitcoind_new_address().await
+    );
+
+    loop {
+      let StdoutTrimmed(output) = cmd!(b.bitcoin_cli_command().await, "getblockcount");
+      if output == "42" {
+        break;
+      }
+      thread::sleep(Duration::from_millis(50));
+    }
+  }
+
+  #[tokio::test]
+  async fn connecting_lnds() {
+    let a = LndTestContext::new().await;
+    let b = LndTestContext::new().await;
+    a.connect(&b).await;
+
+    assert_eq!(
+      a.run_lncli_command(&["listpeers"]).await["peers"]
+        .as_array()
+        .unwrap()
+        .len(),
+      1
+    );
+    assert_eq!(
+      b.run_lncli_command(&["listpeers"]).await["peers"]
+        .as_array()
+        .unwrap()
+        .len(),
+      1
+    );
   }
 }
