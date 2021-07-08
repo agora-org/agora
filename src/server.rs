@@ -130,6 +130,7 @@ impl Server {
 mod tests {
   use super::*;
   use crate::test_utils::{assert_contains, test_with_lnd};
+  use lnd_test_context::LndTestContext;
   use std::net::IpAddr;
 
   #[test]
@@ -175,7 +176,8 @@ mod tests {
 
   #[test]
   fn connect_to_lnd() {
-    let (lnd_test_context, stderr) = test_with_lnd(|_context| async move {});
+    let lnd_test_context = LndTestContext::new_blocking();
+    let stderr = test_with_lnd(&lnd_test_context, |_context| async move {});
 
     assert_contains(
       &stderr,

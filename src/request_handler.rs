@@ -108,10 +108,12 @@ pub(crate) mod tests {
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, test, test_with_environment, test_with_lnd},
+    test_utils::{assert_contains, test, test_with_environment, test_with_lnd, TestContext},
   };
+  use cradle::*;
   use guard::guard_unwrap;
   use hyper::StatusCode;
+  use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
   use regex::Regex;
   use reqwest::{redirect::Policy, Client, Url};
@@ -719,7 +721,7 @@ pub(crate) mod tests {
 
   #[test]
   fn redirects_to_invoice_url() {
-    test_with_lnd(|context| async move {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo").unwrap())
         .await
@@ -735,7 +737,7 @@ pub(crate) mod tests {
 
   #[test]
   fn non_existant_files_dont_redirect_to_invoice() {
-    let (_, stderr) = test_with_lnd(|context| async move {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       assert_eq!(
         reqwest::get(context.files_url().join("foo.txt").unwrap())
           .await
@@ -755,14 +757,33 @@ pub(crate) mod tests {
 
   #[test]
   fn invoice_url_serves_bech32_encoded_invoice() {
-    test_with_lnd(|context| async move {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
-      let html = text(&context.files_url().join("foo").unwrap()).await;
-      assert_contains(&html, "lnbcrt1");
+      let html = html(&context.files_url().join("foo").unwrap()).await;
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+      assert_contains(&payment_request.inner_html(), "lnbcrt1");
     });
   }
 
   #[test]
-  #[ignore]
-  fn paying_invoice_allows_downloading_file() {}
+  fn paying_invoice_allows_downloading_file() {
+    let receiver = LndTestContext::new_blocking();
+    test_with_lnd(&receiver.clone(), |context: TestContext| async move {
+      std::fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+      let response = get(&context.files_url().join("foo").unwrap()).await;
+      let invoice_url = response.url().clone();
+      let html = Html::parse_document(&response.text().await.unwrap());
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+      let payment_request = payment_request.inner_html();
+      dbg!(&payment_request);
+      let sender = LndTestContext::new().await;
+      sender.connect(&receiver).await;
+      sender.generate_money_into_lnd().await;
+      sender.open_channel_to(&receiver, 1_000_000).await;
+      cmd_unit!(sender.lncli_command().await, %"walletbalance");
+      cmd_unit!(sender.lncli_command().await, %"payinvoice --amt 1000 --force", &payment_request);
+      assert_eq!(text(&invoice_url).await, "precious content");
+      // fixme: fix non-deterministic tests
+    });
+  }
 }

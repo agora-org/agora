@@ -5,6 +5,7 @@ use std::{
   net::TcpListener,
   path::{Path, PathBuf},
   process::Command,
+  sync::Arc,
   thread,
   time::Duration,
 };
@@ -13,7 +14,7 @@ use tempfile::TempDir;
 mod executables;
 mod owned_child;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LndTestContext {
   #[allow(unused)]
   bitcoind: OwnedChild,
@@ -23,7 +24,7 @@ pub struct LndTestContext {
   lnd: OwnedChild,
   lnd_peer_port: u16,
   pub lnd_rpc_port: u16,
-  tmpdir: TempDir,
+  tmpdir: Arc<TempDir>,
 }
 
 impl LndTestContext {
@@ -71,7 +72,7 @@ impl LndTestContext {
     let lnd_rpc_port = Self::guess_free_port();
 
     let lnd = 'outer: loop {
-      let mut lnd = Command::new(executables::lnd_executable(&target_dir).await)
+      let lnd = Command::new(executables::lnd_executable(&target_dir).await)
         .args(&[
           "--bitcoin.regtest",
           "--bitcoin.active",
@@ -113,7 +114,7 @@ impl LndTestContext {
         );
         if status.success() {
           break 'outer lnd;
-        } else if lnd.inner.try_wait().unwrap().is_some() {
+        } else if lnd.inner.lock().unwrap().try_wait().unwrap().is_some() {
           break;
         } else {
           thread::sleep(Duration::from_millis(50));
@@ -128,7 +129,7 @@ impl LndTestContext {
       lnd,
       lnd_peer_port,
       lnd_rpc_port,
-      tmpdir,
+      tmpdir: Arc::new(tmpdir),
     }
   }
 
@@ -329,12 +330,12 @@ impl LndTestContext {
       .await;
   }
 
-  async fn connect(&self, other: &LndTestContext) {
+  pub async fn connect(&self, other: &LndTestContext) {
     self.connect_bitcoinds(other).await;
     self.connect_lnds(other).await;
   }
 
-  async fn open_channel_to(&self, other: &LndTestContext, amount: i128) {
+  pub async fn open_channel_to(&self, other: &LndTestContext, amount: i128) {
     self
       .run_lncli_command(&[
         "openchannel",
@@ -346,11 +347,11 @@ impl LndTestContext {
       .await;
     self.generatetoaddress(10).await;
     loop {
-      let self_channels = self.run_lncli_command(&["listchannels"]).await["channels"]
+      let self_channels = dbg!(self.run_lncli_command(&["listchannels"]).await)["channels"]
         .as_array()
         .unwrap()
         .len();
-      let other_channels = self.run_lncli_command(&["listchannels"]).await["channels"]
+      let other_channels = dbg!(other.run_lncli_command(&["listchannels"]).await)["channels"]
         .as_array()
         .unwrap()
         .len();

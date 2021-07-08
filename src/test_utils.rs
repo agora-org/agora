@@ -38,17 +38,11 @@ where
   test_with_arguments(&[], f)
 }
 
-pub(crate) fn test_with_lnd<Function, Fut>(f: Function) -> (LndTestContext, String)
+pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
 where
   Function: FnOnce(TestContext) -> Fut,
   Fut: Future<Output = ()>,
 {
-  let lnd_test_context = tokio::runtime::Builder::new_current_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async { LndTestContext::new().await });
-
   let stderr = test_with_arguments(
     &[
       "--lnd-rpc-authority",
@@ -60,7 +54,7 @@ where
     ],
     f,
   );
-  (lnd_test_context, stderr)
+  stderr
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String

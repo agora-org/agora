@@ -5,6 +5,7 @@ use crate::{
   redirect::redirect,
 };
 use hyper::{header, Body, Request, Response, StatusCode};
+use lnd_client::lnrpc::invoice::InvoiceState;
 use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
@@ -24,12 +25,16 @@ impl Files {
     }
   }
 
+  fn tail_to_path(&self, tail: &[&str]) -> Result<InputPath> {
+    self.base_directory.join_file_path(&tail.join(""))
+  }
+
   pub(crate) async fn serve(
     &mut self,
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = self.base_directory.join_file_path(&tail.join(""))?;
+    let file_path = self.tail_to_path(tail)?;
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
@@ -64,7 +69,7 @@ impl Files {
     if file_type.is_dir() {
       Self::list(&file_path).await
     } else {
-      self.serve_file(&file_path).await
+      self.serve_file(tail, &file_path).await
     }
   }
 
@@ -153,20 +158,24 @@ impl Files {
     }
   }
 
-  async fn serve_file(&mut self, path: &InputPath) -> Result<Response<Body>> {
+  async fn serve_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
     if let Some(lnd_client) = &mut self.lnd_client {
       let invoice = lnd_client
-        .add_invoice()
+        // fixme: don't leak full path
+        .add_invoice(Some(tail.join("")))
         .await
         .context(error::LndRpcStatus)?;
       return redirect(format!("/invoices/{}", invoice.add_index));
     }
-    let mut builder = Response::builder().status(StatusCode::OK);
 
+    Self::foo(path).await
+  }
+
+  async fn foo(path: &InputPath) -> Result<Response<Body>> {
+    let mut builder = Response::builder().status(StatusCode::OK);
     if let Some(guess) = path.mime_guess().first() {
       builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
     }
-
     builder
       .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
       .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
@@ -186,10 +195,21 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?;
     let invoice = invoice.ok_or_else(|| Error::not_found(request))?;
-    let contents = html! {
-      ("todo: style html")
-      (invoice.payment_request)
-    };
-    Ok(Files::serve_html(contents))
+    match invoice.state() {
+      InvoiceState::Settled => {
+        let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
+        let path = self.tail_to_path(&tail_from_invoice)?;
+        Self::foo(&path).await
+      }
+      _ => {
+        let contents = html! {
+          ("todo: style html")
+          div class="payment-request" {
+            (invoice.payment_request)
+          }
+        };
+        Ok(Files::serve_html(contents))
+      }
+    }
   }
 }
