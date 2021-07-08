@@ -59,10 +59,12 @@ impl Client {
     Ok(())
   }
 
-  pub async fn add_invoice(&mut self) -> Result<AddInvoiceResponse, Status> {
-    let mut request = tonic::Request::new(Invoice {
-      ..Invoice::default()
-    });
+  pub async fn add_invoice(&mut self, memo: Option<String>) -> Result<AddInvoiceResponse, Status> {
+    let mut invoice = Invoice::default();
+    if let Some(memo) = memo {
+      invoice.memo = memo;
+    }
+    let mut request = tonic::Request::new(invoice);
     // fixme: dry up
     if let Some(macaroon) = &self.macaroon {
       request.metadata_mut().insert("macaroon", macaroon.clone());
@@ -168,15 +170,29 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let invoice = client.add_invoice().await.unwrap();
+    let invoice = client.add_invoice(None).await.unwrap();
     assert_eq!(invoice.add_index, 1);
+  }
+
+  #[tokio::test]
+  async fn add_invoice_with_memo() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let index = client
+      .add_invoice(Some("test-memo".to_string()))
+      .await
+      .unwrap()
+      .add_index;
+    assert_eq!(
+      client.get_invoice(index).await.unwrap().unwrap().memo,
+      "test-memo"
+    );
   }
 
   #[tokio::test]
   async fn get_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let _ignored = client.add_invoice().await.unwrap();
-    let created = client.add_invoice().await.unwrap();
+    let _ignored = client.add_invoice(None).await.unwrap();
+    let created = client.add_invoice(None).await.unwrap();
     let retrieved = client
       .get_invoice(created.add_index)
       .await
