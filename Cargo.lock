@@ -5,6 +5,7 @@ name = "agora"
 version = "0.0.1"
 dependencies = [
  "bytes",
+ "cradle",
  "executable-path",
  "futures",
  "guard",
@@ -213,9 +214,9 @@ dependencies = [
 
 [[package]]
 name = "cradle"
-version = "0.0.4"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5174070c1a1914e13d5f4302186a51ff28d267dbc2164562ee0df6014eb63bf"
+checksum = "b6d21adaa44b0fc0342582e2ad3876521fc0fae57f2c61e90988e6d81c05eb14"
 dependencies = [
  "rustversion",
 ]
@@ -806,6 +807,7 @@ dependencies = [
  "hex-literal",
  "pretty_assertions",
  "reqwest",
+ "serde_json",
  "sha2",
  "tempfile",
  "tokio",
