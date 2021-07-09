@@ -22,6 +22,8 @@ use std::{
   task::{self, Poll},
 };
 
+// FIXME: make it easy to avoid running slow tests
+
 #[derive(Clone, Debug)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,

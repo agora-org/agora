@@ -350,11 +350,19 @@ impl LndTestContext {
       .await;
     self.generatetoaddress(10).await;
     loop {
-      let self_channels = dbg!(self.run_lncli_command(&["listchannels"]).await)["channels"]
+      let self_channels = dbg!(
+        self
+          .run_lncli_command(&["listchannels", "--active_only"])
+          .await
+      )["channels"]
         .as_array()
         .unwrap()
         .len();
-      let other_channels = dbg!(other.run_lncli_command(&["listchannels"]).await)["channels"]
+      let other_channels = dbg!(
+        other
+          .run_lncli_command(&["listchannels", "--active_only"])
+          .await
+      )["channels"]
         .as_array()
         .unwrap()
         .len();
