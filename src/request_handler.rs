@@ -778,7 +778,6 @@ pub(crate) mod tests {
       let html = Html::parse_document(&response.text().await.unwrap());
       guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
       let payment_request = payment_request.inner_html();
-      dbg!(&payment_request);
       let sender = LndTestContext::new().await;
       sender.connect(&receiver).await;
       sender.generate_money_into_lnd().await;
@@ -786,7 +785,6 @@ pub(crate) mod tests {
       cmd_unit!(sender.lncli_command().await, %"walletbalance");
       cmd_unit!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
-      // fixme: fix non-deterministic tests
     });
   }
 }
