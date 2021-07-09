@@ -3,7 +3,7 @@ use http::uri::Authority;
 #[cfg(test)]
 use lnd_test_context::LndTestContext;
 use lnrpc::lightning_client::LightningClient;
-use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest};
+use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash};
 use openssl::x509::X509;
 #[cfg(test)]
 use std::sync::Arc;
@@ -76,24 +76,15 @@ impl Client {
     Ok(self.client.add_invoice(request).await?.into_inner())
   }
 
-  pub async fn get_invoice(&mut self, invoice_index: u64) -> Result<Option<Invoice>, Status> {
-    let mut request = tonic::Request::new(ListInvoiceRequest {
-      index_offset: invoice_index - 1,
-      num_max_invoices: 1,
-      pending_only: false,
-      reversed: false,
+  pub async fn get_invoice(&mut self, r_hash: Vec<u8>) -> Result<Invoice, Status> {
+    let mut request = tonic::Request::new(PaymentHash {
+      r_hash,
+      ..PaymentHash::default()
     });
     if let Some(macaroon) = &self.macaroon {
       request.metadata_mut().insert("macaroon", macaroon.clone());
     }
-    let response = self.client.list_invoices(request).await?.into_inner();
-    match response.invoices.as_slice() {
-      [x] => Ok(Some(x.clone())),
-      [] => Ok(None),
-      _ => Err(Status::internal(
-        "lnd-client::Client::get_invoice: LND returned more results than specified in num_max_invoices",
-      )),
-    }
+    Ok(self.client.lookup_invoice(request).await?.into_inner())
   }
 
   #[cfg(test)]
@@ -181,12 +172,12 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let index = client
+    let r_hash = client
       .add_invoice("test-memo".to_string(), 42)
       .await
       .unwrap()
-      .add_index;
-    let invoice = client.get_invoice(index).await.unwrap().unwrap();
+      .r_hash;
+    let invoice = client.get_invoice(r_hash).await.unwrap();
     assert_eq!(invoice.memo, "test-memo");
     assert_eq!(invoice.value, 42);
   }
@@ -196,11 +187,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let _ignored = client.add_invoice("".to_string(), 1).await.unwrap();
     let created = client.add_invoice("".to_string(), 1).await.unwrap();
-    let retrieved = client
-      .get_invoice(created.add_index)
-      .await
-      .unwrap()
-      .unwrap();
+    let retrieved = client.get_invoice(created.r_hash.clone()).await.unwrap();
     assert_eq!(
       (
         created.add_index,
@@ -220,7 +207,6 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn get_invoice_not_found() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let retrieved = client.get_invoice(42).await.unwrap();
-    assert_eq!(retrieved, None);
+    client.get_invoice(vec![0; 32]).await.unwrap_err();
   }
 }
