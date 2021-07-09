@@ -26,6 +26,7 @@ rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
+hex = "0.4.3"
 
 [dependencies.hyper]
 version = "0.14.7"

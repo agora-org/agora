@@ -164,7 +164,7 @@ impl Files {
         .add_invoice(tail.join(""), 1000)
         .await
         .context(error::LndRpcStatus)?;
-      return redirect(format!("/invoices/{}", invoice.add_index));
+      return redirect(format!("/invoices/{}", hex::encode(invoice.r_hash)));
     }
 
     Self::foo(path).await
@@ -183,17 +183,16 @@ impl Files {
   pub(crate) async fn serve_invoice(
     &mut self,
     request: &Request<Body>,
-    invoice_index: u64,
+    r_hash: Vec<u8>,
   ) -> Result<Response<Body>> {
     let lnd_client = self
       .lnd_client
       .as_mut()
       .ok_or_else(|| Error::not_found(request))?;
     let invoice = lnd_client
-      .get_invoice(invoice_index)
+      .get_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?;
-    let invoice = invoice.ok_or_else(|| Error::not_found(request))?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();

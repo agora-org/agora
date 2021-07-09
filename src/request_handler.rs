@@ -79,8 +79,8 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
-      ["/", "invoices/", invoice_index] => match invoice_index.parse() {
-        Ok(invoice_index) => self.files.serve_invoice(&request, invoice_index).await,
+      ["/", "invoices/", r_hash] => match hex::decode(r_hash) {
+        Ok(r_hash) => self.files.serve_invoice(&request, r_hash).await,
         Err(_) => Err(Error::not_found(&request)),
       },
       _ => Err(Error::not_found(&request)),
@@ -726,7 +726,7 @@ pub(crate) mod tests {
       let response = reqwest::get(context.files_url().join("foo").unwrap())
         .await
         .unwrap();
-      let regex = Regex::new("^/invoices/[0-9]+$").unwrap();
+      let regex = Regex::new("^/invoices/[a-f0-9]{64}$").unwrap();
       assert!(
         regex.is_match(response.url().path()),
         "Response URL path was not invoice path: {}",

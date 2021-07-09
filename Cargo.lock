@@ -9,6 +9,7 @@ dependencies = [
  "executable-path",
  "futures",
  "guard",
+ "hex",
  "http",
  "hyper",
  "libc",
