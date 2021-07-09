@@ -34,3 +34,23 @@
   stroke: black;
   width: 24px;
 }
+
+.invoice > .label {
+  height: 1.5em;
+  overflow: hidden;
+  padding-bottom: 0.3em;
+  padding-top: 0.5em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invoice > .label > .filename {
+  font-family: "Courier New", Courier, monospace;
+}
+
+.invoice > .payment-request {
+  border-bottom: 1px solid black;
+  font-family: "Courier New", Courier, monospace;
+  height: 1.5em;
+  overflow: hidden;
+}

@@ -762,8 +762,18 @@ pub(crate) mod tests {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
       let html = html(&context.files_url().join("foo").unwrap()).await;
-      guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
       assert_contains(&payment_request.inner_html(), "lnbcrt1");
+    });
+  }
+
+  #[test]
+  fn invoice_url_contains_filename() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      let html = html(&context.files_url().join("test-filename").unwrap()).await;
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
+      assert_contains(&payment_request.inner_html(), "test-filename");
     });
   }
 

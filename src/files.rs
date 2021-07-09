@@ -164,6 +164,7 @@ impl Files {
         .add_invoice(tail.join(""), 1000)
         .await
         .context(error::LndRpcStatus)?;
+        // fixme: append filename to invoice url
       return redirect(format!("/invoices/{}", hex::encode(invoice.r_hash)));
     }
 
@@ -200,10 +201,19 @@ impl Files {
         Self::foo(&path).await
       }
       _ => {
+      let file = invoice.memo;
         let contents = html! {
-          ("todo: style html")
-          div class="payment-request" {
-            (invoice.payment_request)
+          div class="invoice" {
+            div class="label" {
+              "Lightning Payment Request to access "
+              span class="filename" {
+                  (file)
+              }
+              ":"
+            }
+            div class="payment-request" {
+              (invoice.payment_request)
+            }
           }
         };
         Ok(Files::serve_html(contents))
