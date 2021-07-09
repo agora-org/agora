@@ -4,7 +4,7 @@ build:
   cargo build --all
 
 test pattern='':
-  cargo test --all {{pattern}}
+  cargo test --all --all-features {{pattern}}
 
 smoke +args="":
   cargo test --test smoke {{args}}

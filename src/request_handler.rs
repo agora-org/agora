@@ -107,14 +107,17 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
+  #[cfg(feature = "slow_tests")]
+  use crate::test_utils::test_with_lnd;
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, test, test_with_environment, test_with_lnd, TestContext},
+    test_utils::{assert_contains, test, test_with_environment, TestContext},
   };
   use cradle::*;
   use guard::guard_unwrap;
   use hyper::StatusCode;
+  #[cfg(feature = "slow_tests")]
   use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
   use regex::Regex;
@@ -722,6 +725,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(feature = "slow_tests")]
   fn redirects_to_invoice_url() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
@@ -738,6 +742,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(feature = "slow_tests")]
   fn non_existant_files_dont_redirect_to_invoice() {
     let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       assert_eq!(
@@ -758,6 +763,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(feature = "slow_tests")]
   fn invoice_url_serves_bech32_encoded_invoice() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
@@ -768,6 +774,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(feature = "slow_tests")]
   fn invoice_url_contains_filename() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
@@ -778,6 +785,7 @@ pub(crate) mod tests {
   }
 
   #[test]
+  #[cfg(feature = "slow_tests")]
   fn paying_invoice_allows_downloading_file() {
     let receiver = LndTestContext::new_blocking();
     #[allow(clippy::redundant_clone)]
@@ -798,3 +806,5 @@ pub(crate) mod tests {
     });
   }
 }
+
+// FIXME: suppress output when running tests

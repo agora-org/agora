@@ -87,7 +87,7 @@ jobs:
 
     - name: Test
       run: |
-        cargo test --all
+        cargo test --all --all-features
         cargo test --test smoke
 
     - name: Clippy
