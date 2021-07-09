@@ -768,6 +768,7 @@ pub(crate) mod tests {
   #[test]
   fn paying_invoice_allows_downloading_file() {
     let receiver = LndTestContext::new_blocking();
+    #[allow(clippy::redundant_clone)]
     test_with_lnd(&receiver.clone(), |context: TestContext| async move {
       std::fs::write(context.files_directory().join("foo"), "precious content").unwrap();
       let response = get(&context.files_url().join("foo").unwrap()).await;
