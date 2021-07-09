@@ -251,6 +251,8 @@ impl LndTestContext {
   }
 
   async fn generate_bitcoind_wallet_with_money(&self) {
+    // FIXME: Generate the minimum number of block in order to unlock
+    //        first mined block reward.
     loop {
       self.generatetoaddress(10).await;
       let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
@@ -273,6 +275,7 @@ impl LndTestContext {
       format!("address={}", &lnd_new_address),
     );
     loop {
+      // fixme: generate minimum number of blocks to confirm transaction
       self.generatetoaddress(1).await;
       let walletbalance = self.run_lncli_command(&["walletbalance"]).await;
       let confirmed_balance = &walletbalance["confirmed_balance"]
