@@ -781,7 +781,7 @@ pub(crate) mod tests {
       sender.generate_money_into_lnd().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
       cmd_unit!(sender.lncli_command().await, %"walletbalance");
-      cmd_unit!(sender.lncli_command().await, %"payinvoice --amt 1000 --force", &payment_request);
+      cmd_unit!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
       // fixme: fix non-deterministic tests
     });

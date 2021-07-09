@@ -161,8 +161,7 @@ impl Files {
   async fn serve_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
     if let Some(lnd_client) = &mut self.lnd_client {
       let invoice = lnd_client
-        // fixme: don't leak full path
-        .add_invoice(Some(tail.join("")))
+        .add_invoice(tail.join(""), 1000)
         .await
         .context(error::LndRpcStatus)?;
       return redirect(format!("/invoices/{}", invoice.add_index));
