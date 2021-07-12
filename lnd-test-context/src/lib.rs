@@ -1,6 +1,7 @@
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use std::{
+  collections::HashSet,
   fs,
   net::TcpListener,
   path::{Path, PathBuf},
@@ -30,12 +31,29 @@ pub struct LndTestContext {
 }
 
 impl LndTestContext {
-  fn guess_free_port() -> u16 {
-    TcpListener::bind(("127.0.0.1", 0))
-      .unwrap()
-      .local_addr()
-      .unwrap()
-      .port()
+  async fn guess_free_port() -> u16 {
+    static SET: tokio::sync::Mutex<Option<HashSet<u16>>> = tokio::sync::Mutex::const_new(None);
+    let mut guard = SET.lock().await;
+    let set: Option<HashSet<u16>> = guard.take();
+    let mut set = match set {
+      None => HashSet::new(),
+      Some(set) => set,
+    };
+
+    let port = loop {
+      let port = TcpListener::bind(("127.0.0.1", 0))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+      if !set.contains(&port) {
+        break port;
+      }
+    };
+
+    set.insert(port);
+    *guard = Some(set);
+    port
   }
 
   pub async fn new() -> Self {
@@ -47,10 +65,10 @@ impl LndTestContext {
     fs::create_dir(&bitcoinddir).unwrap();
     fs::write(bitcoinddir.join("bitcoin.conf"), "\n").unwrap();
 
-    let bitcoind_peer_port = Self::guess_free_port();
-    let bitcoind_rpc_port = Self::guess_free_port();
-    let zmqpubrawblock = Self::guess_free_port();
-    let zmqpubrawtx = Self::guess_free_port();
+    let bitcoind_peer_port = Self::guess_free_port().await;
+    let bitcoind_rpc_port = Self::guess_free_port().await;
+    let zmqpubrawblock = Self::guess_free_port().await;
+    let zmqpubrawtx = Self::guess_free_port().await;
     let bitcoind = Command::new(executables::bitcoind_executable(&target_dir).await)
       .arg("-chain=regtest")
       .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
@@ -58,7 +76,10 @@ impl LndTestContext {
       .arg("-rpcuser=user")
       .arg("-rpcpassword=password")
       .arg(format!("-port={}", bitcoind_peer_port))
-      .arg(format!("-bind=127.0.0.1:{}=onion", Self::guess_free_port()))
+      .arg(format!(
+        "-bind=127.0.0.1:{}=onion",
+        Self::guess_free_port().await
+      ))
       .arg(format!(
         "-zmqpubrawblock=tcp://127.0.0.1:{}",
         zmqpubrawblock
@@ -70,8 +91,8 @@ impl LndTestContext {
 
     let lnddir = tmpdir.path().join("lnd");
 
-    let lnd_peer_port = Self::guess_free_port();
-    let lnd_rpc_port = Self::guess_free_port();
+    let lnd_peer_port = Self::guess_free_port().await;
+    let lnd_rpc_port = Self::guess_free_port().await;
 
     let lnd = 'outer: loop {
       let lnd = Command::new(executables::lnd_executable(&target_dir).await)
