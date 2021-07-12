@@ -259,6 +259,18 @@ impl LndTestContext {
     assert!(balance.parse::<f64>().unwrap() >= 3.0);
   }
 
+  async fn wait_to_sync(&self) {
+    loop {
+      let synced = (self.run_lncli_command(&["getinfo"]).await)["synced_to_chain"]
+        .as_bool()
+        .unwrap();
+      if synced {
+        break;
+      }
+      thread::sleep(Duration::from_millis(50));
+    }
+  }
+
   pub async fn generate_money_into_lnd(&self) {
     self.generate_bitcoind_wallet_with_money().await;
     let lnd_new_address = self.run_lncli_command(&["newaddress", "p2wkh"]).await["address"]
@@ -271,19 +283,8 @@ impl LndTestContext {
       %"-named sendtoaddress amount=2 fee_rate=100",
       format!("address={}", &lnd_new_address),
     );
-    loop {
-      // fixme: generate minimum number of blocks to confirm transaction
-      self.generatetoaddress(1).await;
-      let walletbalance = self.run_lncli_command(&["walletbalance"]).await;
-      let confirmed_balance = &walletbalance["confirmed_balance"]
-        .as_str()
-        .unwrap()
-        .parse::<i64>()
-        .unwrap();
-      if *confirmed_balance > 0 {
-        break;
-      }
-    }
+    self.generatetoaddress(1).await;
+    self.wait_to_sync().await;
   }
 
   async fn connect_bitcoinds(&self, other: &LndTestContext) {
