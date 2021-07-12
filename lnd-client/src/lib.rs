@@ -7,7 +7,7 @@ use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash};
 use openssl::x509::X509;
 #[cfg(test)]
 use std::sync::Arc;
-use tonic::{metadata::AsciiMetadataValue, Status};
+use tonic::{metadata::AsciiMetadataValue, Interceptor, Status};
 
 mod grpc_service;
 
@@ -17,8 +17,7 @@ pub mod lnrpc {
 
 #[derive(Debug, Clone)]
 pub struct Client {
-  client: LightningClient<GrpcService>,
-  macaroon: Option<AsciiMetadataValue>,
+  inner: LightningClient<GrpcService>,
   #[cfg(test)]
   lnd_test_context: Arc<LndTestContext>,
 }
@@ -30,31 +29,39 @@ impl Client {
     macaroon: Option<Vec<u8>>,
     #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
+    let grpc_service = GrpcService::new(authority, certificate)?;
+    let inner = match macaroon {
+      Some(macaroon) => {
+        let macaroon = hex::encode_upper(macaroon)
+          .parse::<AsciiMetadataValue>()
+          .expect("Client::new: hex characters are valid metadata values");
+        LightningClient::with_interceptor(
+          grpc_service,
+          Interceptor::new(move |mut request| {
+            request.metadata_mut().insert("macaroon", macaroon.clone());
+            Ok(request)
+          }),
+        )
+      }
+      None => LightningClient::new(grpc_service),
+    };
+
     Ok(Client {
-      client: LightningClient::new(GrpcService::new(authority, certificate)?),
-      macaroon: macaroon.map(|macaroon| {
-        hex::encode_upper(macaroon)
-          .parse()
-          .expect("Client::new: hex characters are valid metadata values")
-      }),
+      inner,
       #[cfg(test)]
       lnd_test_context: Arc::new(lnd_test_context),
     })
   }
 
   pub async fn ping(&mut self) -> Result<(), Status> {
-    let mut request = tonic::Request::new(ListInvoiceRequest {
+    let request = tonic::Request::new(ListInvoiceRequest {
       index_offset: 0,
       num_max_invoices: 0,
       pending_only: false,
       reversed: false,
     });
 
-    if let Some(macaroon) = &self.macaroon {
-      request.metadata_mut().insert("macaroon", macaroon.clone());
-    }
-
-    self.client.list_invoices(request).await?;
+    self.inner.list_invoices(request).await?;
 
     Ok(())
   }
@@ -64,27 +71,20 @@ impl Client {
     memo: &str,
     value: i64,
   ) -> Result<AddInvoiceResponse, Status> {
-    let mut request = tonic::Request::new(Invoice {
+    let request = tonic::Request::new(Invoice {
       memo: memo.to_owned(),
       value,
       ..Invoice::default()
     });
-    // fixme: dry up
-    if let Some(macaroon) = &self.macaroon {
-      request.metadata_mut().insert("macaroon", macaroon.clone());
-    }
-    Ok(self.client.add_invoice(request).await?.into_inner())
+    Ok(self.inner.add_invoice(request).await?.into_inner())
   }
 
   pub async fn get_invoice(&mut self, r_hash: Vec<u8>) -> Result<Invoice, Status> {
-    let mut request = tonic::Request::new(PaymentHash {
+    let request = tonic::Request::new(PaymentHash {
       r_hash,
       ..PaymentHash::default()
     });
-    if let Some(macaroon) = &self.macaroon {
-      request.metadata_mut().insert("macaroon", macaroon.clone());
-    }
-    Ok(self.client.lookup_invoice(request).await?.into_inner())
+    Ok(self.inner.lookup_invoice(request).await?.into_inner())
   }
 
   #[cfg(test)]
