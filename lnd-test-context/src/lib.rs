@@ -11,6 +11,8 @@ use std::{
 };
 use tempfile::TempDir;
 
+// fixme: don't use thread::sleep in async code!
+
 mod executables;
 mod owned_child;
 
@@ -251,15 +253,10 @@ impl LndTestContext {
   }
 
   async fn generate_bitcoind_wallet_with_money(&self) {
-    // FIXME: Generate the minimum number of block in order to unlock
-    //        first mined block reward.
-    loop {
-      self.generatetoaddress(10).await;
-      let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
-      if balance.parse::<f64>().unwrap() >= 3.0 {
-        break;
-      }
-    }
+    self.generatetoaddress(101).await;
+    let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
+    // fixme: do we need this assert?
+    assert!(balance.parse::<f64>().unwrap() >= 3.0);
   }
 
   pub async fn generate_money_into_lnd(&self) {
