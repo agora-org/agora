@@ -166,7 +166,7 @@ impl Files {
         .await
         .context(error::LndRpcStatus)?;
       return redirect(format!(
-        "/invoices/{}/{}",
+        "/invoice/{}/{}",
         hex::encode(invoice.r_hash),
         file_path,
       ));
