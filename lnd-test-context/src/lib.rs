@@ -258,7 +258,7 @@ impl LndTestContext {
     address
   }
 
-  async fn generatetoaddress(&self, n: i32) {
+  async fn mine_blocks(&self, n: i32) {
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
       "generatetoaddress",
@@ -268,20 +268,14 @@ impl LndTestContext {
   }
 
   async fn generate_bitcoind_wallet_with_money(&self) {
-    self.generatetoaddress(101).await;
-    let StdoutTrimmed(balance) = cmd!(self.bitcoin_cli_command().await, "getbalance");
-    // fixme: do we need this assert?
-    assert!(balance.parse::<f64>().unwrap() >= 3.0);
+    self.mine_blocks(101).await;
   }
 
   async fn wait_to_sync(&self) {
-    loop {
-      let synced = (self.run_lncli_command(&["getinfo"]).await)["synced_to_chain"]
-        .as_bool()
-        .unwrap();
-      if synced {
-        break;
-      }
+    while !self.run_lncli_command(&["getinfo"]).await["synced_to_chain"]
+      .as_bool()
+      .unwrap()
+    {
       thread::sleep(Duration::from_millis(50));
     }
   }
@@ -298,7 +292,7 @@ impl LndTestContext {
       %"-named sendtoaddress amount=2 fee_rate=100",
       format!("address={}", &lnd_new_address),
     );
-    self.generatetoaddress(1).await;
+    self.mine_blocks(1).await;
     self.wait_to_sync().await;
   }
 
@@ -361,7 +355,7 @@ impl LndTestContext {
         &amount.to_string(),
       ])
       .await;
-    self.generatetoaddress(3).await;
+    self.mine_blocks(3).await;
     let payment_request = &other.run_lncli_command(&["addinvoice"]).await["payment_request"]
       .as_str()
       .unwrap()
