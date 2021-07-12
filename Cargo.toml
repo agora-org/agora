@@ -65,4 +65,4 @@ test = false
 debug = false
 
 [features]
-slow_tests = ["lnd-test-context"]
+slow-tests = ["lnd-test-context"]

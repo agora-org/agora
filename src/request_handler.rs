@@ -105,20 +105,14 @@ impl Service<Request<Body>> for RequestHandler {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
-  #[cfg(feature = "slow_tests")]
-  use crate::test_utils::test_with_lnd;
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, test, test_with_environment, TestContext},
+    test_utils::{assert_contains, test, test_with_environment},
   };
-  use cradle::*;
   use guard::guard_unwrap;
   use hyper::StatusCode;
-  #[cfg(feature = "slow_tests")]
-  use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
-  use regex::Regex;
   use reqwest::{redirect::Policy, Client, Url};
   use scraper::{ElementRef, Html, Selector};
   use std::{fs, path::MAIN_SEPARATOR, str};
@@ -127,21 +121,21 @@ pub(crate) mod tests {
     net::TcpStream,
   };
 
-  async fn get(url: &Url) -> reqwest::Response {
+  pub(super) async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     response
   }
 
-  async fn text(url: &Url) -> String {
+  pub(super) async fn text(url: &Url) -> String {
     get(url).await.text().await.unwrap()
   }
 
-  async fn html(url: &Url) -> Html {
+  pub(super) async fn html(url: &Url) -> Html {
     Html::parse_document(&text(url).await)
   }
 
-  fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
+  pub(super) fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
     let selector = Selector::parse(selector).unwrap();
     html.select(&selector).collect::<Vec<_>>()
   }
@@ -721,9 +715,23 @@ pub(crate) mod tests {
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
   }
+}
+
+#[cfg(all(test, feature = "slow-tests"))]
+mod slow_tests {
+  use super::tests::{css_select, get, html, text};
+  use crate::test_utils::assert_contains;
+  use crate::test_utils::{test_with_lnd, TestContext};
+  use cradle::*;
+  use guard::guard_unwrap;
+  use hyper::StatusCode;
+  use lnd_test_context::LndTestContext;
+  use pretty_assertions::assert_eq;
+  use regex::Regex;
+  use scraper::Html;
+  use std::path::MAIN_SEPARATOR;
 
   #[test]
-  #[cfg(feature = "slow_tests")]
   fn redirects_to_invoice_url() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
@@ -740,7 +748,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[cfg(feature = "slow_tests")]
   fn non_existant_files_dont_redirect_to_invoice() {
     let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       assert_eq!(
@@ -761,7 +768,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[cfg(feature = "slow_tests")]
   fn invoice_url_serves_bech32_encoded_invoice() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
@@ -772,7 +778,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[cfg(feature = "slow_tests")]
   fn invoice_url_contains_filename() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
@@ -783,7 +788,6 @@ pub(crate) mod tests {
   }
 
   #[test]
-  #[cfg(feature = "slow_tests")]
   fn paying_invoice_allows_downloading_file() {
     let receiver = LndTestContext::new_blocking();
     #[allow(clippy::redundant_clone)]

@@ -1,5 +1,5 @@
 use crate::{environment::Environment, server::Server};
-#[cfg(feature = "slow_tests")]
+#[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;
 use reqwest::Url;
 use std::{
@@ -39,7 +39,7 @@ where
   test_with_arguments(&[], f)
 }
 
-#[cfg(feature = "slow_tests")]
+#[cfg(feature = "slow-tests")]
 pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
 where
   Function: FnOnce(TestContext) -> Fut,
