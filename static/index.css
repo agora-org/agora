@@ -35,11 +35,16 @@
   width: 24px;
 }
 
+.invoice {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em;
+  border-bottom: 1px solid black;
+}
+
 .invoice > .label {
   height: 1.5em;
   overflow: hidden;
   padding-bottom: 0.3em;
-  padding-top: 0.5em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -49,8 +54,7 @@
 }
 
 .invoice > .payment-request {
-  border-bottom: 1px solid black;
   font-family: "Courier New", Courier, monospace;
-  height: 1.5em;
-  overflow: hidden;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
