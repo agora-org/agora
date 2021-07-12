@@ -195,6 +195,7 @@ impl LndTestContext {
       format!("-rpcport={}", self.bitcoind_rpc_port),
       "-rpcuser=user".to_string(),
       "-rpcpassword=password".to_string(),
+      "-named".to_string(),
     ]
   }
 
@@ -247,8 +248,7 @@ impl LndTestContext {
       );
       let StdoutUntrimmed(_) = cmd!(
         self.bitcoin_cli_command().await,
-        "createwallet",
-        "bitcoin-core-test-wallet"
+        %"createwallet wallet_name=bitcoin-core-test-wallet"
       );
     }
     let StdoutTrimmed(address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
@@ -259,8 +259,8 @@ impl LndTestContext {
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
       "generatetoaddress",
-      n.to_string(),
-      self.bitcoind_new_address().await
+      format!("nblocks={}", n),
+      format!("address={}", self.bitcoind_new_address().await),
     );
   }
 
@@ -285,8 +285,7 @@ impl LndTestContext {
       .to_string();
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
-      // fixme: convert all bitcoin_cli invocations to --named?
-      %"-named sendtoaddress amount=2 fee_rate=100",
+      %"sendtoaddress amount=2 fee_rate=100",
       format!("address={}", &lnd_new_address),
     );
     self.mine_blocks(1).await;
@@ -297,8 +296,8 @@ impl LndTestContext {
     cmd_unit!(
       self.bitcoin_cli_command().await,
       "addnode",
-      format!("localhost:{}", other.bitcoind_peer_port),
-      "add"
+      format!("node=localhost:{}", other.bitcoind_peer_port),
+      "command=add"
     );
 
     async fn get_number_of_peers(context: &LndTestContext) -> usize {
@@ -415,8 +414,8 @@ mod tests {
 
     let StdoutUntrimmed(_) = cmd!(
       a.bitcoin_cli_command().await,
-      %"generatetoaddress 42",
-      a.bitcoind_new_address().await
+      %"generatetoaddress nblocks=42",
+      format!("address={}", a.bitcoind_new_address().await),
     );
 
     loop {
