@@ -352,7 +352,6 @@ impl LndTestContext {
       .unwrap()
       .to_string();
     loop {
-      eprintln!("looping...");
       let (Exit(status), StdoutUntrimmed(_), Stderr(_)) = cmd!(
         self.lncli_command().await,
         "payinvoice",
