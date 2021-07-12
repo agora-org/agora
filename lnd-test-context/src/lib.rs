@@ -346,21 +346,23 @@ impl LndTestContext {
         &amount.to_string(),
       ])
       .await;
-    self.generatetoaddress(10).await;
+    self.generatetoaddress(3).await;
+    let payment_request = &other.run_lncli_command(&["addinvoice"]).await["payment_request"]
+      .as_str()
+      .unwrap()
+      .to_string();
     loop {
-      let self_channels = self
-        .run_lncli_command(&["listchannels", "--active_only"])
-        .await["channels"]
-        .as_array()
-        .unwrap()
-        .len();
-      let other_channels = other
-        .run_lncli_command(&["listchannels", "--active_only"])
-        .await["channels"]
-        .as_array()
-        .unwrap()
-        .len();
-      if self_channels == 1 && other_channels == 1 {
+      eprintln!("looping...");
+      let (Exit(status), StdoutUntrimmed(_), Stderr(_)) = cmd!(
+        self.lncli_command().await,
+        "payinvoice",
+        "--force",
+        "--json",
+        "--amt",
+        "100",
+        payment_request,
+      );
+      if status.success() {
         break;
       }
       thread::sleep(Duration::from_millis(50));
