@@ -1,7 +1,7 @@
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
 use std::{
-  collections::HashSet,
+  collections::BTreeSet,
   fs,
   net::TcpListener,
   path::{Path, PathBuf},
@@ -11,6 +11,7 @@ use std::{
   time::Duration,
 };
 use tempfile::TempDir;
+use tokio::sync::Mutex;
 
 // fixme: don't use thread::sleep in async code!
 
@@ -32,28 +33,21 @@ pub struct LndTestContext {
 
 impl LndTestContext {
   async fn guess_free_port() -> u16 {
-    static SET: tokio::sync::Mutex<Option<HashSet<u16>>> = tokio::sync::Mutex::const_new(None);
-    let mut guard = SET.lock().await;
-    let set: Option<HashSet<u16>> = guard.take();
-    let mut set = match set {
-      None => HashSet::new(),
-      Some(set) => set,
-    };
-
-    let port = loop {
+    lazy_static::lazy_static! {
+      static ref SET: Mutex<BTreeSet<u16>> = Mutex::const_new(BTreeSet::new());
+    }
+    let mut set = SET.lock().await;
+    loop {
       let port = TcpListener::bind(("127.0.0.1", 0))
         .unwrap()
         .local_addr()
         .unwrap()
         .port();
       if !set.contains(&port) {
-        break port;
+        set.insert(port);
+        return port;
       }
-    };
-
-    set.insert(port);
-    *guard = Some(set);
-    port
+    }
   }
 
   pub async fn new() -> Self {

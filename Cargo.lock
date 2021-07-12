@@ -806,6 +806,7 @@ version = "0.0.0"
 dependencies = [
  "cradle",
  "hex-literal",
+ "lazy_static",
  "pretty_assertions",
  "reqwest",
  "serde_json",
