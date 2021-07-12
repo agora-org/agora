@@ -7,13 +7,10 @@ use std::{
   path::{Path, PathBuf},
   process::Command,
   sync::Arc,
-  thread,
   time::Duration,
 };
 use tempfile::TempDir;
 use tokio::sync::Mutex;
-
-// fixme: don't use thread::sleep in async code!
 
 mod executables;
 mod owned_child;
@@ -134,7 +131,7 @@ impl LndTestContext {
         } else if lnd.inner.lock().unwrap().try_wait().unwrap().is_some() {
           break;
         } else {
-          thread::sleep(Duration::from_millis(50));
+          tokio::time::sleep(Duration::from_millis(50)).await;
         }
       }
     };
@@ -276,7 +273,7 @@ impl LndTestContext {
       .as_bool()
       .unwrap()
     {
-      thread::sleep(Duration::from_millis(50));
+      tokio::time::sleep(Duration::from_millis(50)).await;
     }
   }
 
@@ -316,7 +313,7 @@ impl LndTestContext {
       if get_number_of_peers(self).await == 1 && get_number_of_peers(other).await == 1 {
         break;
       }
-      thread::sleep(Duration::from_millis(50));
+      tokio::time::sleep(Duration::from_millis(50)).await;
     }
   }
 
@@ -373,7 +370,7 @@ impl LndTestContext {
       if status.success() {
         break;
       }
-      thread::sleep(Duration::from_millis(50));
+      tokio::time::sleep(Duration::from_millis(50)).await;
     }
   }
 }
@@ -427,7 +424,7 @@ mod tests {
       if output == "42" {
         break;
       }
-      thread::sleep(Duration::from_millis(50));
+      tokio::time::sleep(Duration::from_millis(50)).await;
     }
   }
 
