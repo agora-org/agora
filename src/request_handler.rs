@@ -79,10 +79,12 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
-      ["/", "invoices/", r_hash] => match hex::decode(r_hash) {
-        Ok(r_hash) => self.files.serve_invoice(&request, r_hash).await,
-        Err(_) => Err(Error::not_found(&request)),
-      },
+      ["/", "invoices/", r_hash, ..] => {
+        match hex::decode(r_hash.strip_suffix('/').unwrap_or(r_hash)) {
+          Ok(r_hash) => self.files.serve_invoice(&request, r_hash).await,
+          Err(_) => Err(Error::not_found(&request)),
+        }
+      }
       _ => Err(Error::not_found(&request)),
     }
   }
@@ -734,11 +736,12 @@ mod slow_tests {
   #[test]
   fn redirects_to_invoice_url() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::write(context.files_directory().join("foo"), "").unwrap();
-      let response = reqwest::get(context.files_url().join("foo").unwrap())
+      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      std::fs::write(context.files_directory().join("foo/bar"), "").unwrap();
+      let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
         .await
         .unwrap();
-      let regex = Regex::new("^/invoices/[a-f0-9]{64}$").unwrap();
+      let regex = Regex::new("^/invoices/[a-f0-9]{64}/foo/bar$").unwrap();
       assert!(
         regex.is_match(response.url().path()),
         "Response URL path was not invoice path: {}",

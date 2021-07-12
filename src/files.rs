@@ -160,12 +160,16 @@ impl Files {
 
   async fn serve_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
     if let Some(lnd_client) = &mut self.lnd_client {
+      let file_path = tail.join("");
       let invoice = lnd_client
-        .add_invoice(tail.join(""), 1000)
+        .add_invoice(&file_path, 1000)
         .await
         .context(error::LndRpcStatus)?;
-      // fixme: append filename to invoice url
-      return redirect(format!("/invoices/{}", hex::encode(invoice.r_hash)));
+      return redirect(format!(
+        "/invoices/{}/{}",
+        hex::encode(invoice.r_hash),
+        file_path,
+      ));
     }
 
     Self::foo(path).await

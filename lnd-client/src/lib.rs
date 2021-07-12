@@ -61,11 +61,11 @@ impl Client {
 
   pub async fn add_invoice(
     &mut self,
-    memo: String,
+    memo: &str,
     value: i64,
   ) -> Result<AddInvoiceResponse, Status> {
     let mut request = tonic::Request::new(Invoice {
-      memo,
+      memo: memo.to_owned(),
       value,
       ..Invoice::default()
     });
