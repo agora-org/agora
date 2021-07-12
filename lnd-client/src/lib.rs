@@ -165,18 +165,14 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let invoice = client.add_invoice("".to_string(), 1).await.unwrap();
+    let invoice = client.add_invoice("", 1).await.unwrap();
     assert_eq!(invoice.add_index, 1);
   }
 
   #[tokio::test]
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let r_hash = client
-      .add_invoice("test-memo".to_string(), 42)
-      .await
-      .unwrap()
-      .r_hash;
+    let r_hash = client.add_invoice("test-memo", 42).await.unwrap().r_hash;
     let invoice = client.get_invoice(r_hash).await.unwrap();
     assert_eq!(invoice.memo, "test-memo");
     assert_eq!(invoice.value, 42);
@@ -185,8 +181,8 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn get_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let _ignored = client.add_invoice("".to_string(), 1).await.unwrap();
-    let created = client.add_invoice("".to_string(), 1).await.unwrap();
+    let _ignored = client.add_invoice("", 1).await.unwrap();
+    let created = client.add_invoice("", 1).await.unwrap();
     let retrieved = client.get_invoice(created.r_hash.clone()).await.unwrap();
     assert_eq!(
       (
