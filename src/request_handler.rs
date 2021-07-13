@@ -805,11 +805,10 @@ mod slow_tests {
       sender.connect(&receiver).await;
       sender.generate_money_into_lnd().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
-      cmd_unit!(sender.lncli_command().await, %"walletbalance");
-      cmd_unit!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+      let StdoutUntrimmed(_) = cmd!(sender.lncli_command().await, %"walletbalance");
+      let StdoutUntrimmed(_) =
+        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
     });
   }
 }
-
-// FIXME: suppress output when running tests
