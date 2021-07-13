@@ -7,8 +7,8 @@ use lnrpc::{
 };
 use openssl::x509::X509;
 #[cfg(test)]
-use std::sync::Arc;
-use tonic::{metadata::AsciiMetadataValue, Interceptor, Status};
+use std::{convert::TryInto, sync::Arc};
+use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
 
 mod grpc_service;
 
@@ -80,16 +80,24 @@ impl Client {
     Ok(self.inner.add_invoice(request).await?.into_inner())
   }
 
-  // todo:
-  // - return option
-  // - take [u8; 32]
-
-  pub async fn lookup_invoice(&mut self, r_hash: Vec<u8>) -> Result<Option<Invoice>, Status> {
+  pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, Status> {
     let request = tonic::Request::new(PaymentHash {
-      r_hash,
+      r_hash: r_hash.to_vec(),
       ..PaymentHash::default()
     });
-    Ok(self.inner.lookup_invoice(request).await?.into_inner())
+    match self.inner.lookup_invoice(request).await {
+      Ok(response) => Ok(Some(response.into_inner())),
+      Err(status) => {
+        if status.code() == Code::Unknown
+          && (status.message() == "there are no existing invoices"
+            || status.message() == "unable to locate invoice")
+        {
+          Ok(None)
+        } else {
+          Err(status)
+        }
+      }
+    }
   }
 
   #[cfg(test)]
@@ -182,7 +190,11 @@ jlZBq5hr8Nv2qStFfw9qzw==
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let r_hash = client.add_invoice("test-memo", 42).await.unwrap().r_hash;
-    let invoice = client.lookup_invoice(r_hash).await.unwrap().unwrap();
+    let invoice = client
+      .lookup_invoice(r_hash.try_into().unwrap())
+      .await
+      .unwrap()
+      .unwrap();
     assert_eq!(invoice.memo, "test-memo");
     assert_eq!(invoice.value, 42);
   }
@@ -194,7 +206,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
     let created = client.add_invoice("bar", 2).await.unwrap();
     let _ignored2 = client.add_invoice("baz", 3).await.unwrap();
     let retrieved = client
-      .lookup_invoice(created.r_hash.clone())
+      .lookup_invoice(created.r_hash.as_slice().try_into().unwrap())
       .await
       .unwrap()
       .unwrap();
@@ -217,8 +229,15 @@ jlZBq5hr8Nv2qStFfw9qzw==
   }
 
   #[tokio::test]
-  async fn lookup_invoice_not_found() {
+  async fn lookup_invoice_not_found_no_invoices() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    assert_eq!(client.lookup_invoice(vec![0; 32]).await.unwrap(), None);
+    assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
+  }
+
+  #[tokio::test]
+  async fn lookup_invoice_not_found_some_invoices() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
+    assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
   }
 }

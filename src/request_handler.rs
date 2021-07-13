@@ -79,11 +79,14 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
-      ["/", "invoice/", r_hash, ..] => {
-        match hex::decode(r_hash.strip_suffix('/').unwrap_or(r_hash)) {
-          Ok(r_hash) => self.files.serve_invoice(&request, r_hash).await,
-          Err(_) => Err(Error::not_found(&request)),
-        }
+      ["/", "invoice/", r_hash_hex, ..] => {
+        let mut r_hash = [0; 32];
+        hex::decode_to_slice(
+          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
+          &mut r_hash,
+        )
+        .context(error::InvoiceId)?;
+        self.files.serve_invoice(&request, r_hash).await
       }
       _ => Err(Error::not_found(&request)),
     }

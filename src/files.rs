@@ -188,7 +188,7 @@ impl Files {
   pub(crate) async fn serve_invoice(
     &mut self,
     request: &Request<Body>,
-    r_hash: Vec<u8>,
+    r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
     let lnd_client = self
       .lnd_client
@@ -197,7 +197,8 @@ impl Files {
     let invoice = lnd_client
       .lookup_invoice(r_hash)
       .await
-      .context(error::LndRpcStatus)?;
+      .context(error::LndRpcStatus)?
+      .ok_or_else(|| Error::not_found(request))?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();

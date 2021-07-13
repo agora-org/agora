@@ -31,6 +31,8 @@ pub(crate) enum Error {
   Internal { message: String },
   #[snafu(display("Invalid URI file path: {}", uri_path))]
   InvalidFilePath { uri_path: String },
+  #[snafu(display("Invalid invoice ID: {}", source))]
+  InvoiceId { source: hex::FromHexError },
   #[snafu(display("Request handler panicked: {}", source))]
   RequestHandlerPanic { source: JoinError },
   #[snafu(display("URI path did not match any route: {}", uri_path))]
@@ -58,7 +60,7 @@ impl Error {
       FilesystemIo { source, .. } if source.kind() == io::ErrorKind::NotFound => {
         StatusCode::NOT_FOUND
       }
-      InvalidFilePath { .. } => StatusCode::BAD_REQUEST,
+      InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
       RouteNotFound { .. } | SymlinkAccess { .. } | StaticAssetNotFound { .. } => {
         StatusCode::NOT_FOUND
       }
