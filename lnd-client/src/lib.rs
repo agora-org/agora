@@ -2,8 +2,9 @@ use crate::grpc_service::GrpcService;
 use http::uri::Authority;
 #[cfg(test)]
 use lnd_test_context::LndTestContext;
-use lnrpc::lightning_client::LightningClient;
-use lnrpc::{AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash};
+use lnrpc::{
+  lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+};
 use openssl::x509::X509;
 #[cfg(test)]
 use std::sync::Arc;
@@ -79,7 +80,11 @@ impl Client {
     Ok(self.inner.add_invoice(request).await?.into_inner())
   }
 
-  pub async fn get_invoice(&mut self, r_hash: Vec<u8>) -> Result<Invoice, Status> {
+  // todo:
+  // - return option
+  // - take [u8; 32]
+
+  pub async fn lookup_invoice(&mut self, r_hash: Vec<u8>) -> Result<Option<Invoice>, Status> {
     let request = tonic::Request::new(PaymentHash {
       r_hash,
       ..PaymentHash::default()
@@ -106,9 +111,9 @@ impl Client {
   }
 
   #[cfg(test)]
-  async fn with_test_context(context: LndTestContext) -> Self {
-    let cert = std::fs::read_to_string(context.cert_path()).unwrap();
-    Self::with_cert(context, &cert).await
+  async fn with_test_context(lnd_test_context: LndTestContext) -> Self {
+    let cert = std::fs::read_to_string(lnd_test_context.cert_path()).unwrap();
+    Self::with_cert(lnd_test_context, &cert).await
   }
 }
 
@@ -165,25 +170,34 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let invoice = client.add_invoice("", 1).await.unwrap();
-    assert_eq!(invoice.add_index, 1);
+    let response = client.add_invoice("", 1).await.unwrap();
+    assert!(
+      !response.payment_request.is_empty(),
+      "Bad response: {:?}",
+      response
+    );
   }
 
   #[tokio::test]
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let r_hash = client.add_invoice("test-memo", 42).await.unwrap().r_hash;
-    let invoice = client.get_invoice(r_hash).await.unwrap();
+    let invoice = client.lookup_invoice(r_hash).await.unwrap().unwrap();
     assert_eq!(invoice.memo, "test-memo");
     assert_eq!(invoice.value, 42);
   }
 
   #[tokio::test]
-  async fn get_invoice() {
+  async fn lookup_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let _ignored = client.add_invoice("", 1).await.unwrap();
-    let created = client.add_invoice("", 1).await.unwrap();
-    let retrieved = client.get_invoice(created.r_hash.clone()).await.unwrap();
+    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
+    let created = client.add_invoice("bar", 2).await.unwrap();
+    let _ignored2 = client.add_invoice("baz", 3).await.unwrap();
+    let retrieved = client
+      .lookup_invoice(created.r_hash.clone())
+      .await
+      .unwrap()
+      .unwrap();
     assert_eq!(
       (
         created.add_index,
@@ -198,11 +212,13 @@ jlZBq5hr8Nv2qStFfw9qzw==
         retrieved.payment_addr
       )
     );
+    assert_eq!(retrieved.memo, "bar");
+    assert_eq!(retrieved.value, 2);
   }
 
   #[tokio::test]
-  async fn get_invoice_not_found() {
+  async fn lookup_invoice_not_found() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    client.get_invoice(vec![0; 32]).await.unwrap_err();
+    assert_eq!(client.lookup_invoice(vec![0; 32]).await.unwrap(), None);
   }
 }

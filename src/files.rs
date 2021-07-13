@@ -195,7 +195,7 @@ impl Files {
       .as_mut()
       .ok_or_else(|| Error::not_found(request))?;
     let invoice = lnd_client
-      .get_invoice(r_hash)
+      .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?;
     match invoice.state() {
