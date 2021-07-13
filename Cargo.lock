@@ -215,9 +215,9 @@ dependencies = [
 
 [[package]]
 name = "cradle"
-version = "0.0.9"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6d21adaa44b0fc0342582e2ad3876521fc0fae57f2c61e90988e6d81c05eb14"
+checksum = "7df1b15c1ec82eb06917b6bd5388447af6d85bdf98d690bae93d301ac200dfb2"
 dependencies = [
  "rustversion",
 ]

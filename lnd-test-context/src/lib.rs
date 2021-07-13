@@ -220,7 +220,7 @@ impl LndTestContext {
     result
   }
 
-  pub async fn run_lncli_command(&self, input: &[&str]) -> serde_json::Value {
+  pub async fn run_lncli_command<I: cradle::Input>(&self, input: I) -> serde_json::Value {
     let (Exit(status), StdoutUntrimmed(output)) = cmd!(self.lncli_command().await, input);
     if !status.success() {
       eprintln!("{}", output);
@@ -269,7 +269,7 @@ impl LndTestContext {
   }
 
   async fn wait_to_sync(&self) {
-    while !self.run_lncli_command(&["getinfo"]).await["synced_to_chain"]
+    while !self.run_lncli_command("getinfo").await["synced_to_chain"]
       .as_bool()
       .unwrap()
     {
@@ -279,7 +279,7 @@ impl LndTestContext {
 
   pub async fn generate_money_into_lnd(&self) {
     self.generate_bitcoind_wallet_with_money().await;
-    let lnd_new_address = self.run_lncli_command(&["newaddress", "p2wkh"]).await["address"]
+    let lnd_new_address = self.run_lncli_command(("newaddress", "p2wkh")).await["address"]
       .as_str()
       .unwrap()
       .to_string();
@@ -317,7 +317,7 @@ impl LndTestContext {
   }
 
   async fn lnd_pub_key(&self) -> String {
-    self.run_lncli_command(&["getinfo"]).await["identity_pubkey"]
+    self.run_lncli_command("getinfo").await["identity_pubkey"]
       .as_str()
       .unwrap()
       .to_string()
@@ -325,14 +325,14 @@ impl LndTestContext {
 
   async fn connect_lnds(&self, other: &LndTestContext) {
     self
-      .run_lncli_command(&[
+      .run_lncli_command((
         "connect",
-        &format!(
+        format!(
           "{}@localhost:{}",
           other.lnd_pub_key().await,
           other.lnd_peer_port
         ),
-      ])
+      ))
       .await;
   }
 
@@ -343,16 +343,16 @@ impl LndTestContext {
 
   pub async fn open_channel_to(&self, other: &LndTestContext, amount: i128) {
     self
-      .run_lncli_command(&[
+      .run_lncli_command((
         "openchannel",
         "--node_key",
-        &other.lnd_pub_key().await,
+        other.lnd_pub_key().await,
         "--local_amt",
-        &amount.to_string(),
-      ])
+        amount.to_string(),
+      ))
       .await;
     self.mine_blocks(3).await;
-    let payment_request = &other.run_lncli_command(&["addinvoice"]).await["payment_request"]
+    let payment_request = &other.run_lncli_command("addinvoice").await["payment_request"]
       .as_str()
       .unwrap()
       .to_string();
@@ -387,7 +387,7 @@ mod tests {
   #[tokio::test]
   async fn generate_money_into_lnd() {
     let context = LndTestContext::new().await;
-    let walletbalance = context.run_lncli_command(&["walletbalance"]).await;
+    let walletbalance = context.run_lncli_command("walletbalance").await;
     assert_eq!(
       walletbalance["total_balance"]
         .as_str()
@@ -397,7 +397,7 @@ mod tests {
       0
     );
     context.generate_money_into_lnd().await;
-    let walletbalance = context.run_lncli_command(&["walletbalance"]).await;
+    let walletbalance = context.run_lncli_command("walletbalance").await;
     let balance = walletbalance["total_balance"]
       .as_str()
       .unwrap()
@@ -434,14 +434,14 @@ mod tests {
     a.connect(&b).await;
 
     assert_eq!(
-      a.run_lncli_command(&["listpeers"]).await["peers"]
+      a.run_lncli_command("listpeers").await["peers"]
         .as_array()
         .unwrap()
         .len(),
       1
     );
     assert_eq!(
-      b.run_lncli_command(&["listpeers"]).await["peers"]
+      b.run_lncli_command("listpeers").await["peers"]
         .as_array()
         .unwrap()
         .len(),
@@ -457,19 +457,15 @@ mod tests {
     sender.generate_money_into_lnd().await;
     sender.open_channel_to(&receiver, 1_000_000).await;
 
-    let payment_request = &receiver.run_lncli_command(&["addinvoice"]).await["payment_request"]
+    let payment_request = &receiver.run_lncli_command("addinvoice").await["payment_request"]
       .as_str()
       .unwrap()
       .to_string();
     let status = sender
-      .run_lncli_command(&[
-        "payinvoice",
-        "--force",
-        "--json",
-        "--amt",
-        "10000",
+      .run_lncli_command((
+        Split("payinvoice --force --json --amt 10000"),
         payment_request,
-      ])
+      ))
       .await["status"]
       .as_str()
       .unwrap()
