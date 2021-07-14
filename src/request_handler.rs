@@ -88,7 +88,9 @@ impl RequestHandler {
         .context(error::InvoiceId)?;
         self.files.serve_invoice(&request, r_hash).await
       }
-      _ => Err(Error::not_found(&request)),
+      _ => Err(Error::RouteNotFound {
+        uri_path: request.uri().path().to_owned(),
+      }),
     }
   }
 }
@@ -725,8 +727,7 @@ pub(crate) mod tests {
 #[cfg(all(test, feature = "slow-tests"))]
 mod slow_tests {
   use super::tests::{css_select, get, html, text};
-  use crate::test_utils::assert_contains;
-  use crate::test_utils::{test_with_lnd, TestContext};
+  use crate::test_utils::{assert_contains, test_with_lnd, TestContext};
   use cradle::*;
   use guard::guard_unwrap;
   use hyper::StatusCode;
@@ -808,7 +809,6 @@ mod slow_tests {
       sender.connect(&receiver).await;
       sender.generate_money_into_lnd().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
-      let StdoutUntrimmed(_) = cmd!(sender.lncli_command().await, %"walletbalance");
       let StdoutUntrimmed(_) =
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");

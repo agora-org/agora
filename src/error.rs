@@ -1,5 +1,5 @@
 use crate::input_path::InputPath;
-use hyper::{Body, Request, StatusCode};
+use hyper::StatusCode;
 use snafu::Snafu;
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
@@ -33,6 +33,8 @@ pub(crate) enum Error {
   InvalidFilePath { uri_path: String },
   #[snafu(display("Invalid invoice ID: {}", source))]
   InvoiceId { source: hex::FromHexError },
+  #[snafu(display("Invoice not found: {}", hex::encode(r_hash)))]
+  InvoiceNotFound { r_hash: [u8; 32] },
   #[snafu(display("Request handler panicked: {}", source))]
   RequestHandlerPanic { source: JoinError },
   #[snafu(display("URI path did not match any route: {}", uri_path))]
@@ -45,6 +47,8 @@ pub(crate) enum Error {
   StaticAssetNotFound { uri_path: String },
   #[snafu(display("IO error writing to stderr: {}", source))]
   StderrWrite { source: io::Error },
+  #[snafu(display("Request requires LND client: {}", uri_path))]
+  LndNotConfigured { uri_path: String },
   #[snafu(display("OpenSSL error parsing LND RPC certificate: {}", source))]
   LndRpcCertificateParse { source: openssl::error::ErrorStack },
   #[snafu(display("OpenSSL error connecting to LND RPC server: {}", source))]
@@ -61,9 +65,11 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
-      RouteNotFound { .. } | SymlinkAccess { .. } | StaticAssetNotFound { .. } => {
-        StatusCode::NOT_FOUND
-      }
+      InvoiceNotFound { .. }
+      | LndNotConfigured { .. }
+      | RouteNotFound { .. }
+      | SymlinkAccess { .. }
+      | StaticAssetNotFound { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }
@@ -88,12 +94,6 @@ impl Error {
   pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<PathBuf> {
     FilesystemIo {
       path: file_path.display_path().to_owned(),
-    }
-  }
-
-  pub(crate) fn not_found(request: &Request<Body>) -> Self {
-    Error::RouteNotFound {
-      uri_path: request.uri().path().to_owned(),
     }
   }
 }

@@ -16,6 +16,10 @@ use tokio::sync::Mutex;
 mod executables;
 mod owned_child;
 
+async fn wait() {
+  tokio::time::sleep(Duration::from_millis(50)).await;
+}
+
 #[derive(Debug, Clone)]
 pub struct LndTestContext {
   #[allow(unused)]
@@ -126,7 +130,7 @@ impl LndTestContext {
         } else if lnd.inner.lock().unwrap().try_wait().unwrap().is_some() {
           break;
         } else {
-          tokio::time::sleep(Duration::from_millis(50)).await;
+          wait().await;
         }
       }
     };
@@ -245,7 +249,7 @@ impl LndTestContext {
     );
   }
 
-  async fn generate_bitcoind_wallet_with_money(&self) {
+  async fn generate_bitcoind_btc(&self) {
     self.mine_blocks(101).await;
   }
 
@@ -254,12 +258,12 @@ impl LndTestContext {
       .as_bool()
       .unwrap()
     {
-      tokio::time::sleep(Duration::from_millis(50)).await;
+      wait().await;
     }
   }
 
-  pub async fn generate_money_into_lnd(&self) {
-    self.generate_bitcoind_wallet_with_money().await;
+  pub async fn generate_lnd_btc(&self) {
+    self.generate_bitcoind_btc().await;
     let lnd_new_address = self.run_lncli_command(("newaddress", "p2wkh")).await["address"]
       .as_str()
       .unwrap()
@@ -293,7 +297,7 @@ impl LndTestContext {
       if get_number_of_peers(self).await == 1 && get_number_of_peers(other).await == 1 {
         break;
       }
-      tokio::time::sleep(Duration::from_millis(50)).await;
+      wait().await;
     }
   }
 
@@ -350,7 +354,7 @@ impl LndTestContext {
       if status.success() {
         break;
       }
-      tokio::time::sleep(Duration::from_millis(50)).await;
+      wait().await;
     }
   }
 }
@@ -366,24 +370,19 @@ mod tests {
   }
 
   #[tokio::test]
-  async fn generate_money_into_lnd() {
-    let context = LndTestContext::new().await;
-    let walletbalance = context.run_lncli_command("walletbalance").await;
-    assert_eq!(
-      walletbalance["total_balance"]
+  async fn generate_btc_into_lnd() {
+    async fn walletbalance(context: &LndTestContext) -> i64 {
+      context.run_lncli_command("walletbalance").await["total_balance"]
         .as_str()
         .unwrap()
-        .parse::<i64>()
-        .unwrap(),
-      0
-    );
-    context.generate_money_into_lnd().await;
-    let walletbalance = context.run_lncli_command("walletbalance").await;
-    let balance = walletbalance["total_balance"]
-      .as_str()
-      .unwrap()
-      .parse::<i64>()
-      .unwrap();
+        .parse()
+        .unwrap()
+    }
+
+    let context = LndTestContext::new().await;
+    assert_eq!(walletbalance(&context).await, 0);
+    context.generate_lnd_btc().await;
+    let balance = walletbalance(&context).await;
     assert!(balance > 0, "{} not greater than 0", balance);
   }
 
@@ -400,7 +399,7 @@ mod tests {
       if output == "42" {
         break;
       }
-      tokio::time::sleep(Duration::from_millis(50)).await;
+      wait().await;
     }
   }
 
@@ -431,7 +430,7 @@ mod tests {
     let sender = LndTestContext::new().await;
     let receiver = LndTestContext::new().await;
     sender.connect(&receiver).await;
-    sender.generate_money_into_lnd().await;
+    sender.generate_lnd_btc().await;
     sender.open_channel_to(&receiver, 1_000_000).await;
 
     let payment_request = &receiver.run_lncli_command("addinvoice").await["payment_request"]

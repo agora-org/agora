@@ -15,10 +15,55 @@ pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
-  lnd_client: Option<lnd_client::Client>,
 }
 
 impl Server {
+  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
+    let arguments = environment.arguments()?;
+
+    let directory = environment.working_directory.join(&arguments.directory);
+    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+      .await
+      .context(error::FilesystemIo { path: &directory })?;
+
+    let request_handler = Self::setup_request_handler(environment, &arguments).await?;
+
+    Ok(Self {
+      request_handler,
+      #[cfg(test)]
+      directory,
+    })
+  }
+
+  async fn setup_request_handler(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
+    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
+
+    let socket_addr = (arguments.address.as_str(), arguments.port)
+      .to_socket_addrs()
+      .context(error::AddressResolutionIo {
+        input: &arguments.address,
+      })?
+      .next()
+      .ok_or_else(|| Error::AddressResolutionNoAddresses {
+        input: arguments.address.clone(),
+      })?;
+
+    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
+      RequestHandler::new(&environment, &arguments.directory, lnd_client),
+    ));
+
+    writeln!(
+      environment.stderr,
+      "Listening on {}",
+      request_handler.local_addr()
+    )
+    .context(error::StderrWrite)?;
+    Ok(request_handler)
+  }
+
   async fn setup_lnd_client(
     environment: &mut Environment,
     arguments: &Arguments,
@@ -62,53 +107,6 @@ impl Server {
       }
       None => Ok(None),
     }
-  }
-
-  fn setup_request_handler(
-    environment: &mut Environment,
-    arguments: &Arguments,
-    lnd_client: Option<lnd_client::Client>,
-  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
-    let socket_addr = (arguments.address.as_str(), arguments.port)
-      .to_socket_addrs()
-      .context(error::AddressResolutionIo {
-        input: &arguments.address,
-      })?
-      .next()
-      .ok_or_else(|| Error::AddressResolutionNoAddresses {
-        input: arguments.address.clone(),
-      })?;
-
-    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(&environment, &arguments.directory, lnd_client),
-    ));
-    writeln!(
-      environment.stderr,
-      "Listening on {}",
-      request_handler.local_addr()
-    )
-    .context(error::StderrWrite)?;
-    Ok(request_handler)
-  }
-
-  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
-    let arguments = environment.arguments()?;
-
-    let directory = environment.working_directory.join(&arguments.directory);
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
-      .await
-      .context(error::FilesystemIo { path: &directory })?;
-
-    let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
-
-    let request_handler = Self::setup_request_handler(environment, &arguments, lnd_client.clone())?;
-
-    Ok(Self {
-      request_handler,
-      #[cfg(test)]
-      directory,
-      lnd_client,
-    })
   }
 
   pub(crate) async fn run(self) -> Result<()> {

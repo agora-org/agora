@@ -69,7 +69,7 @@ impl Files {
     if file_type.is_dir() {
       Self::list(&file_path).await
     } else {
-      self.serve_file(tail, &file_path).await
+      self.access_file(tail, &file_path).await
     }
   }
 
@@ -158,24 +158,25 @@ impl Files {
     }
   }
 
-  async fn serve_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
-    if let Some(lnd_client) = &mut self.lnd_client {
-      let file_path = tail.join("");
-      let invoice = lnd_client
-        .add_invoice(&file_path, 1000)
-        .await
-        .context(error::LndRpcStatus)?;
-      return redirect(format!(
-        "/invoice/{}/{}",
-        hex::encode(invoice.r_hash),
-        file_path,
-      ));
+  async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
+    match &mut self.lnd_client {
+      Some(lnd_client) => {
+        let file_path = tail.join("");
+        let invoice = lnd_client
+          .add_invoice(&file_path, 1000)
+          .await
+          .context(error::LndRpcStatus)?;
+        redirect(format!(
+          "/invoice/{}/{}",
+          hex::encode(invoice.r_hash),
+          file_path,
+        ))
+      }
+      None => Self::serve_file(path).await,
     }
-
-    Self::foo(path).await
   }
 
-  async fn foo(path: &InputPath) -> Result<Response<Body>> {
+  async fn serve_file(path: &InputPath) -> Result<Response<Body>> {
     let mut builder = Response::builder().status(StatusCode::OK);
     if let Some(guess) = path.mime_guess().first() {
       builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
@@ -193,36 +194,34 @@ impl Files {
     let lnd_client = self
       .lnd_client
       .as_mut()
-      .ok_or_else(|| Error::not_found(request))?;
+      .ok_or_else(|| Error::LndNotConfigured {
+        uri_path: request.uri().path().to_owned(),
+      })?;
     let invoice = lnd_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
-      .ok_or_else(|| Error::not_found(request))?;
+      .ok_or_else(|| Error::InvoiceNotFound { r_hash })?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
         let path = self.tail_to_path(&tail_from_invoice)?;
-        Self::foo(&path).await
+        Self::serve_file(&path).await
       }
-      _ => {
-        let file = invoice.memo;
-        let contents = html! {
-          div class="invoice" {
-            div class="label" {
-              "Lightning Payment Request to access "
-              span class="filename" {
-                  (file)
-              }
-              ":"
+      _ => Ok(Files::serve_html(html! {
+        div class="invoice" {
+          div class="label" {
+            "Lightning Payment Request to access "
+            span class="filename" {
+                (invoice.memo)
             }
-            div class="payment-request" {
-              (invoice.payment_request)
-            }
+            ":"
           }
-        };
-        Ok(Files::serve_html(contents))
-      }
+          div class="payment-request" {
+            (invoice.payment_request)
+          }
+        }
+      })),
     }
   }
 }
