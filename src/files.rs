@@ -201,7 +201,7 @@ impl Files {
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
-      .ok_or_else(|| Error::InvoiceNotFound { r_hash })?;
+      .ok_or(Error::InvoiceNotFound { r_hash })?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
