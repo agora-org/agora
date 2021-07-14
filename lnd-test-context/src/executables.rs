@@ -1,5 +1,6 @@
 use cradle::*;
 use hex_literal::hex;
+use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
 use sha2::{Digest, Sha256};
 use std::{
@@ -9,17 +10,23 @@ use std::{
   path::{Path, PathBuf},
 };
 
-pub fn target_dir() -> PathBuf {
-  let mut dir = env::current_dir().unwrap();
+pub fn target_dir() -> &'static Path {
+  lazy_static! {
+    static ref TARGET_DIR: PathBuf = {
+      let mut dir = env::current_dir().unwrap();
 
-  while !dir.join("target").exists() {
-    assert!(dir.pop(), "could not find target directory");
+      while !dir.join("target").exists() {
+        assert!(dir.pop(), "could not find target directory");
+      }
+
+      dir.join("target")
+    };
   }
 
-  dir.join("target")
+  &TARGET_DIR
 }
 
-async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
+async fn bitcoind_archive() -> PathBuf {
   const ARCHIVE_SUFFIX: &str = if cfg!(target_os = "macos") {
     "osx64.tar.gz"
   } else if cfg!(target_os = "windows") {
@@ -29,7 +36,7 @@ async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
   };
 
   let archive_filename = format!("bitcoin-0.21.1-{}", ARCHIVE_SUFFIX);
-  let archive_path = target_dir.join(&archive_filename);
+  let archive_path = target_dir().join(&archive_filename);
   if !archive_path.exists() {
     let url = format!(
       "https://bitcoin.org/bin/bitcoin-core-0.21.1/{}",
@@ -61,15 +68,15 @@ async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
   archive_path
 }
 
-pub async fn bitcoind(target_dir: &Path) -> PathBuf {
-  let binary = target_dir.join(format!("bitcoind{}", EXE_SUFFIX));
+pub async fn bitcoind() -> PathBuf {
+  let binary = target_dir().join(format!("bitcoind{}", EXE_SUFFIX));
   static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
   let _guard = MUTEX.lock().await;
   if !binary.exists() {
     cmd_unit!(
       %"tar -xzvf",
-      bitcoind_archive(&target_dir).await,
-      "-C", target_dir,
+      bitcoind_archive().await,
+      "-C", target_dir(),
       "--strip-components=2",
       format!("bitcoin-0.21.1/bin/bitcoin-cli{}", EXE_SUFFIX),
       format!("bitcoin-0.21.1/bin/bitcoind{}", EXE_SUFFIX)
@@ -78,16 +85,12 @@ pub async fn bitcoind(target_dir: &Path) -> PathBuf {
   binary
 }
 
-pub async fn bitcoin_cli(target_dir: &Path) -> PathBuf {
-  bitcoind(target_dir)
-    .await
-    .parent()
-    .unwrap()
-    .join("bitcoin-cli")
+pub async fn bitcoin_cli() -> PathBuf {
+  bitcoind().await.parent().unwrap().join("bitcoin-cli")
 }
 
-async fn lnd_tarball(target_dir: &Path) -> PathBuf {
-  let tarball_path = target_dir.join("lnd-source-v0.13.0-beta.tar.gz");
+async fn lnd_tarball() -> PathBuf {
+  let tarball_path = target_dir().join("lnd-source-v0.13.0-beta.tar.gz");
   if !tarball_path.exists() {
     let url = "https://github.com/lightningnetwork/lnd/releases/download/v0.13.0-beta/lnd-source-v0.13.0-beta.tar.gz";
     #[allow(clippy::explicit_write)]
@@ -105,20 +108,20 @@ async fn lnd_tarball(target_dir: &Path) -> PathBuf {
   tarball_path
 }
 
-async fn lnd_executables(target_dir: &Path) -> (PathBuf, PathBuf) {
+async fn lnd_executables() -> (PathBuf, PathBuf) {
   let lnd_itest_filename = format!("lnd-itest{}", EXE_SUFFIX);
   let lncli_debug_filename = format!("lncli-debug{}", EXE_SUFFIX);
-  let lnd_itest = target_dir.join(&lnd_itest_filename);
-  let lncli_debug = target_dir.join(&lncli_debug_filename);
+  let lnd_itest = target_dir().join(&lnd_itest_filename);
+  let lncli_debug = target_dir().join(&lncli_debug_filename);
   static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
   let _guard = MUTEX.lock().await;
   if !lnd_itest.exists() {
     cmd_unit!(
       %"tar -xzvf",
-      lnd_tarball(&target_dir).await,
-      "-C", &target_dir
+      lnd_tarball().await,
+      "-C", target_dir()
     );
-    let src_dir = target_dir.join("lnd-source");
+    let src_dir = target_dir().join("lnd-source");
     cmd_unit!(
       %"make build build-itest",
       CurrentDir(&src_dir)
@@ -129,10 +132,10 @@ async fn lnd_executables(target_dir: &Path) -> (PathBuf, PathBuf) {
   (lnd_itest, lncli_debug)
 }
 
-pub async fn lnd(target_dir: &Path) -> PathBuf {
-  lnd_executables(target_dir).await.0
+pub async fn lnd() -> PathBuf {
+  lnd_executables().await.0
 }
 
-pub async fn lncli(target_dir: &Path) -> PathBuf {
-  lnd_executables(target_dir).await.1
+pub async fn lncli() -> PathBuf {
+  lnd_executables().await.1
 }
