@@ -1,10 +1,12 @@
 all: build test smoke clippy fmt-check forbid check-install check-lockfile
 
 build:
-  cargo build --all
+  cargo check --all
+  cargo check --tests
+  cargo check --tests --all-features
 
 test pattern='':
-  cargo test --all {{pattern}}
+  cargo test --all --all-features {{pattern}}
 
 smoke +args="":
   cargo test --test smoke {{args}}
@@ -44,3 +46,12 @@ publish remote: all
 
 clean-binaries:
   rm -rf target/bitcoin* target/ln*
+
+run authority:
+  scp root@{{authority}}:/var/lib/lnd/tls.cert target/tls.cert
+  scp root@{{authority}}:/var/lib/lnd/data/chain/bitcoin/testnet/invoice.macaroon target/invoice.macaroon
+  cargo run -- \
+    --lnd-rpc-authority {{authority}}:10009 \
+    --lnd-rpc-cert-path target/tls.cert \
+    --lnd-rpc-macaroon-path target/invoice.macaroon \
+    --directory .

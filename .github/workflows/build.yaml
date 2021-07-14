@@ -82,12 +82,15 @@ jobs:
       run: |
         cargo update --locked --package agora
 
-    - name: Build
-      run: cargo build --all
+    - name: Check
+      run: |
+        cargo check --all
+        cargo check --tests
+        cargo check --tests --all-features
 
     - name: Test
       run: |
-        cargo test --all
+        cargo test --all --all-features
         cargo test --test smoke
 
     - name: Clippy

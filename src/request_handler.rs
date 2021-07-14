@@ -29,10 +29,14 @@ pub(crate) struct RequestHandler {
 }
 
 impl RequestHandler {
-  pub(crate) fn new(environment: &Environment, base_directory: &Path) -> Self {
+  pub(crate) fn new(
+    environment: &Environment,
+    base_directory: &Path,
+    lnd_client: Option<lnd_client::Client>,
+  ) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      files: Files::new(InputPath::new(environment, base_directory)),
+      files: Files::new(InputPath::new(environment, base_directory), lnd_client),
     }
   }
 
@@ -51,7 +55,7 @@ impl RequestHandler {
     }
   }
 
-  async fn response_result(self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn response_result(mut self, request: Request<Body>) -> Result<Response<Body>> {
     tokio::spawn(async move { self.dispatch(request).await.map(Self::add_global_headers) })
       .await
       .context(error::RequestHandlerPanic)?
@@ -65,7 +69,7 @@ impl RequestHandler {
     response
   }
 
-  async fn dispatch(&self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
     let components = request
       .uri()
       .path()
@@ -75,6 +79,15 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
+      ["/", "invoice/", r_hash_hex, ..] => {
+        let mut r_hash = [0; 32];
+        hex::decode_to_slice(
+          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
+          &mut r_hash,
+        )
+        .context(error::InvoiceId)?;
+        self.files.serve_invoice(&request, r_hash).await
+      }
       _ => Err(Error::RouteNotFound {
         uri_path: request.uri().path().to_owned(),
       }),
@@ -115,21 +128,21 @@ pub(crate) mod tests {
     net::TcpStream,
   };
 
-  async fn get(url: &Url) -> reqwest::Response {
+  pub(super) async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     response
   }
 
-  async fn text(url: &Url) -> String {
+  pub(super) async fn text(url: &Url) -> String {
     get(url).await.text().await.unwrap()
   }
 
-  async fn html(url: &Url) -> Html {
+  pub(super) async fn html(url: &Url) -> Html {
     Html::parse_document(&text(url).await)
   }
 
-  fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
+  pub(super) fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
     let selector = Selector::parse(selector).unwrap();
     html.select(&selector).collect::<Vec<_>>()
   }
@@ -707,6 +720,98 @@ pub(crate) mod tests {
         .await
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+}
+
+#[cfg(all(test, feature = "slow-tests"))]
+mod slow_tests {
+  use super::tests::{css_select, get, html, text};
+  use crate::test_utils::{assert_contains, test_with_lnd, TestContext};
+  use cradle::*;
+  use guard::guard_unwrap;
+  use hyper::StatusCode;
+  use lnd_test_context::LndTestContext;
+  use pretty_assertions::assert_eq;
+  use regex::Regex;
+  use scraper::Html;
+  use std::path::MAIN_SEPARATOR;
+
+  #[test]
+  fn redirects_to_invoice_url() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      std::fs::write(context.files_directory().join("foo/bar"), "").unwrap();
+      let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
+        .await
+        .unwrap();
+      let regex = Regex::new("^/invoice/[a-f0-9]{64}/foo/bar$").unwrap();
+      assert!(
+        regex.is_match(response.url().path()),
+        "Response URL path was not invoice path: {}",
+        response.url().path(),
+      );
+    });
+  }
+
+  #[test]
+  fn non_existant_files_dont_redirect_to_invoice() {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      assert_eq!(
+        reqwest::get(context.files_url().join("foo.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}foo.txt`",
+        MAIN_SEPARATOR
+      ),
+    );
+  }
+
+  #[test]
+  fn invoice_url_serves_bech32_encoded_invoice() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      let html = html(&context.files_url().join("foo").unwrap()).await;
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
+      assert_contains(&payment_request.inner_html(), "lnbcrt1");
+    });
+  }
+
+  #[test]
+  fn invoice_url_contains_filename() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      let html = html(&context.files_url().join("test-filename").unwrap()).await;
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
+      assert_contains(&payment_request.inner_html(), "test-filename");
+    });
+  }
+
+  #[test]
+  fn paying_invoice_allows_downloading_file() {
+    let receiver = LndTestContext::new_blocking();
+    #[allow(clippy::redundant_clone)]
+    test_with_lnd(&receiver.clone(), |context: TestContext| async move {
+      std::fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+      let response = get(&context.files_url().join("foo").unwrap()).await;
+      let invoice_url = response.url().clone();
+      let html = Html::parse_document(&response.text().await.unwrap());
+      guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+      let payment_request = payment_request.inner_html();
+      let sender = LndTestContext::new().await;
+      sender.connect(&receiver).await;
+      sender.generate_lnd_btc().await;
+      sender.open_channel_to(&receiver, 1_000_000).await;
+      let StdoutUntrimmed(_) =
+        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+      assert_eq!(text(&invoice_url).await, "precious content");
     });
   }
 }

@@ -5,9 +5,11 @@ name = "agora"
 version = "0.0.1"
 dependencies = [
  "bytes",
+ "cradle",
  "executable-path",
  "futures",
  "guard",
+ "hex",
  "http",
  "hyper",
  "libc",
@@ -20,6 +22,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "pretty_assertions",
+ "regex",
  "reqwest",
  "rust-embed",
  "scraper",
@@ -212,9 +215,9 @@ dependencies = [
 
 [[package]]
 name = "cradle"
-version = "0.0.4"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5174070c1a1914e13d5f4302186a51ff28d267dbc2164562ee0df6014eb63bf"
+checksum = "7df1b15c1ec82eb06917b6bd5388447af6d85bdf98d690bae93d301ac200dfb2"
 dependencies = [
  "rustversion",
 ]
@@ -803,8 +806,10 @@ version = "0.0.0"
 dependencies = [
  "cradle",
  "hex-literal",
+ "lazy_static",
  "pretty_assertions",
  "reqwest",
+ "serde_json",
  "sha2",
  "tempfile",
  "tokio",

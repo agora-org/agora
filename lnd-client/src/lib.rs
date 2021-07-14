@@ -2,10 +2,13 @@ use crate::grpc_service::GrpcService;
 use http::uri::Authority;
 #[cfg(test)]
 use lnd_test_context::LndTestContext;
-use lnrpc::lightning_client::LightningClient;
-use lnrpc::ListInvoiceRequest;
+use lnrpc::{
+  lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+};
 use openssl::x509::X509;
-use tonic::{metadata::AsciiMetadataValue, Status};
+#[cfg(test)]
+use std::{convert::TryInto, sync::Arc};
+use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
 
 mod grpc_service;
 
@@ -13,10 +16,11 @@ pub mod lnrpc {
   tonic::include_proto!("lnrpc");
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
-  client: LightningClient<GrpcService>,
-  macaroon: Option<AsciiMetadataValue>,
+  inner: LightningClient<GrpcService>,
+  #[cfg(test)]
+  lnd_test_context: Arc<LndTestContext>,
 }
 
 impl Client {
@@ -24,58 +28,100 @@ impl Client {
     authority: Authority,
     certificate: Option<X509>,
     macaroon: Option<Vec<u8>>,
+    #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
+    let grpc_service = GrpcService::new(authority, certificate)?;
+    let inner = match macaroon {
+      Some(macaroon) => {
+        let macaroon = hex::encode_upper(macaroon)
+          .parse::<AsciiMetadataValue>()
+          .expect("Client::new: hex characters are valid metadata values");
+        LightningClient::with_interceptor(
+          grpc_service,
+          Interceptor::new(move |mut request| {
+            request.metadata_mut().insert("macaroon", macaroon.clone());
+            Ok(request)
+          }),
+        )
+      }
+      None => LightningClient::new(grpc_service),
+    };
+
     Ok(Client {
-      client: LightningClient::new(GrpcService::new(authority, certificate)?),
-      macaroon: macaroon.map(|macaroon| {
-        hex::encode_upper(macaroon)
-          .parse()
-          .expect("Client::new: hex characters are valid metadata values")
-      }),
+      inner,
+      #[cfg(test)]
+      lnd_test_context: Arc::new(lnd_test_context),
     })
   }
 
   pub async fn ping(&mut self) -> Result<(), Status> {
-    let mut request = tonic::Request::new(ListInvoiceRequest {
+    let request = tonic::Request::new(ListInvoiceRequest {
       index_offset: 0,
       num_max_invoices: 0,
       pending_only: false,
       reversed: false,
     });
 
-    if let Some(macaroon) = &self.macaroon {
-      request.metadata_mut().insert("macaroon", macaroon.clone());
-    }
-
-    self.client.list_invoices(request).await?;
+    self.inner.list_invoices(request).await?;
 
     Ok(())
   }
 
+  pub async fn add_invoice(
+    &mut self,
+    memo: &str,
+    value: i64,
+  ) -> Result<AddInvoiceResponse, Status> {
+    let request = tonic::Request::new(Invoice {
+      memo: memo.to_owned(),
+      value,
+      ..Invoice::default()
+    });
+    Ok(self.inner.add_invoice(request).await?.into_inner())
+  }
+
+  pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, Status> {
+    let request = tonic::Request::new(PaymentHash {
+      r_hash: r_hash.to_vec(),
+      ..PaymentHash::default()
+    });
+    match self.inner.lookup_invoice(request).await {
+      Ok(response) => Ok(Some(response.into_inner())),
+      Err(status) => {
+        if status.code() == Code::Unknown
+          && (status.message() == "there are no existing invoices"
+            || status.message() == "unable to locate invoice")
+        {
+          Ok(None)
+        } else {
+          Err(status)
+        }
+      }
+    }
+  }
+
   #[cfg(test)]
-  async fn with_cert(context: &LndTestContext, cert: &str) -> Self {
+  async fn with_cert(lnd_test_context: LndTestContext, cert: &str) -> Self {
     Self::new(
-      format!("localhost:{}", context.lnd_rpc_port)
+      format!("localhost:{}", lnd_test_context.lnd_rpc_port)
         .parse()
         .unwrap(),
       Some(X509::from_pem(cert.as_bytes()).unwrap()),
       Some(
-        tokio::fs::read(context.invoice_macaroon_path())
+        tokio::fs::read(lnd_test_context.invoice_macaroon_path())
           .await
           .unwrap(),
       ),
+      lnd_test_context,
     )
     .await
     .unwrap()
   }
 
   #[cfg(test)]
-  async fn with_test_context(context: &LndTestContext) -> Self {
-    Self::with_cert(
-      context,
-      &std::fs::read_to_string(context.cert_path()).unwrap(),
-    )
-    .await
+  async fn with_test_context(lnd_test_context: LndTestContext) -> Self {
+    let cert = std::fs::read_to_string(lnd_test_context.cert_path()).unwrap();
+    Self::with_cert(lnd_test_context, &cert).await
   }
 }
 
@@ -85,7 +131,7 @@ mod tests {
 
   #[tokio::test]
   async fn ping() {
-    Client::with_test_context(&LndTestContext::new().await)
+    Client::with_test_context(LndTestContext::new().await)
       .await
       .ping()
       .await
@@ -110,7 +156,7 @@ qmJp1luuw/ElVG3DdHtz4Lx8iK8EanRdHA3T+78CIQDfuWGMe0IGtwLuDpDixvGy
 jlZBq5hr8Nv2qStFfw9qzw==
 -----END CERTIFICATE-----
 ";
-    let error = Client::with_cert(&LndTestContext::new().await, INVALID_TEST_CERT)
+    let error = Client::with_cert(LndTestContext::new().await, INVALID_TEST_CERT)
       .await
       .ping()
       .await
@@ -127,5 +173,71 @@ jlZBq5hr8Nv2qStFfw9qzw==
     assert_contains(&error.to_string(), "error trying to connect: ");
     assert_contains(&error.to_string(), "certificate verify failed");
     assert_contains(&error.to_string(), "self signed certificate");
+  }
+
+  #[tokio::test]
+  async fn add_invoice() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let response = client.add_invoice("", 1).await.unwrap();
+    assert!(
+      !response.payment_request.is_empty(),
+      "Bad response: {:?}",
+      response
+    );
+  }
+
+  #[tokio::test]
+  async fn add_invoice_memo_and_value() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let r_hash = client.add_invoice("test-memo", 42).await.unwrap().r_hash;
+    let invoice = client
+      .lookup_invoice(r_hash.try_into().unwrap())
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(invoice.memo, "test-memo");
+    assert_eq!(invoice.value, 42);
+  }
+
+  #[tokio::test]
+  async fn lookup_invoice() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
+    let created = client.add_invoice("bar", 2).await.unwrap();
+    let _ignored2 = client.add_invoice("baz", 3).await.unwrap();
+    let retrieved = client
+      .lookup_invoice(created.r_hash.as_slice().try_into().unwrap())
+      .await
+      .unwrap()
+      .unwrap();
+    assert_eq!(
+      (
+        created.add_index,
+        created.r_hash,
+        created.payment_request,
+        created.payment_addr
+      ),
+      (
+        retrieved.add_index,
+        retrieved.r_hash,
+        retrieved.payment_request,
+        retrieved.payment_addr
+      )
+    );
+    assert_eq!(retrieved.memo, "bar");
+    assert_eq!(retrieved.value, 2);
+  }
+
+  #[tokio::test]
+  async fn lookup_invoice_not_found_no_invoices() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
+  }
+
+  #[tokio::test]
+  async fn lookup_invoice_not_found_some_invoices() {
+    let mut client = Client::with_test_context(LndTestContext::new().await).await;
+    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
+    assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
   }
 }

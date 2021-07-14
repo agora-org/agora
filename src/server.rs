@@ -15,10 +15,55 @@ pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
-  lnd_client: Option<lnd_client::Client>,
 }
 
 impl Server {
+  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
+    let arguments = environment.arguments()?;
+
+    let directory = environment.working_directory.join(&arguments.directory);
+    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+      .await
+      .context(error::FilesystemIo { path: &directory })?;
+
+    let request_handler = Self::setup_request_handler(environment, &arguments).await?;
+
+    Ok(Self {
+      request_handler,
+      #[cfg(test)]
+      directory,
+    })
+  }
+
+  async fn setup_request_handler(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
+    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
+
+    let socket_addr = (arguments.address.as_str(), arguments.port)
+      .to_socket_addrs()
+      .context(error::AddressResolutionIo {
+        input: &arguments.address,
+      })?
+      .next()
+      .ok_or_else(|| Error::AddressResolutionNoAddresses {
+        input: arguments.address.clone(),
+      })?;
+
+    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
+      RequestHandler::new(&environment, &arguments.directory, lnd_client),
+    ));
+
+    writeln!(
+      environment.stderr,
+      "Listening on {}",
+      request_handler.local_addr()
+    )
+    .context(error::StderrWrite)?;
+    Ok(request_handler)
+  }
+
   async fn setup_lnd_client(
     environment: &mut Environment,
     arguments: &Arguments,
@@ -64,52 +109,6 @@ impl Server {
     }
   }
 
-  fn setup_request_handler(
-    environment: &mut Environment,
-    arguments: &Arguments,
-  ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
-    let socket_addr = (arguments.address.as_str(), arguments.port)
-      .to_socket_addrs()
-      .context(error::AddressResolutionIo {
-        input: &arguments.address,
-      })?
-      .next()
-      .ok_or_else(|| Error::AddressResolutionNoAddresses {
-        input: arguments.address.clone(),
-      })?;
-
-    let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(&environment, &arguments.directory),
-    ));
-    writeln!(
-      environment.stderr,
-      "Listening on {}",
-      request_handler.local_addr()
-    )
-    .context(error::StderrWrite)?;
-    Ok(request_handler)
-  }
-
-  pub(crate) async fn setup(environment: &mut Environment) -> Result<Self> {
-    let arguments = environment.arguments()?;
-
-    let directory = environment.working_directory.join(&arguments.directory);
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
-      .await
-      .context(error::FilesystemIo { path: &directory })?;
-
-    let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
-
-    let request_handler = Self::setup_request_handler(environment, &arguments)?;
-
-    Ok(Self {
-      request_handler,
-      #[cfg(test)]
-      directory,
-      lnd_client,
-    })
-  }
-
   pub(crate) async fn run(self) -> Result<()> {
     self.request_handler.await.context(error::ServerRun)
   }
@@ -128,8 +127,6 @@ impl Server {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::test_utils::{assert_contains, test_with_arguments};
-  use lnd_test_context::LndTestContext;
   use std::net::IpAddr;
 
   #[test]
@@ -172,32 +169,24 @@ mod tests {
         assert_matches!(error, Error::AddressResolutionIo { input, ..} if input == "host.invalid");
       });
   }
+}
+
+#[cfg(all(test, feature = "slow-tests"))]
+mod slow_tests {
+  use crate::test_utils::{assert_contains, test_with_lnd};
+  use lnd_test_context::LndTestContext;
 
   #[test]
   fn connect_to_lnd() {
-    let lnd_test_context = tokio::runtime::Builder::new_current_thread()
-      .enable_all()
-      .build()
-      .unwrap()
-      .block_on(async { LndTestContext::new().await });
-
-    let lnd_rpc_authority = format!("localhost:{}", lnd_test_context.lnd_rpc_port);
-
-    let stderr = test_with_arguments(
-      &[
-        "--lnd-rpc-authority",
-        &lnd_rpc_authority,
-        "--lnd-rpc-cert-path",
-        lnd_test_context.cert_path().to_str().unwrap(),
-        "--lnd-rpc-macaroon-path",
-        lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
-      ],
-      |_context| async move {},
-    );
+    let lnd_test_context = LndTestContext::new_blocking();
+    let stderr = test_with_lnd(&lnd_test_context, |_context| async move {});
 
     assert_contains(
       &stderr,
-      &format!("Connected to LND RPC server at {}", lnd_rpc_authority),
+      &format!(
+        "Connected to LND RPC server at {}",
+        lnd_test_context.lnd_rpc_authority()
+      ),
     );
   }
 }

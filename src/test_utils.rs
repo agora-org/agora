@@ -1,4 +1,6 @@
 use crate::{environment::Environment, server::Server};
+#[cfg(feature = "slow-tests")]
+use lnd_test_context::LndTestContext;
 use reqwest::Url;
 use std::{
   ffi::OsString,
@@ -35,6 +37,26 @@ where
   F: Future<Output = ()>,
 {
   test_with_arguments(&[], f)
+}
+
+#[cfg(feature = "slow-tests")]
+pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
+where
+  Function: FnOnce(TestContext) -> Fut,
+  Fut: Future<Output = ()>,
+{
+  let stderr = test_with_arguments(
+    &[
+      "--lnd-rpc-authority",
+      &lnd_test_context.lnd_rpc_authority(),
+      "--lnd-rpc-cert-path",
+      lnd_test_context.cert_path().to_str().unwrap(),
+      "--lnd-rpc-macaroon-path",
+      lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
+    ],
+    f,
+  );
+  stderr
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
