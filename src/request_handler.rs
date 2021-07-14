@@ -807,7 +807,7 @@ mod slow_tests {
       let payment_request = payment_request.inner_html();
       let sender = LndTestContext::new().await;
       sender.connect(&receiver).await;
-      sender.generate_money_into_lnd().await;
+      sender.generate_lnd_btc().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
       let StdoutUntrimmed(_) =
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
