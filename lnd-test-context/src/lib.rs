@@ -131,6 +131,11 @@ impl LndTestContext {
       }
     };
 
+    let StdoutUntrimmed(_) = cmd!(
+      Self::bitcoin_cli_command_static(&bitcoinddir, bitcoind_rpc_port).await,
+      %"createwallet wallet_name=bitcoin-core-test-wallet"
+    );
+
     Self {
       bitcoind,
       bitcoind_peer_port,
@@ -178,7 +183,7 @@ impl LndTestContext {
       .join("data/chain/bitcoin/regtest/invoice.macaroon")
   }
 
-  async fn bitcoin_cli_command(&self) -> Vec<String> {
+  async fn bitcoin_cli_command_static(bitcoind_dir: &Path, bitcoind_rpc_port: u16) -> Vec<String> {
     vec![
       executables::bitcoin_cli()
         .await
@@ -186,12 +191,16 @@ impl LndTestContext {
         .unwrap()
         .to_string(),
       "-chain=regtest".to_string(),
-      format!("-datadir={}", self.bitcoind_dir()),
-      format!("-rpcport={}", self.bitcoind_rpc_port),
+      format!("-datadir={}", bitcoind_dir.to_str().unwrap()),
+      format!("-rpcport={}", bitcoind_rpc_port),
       "-rpcuser=user".to_string(),
       "-rpcpassword=password".to_string(),
       "-named".to_string(),
     ]
+  }
+
+  async fn bitcoin_cli_command(&self) -> Vec<String> {
+    Self::bitcoin_cli_command_static(Path::new(&self.bitcoind_dir()), self.bitcoind_rpc_port).await
   }
 
   pub async fn lncli_command_static(lnd_dir: &Path, lnd_rpc_port: u16) -> Vec<String> {
@@ -225,32 +234,14 @@ impl LndTestContext {
     }
   }
 
-  async fn bitcoind_new_address(&self) -> String {
-    let (Exit(status), Stderr(output), StdoutUntrimmed(_)) =
-      cmd!(self.bitcoin_cli_command().await, "getwalletinfo");
-    if !status.success() {
-      let expected = "No wallet is loaded.";
-      assert!(
-        output.contains(expected),
-        "{:?}\ndoes not contain\n{:?}",
-        output,
-        expected
-      );
-      let StdoutUntrimmed(_) = cmd!(
-        self.bitcoin_cli_command().await,
-        %"createwallet wallet_name=bitcoin-core-test-wallet"
-      );
-    }
-    let StdoutTrimmed(address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
-    address
-  }
-
   async fn mine_blocks(&self, n: i32) {
+    let StdoutTrimmed(address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
+
     let StdoutUntrimmed(_) = cmd!(
       self.bitcoin_cli_command().await,
       "generatetoaddress",
       format!("nblocks={}", n),
-      format!("address={}", self.bitcoind_new_address().await),
+      format!("address={}", address),
     );
   }
 
@@ -402,11 +393,7 @@ mod tests {
     let b = LndTestContext::new().await;
     a.connect(&b).await;
 
-    let StdoutUntrimmed(_) = cmd!(
-      a.bitcoin_cli_command().await,
-      %"generatetoaddress nblocks=42",
-      format!("address={}", a.bitcoind_new_address().await),
-    );
+    a.mine_blocks(42).await;
 
     loop {
       let StdoutTrimmed(output) = cmd!(b.bitcoin_cli_command().await, "getblockcount");
