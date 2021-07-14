@@ -61,7 +61,7 @@ async fn bitcoind_archive(target_dir: &Path) -> PathBuf {
   archive_path
 }
 
-pub async fn bitcoind_executable(target_dir: &Path) -> PathBuf {
+pub async fn bitcoind(target_dir: &Path) -> PathBuf {
   let binary = target_dir.join(format!("bitcoind{}", EXE_SUFFIX));
   static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
   let _guard = MUTEX.lock().await;
@@ -78,8 +78,8 @@ pub async fn bitcoind_executable(target_dir: &Path) -> PathBuf {
   binary
 }
 
-pub async fn bitcoin_cli_executable(target_dir: &Path) -> PathBuf {
-  bitcoind_executable(target_dir)
+pub async fn bitcoin_cli(target_dir: &Path) -> PathBuf {
+  bitcoind(target_dir)
     .await
     .parent()
     .unwrap()
@@ -129,10 +129,10 @@ async fn lnd_executables(target_dir: &Path) -> (PathBuf, PathBuf) {
   (lnd_itest, lncli_debug)
 }
 
-pub async fn lnd_executable(target_dir: &Path) -> PathBuf {
+pub async fn lnd(target_dir: &Path) -> PathBuf {
   lnd_executables(target_dir).await.0
 }
 
-pub async fn lncli_executable(target_dir: &Path) -> PathBuf {
+pub async fn lncli(target_dir: &Path) -> PathBuf {
   lnd_executables(target_dir).await.1
 }

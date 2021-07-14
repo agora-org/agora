@@ -60,7 +60,7 @@ impl LndTestContext {
     let bitcoind_rpc_port = Self::guess_free_port().await;
     let zmqpubrawblock = Self::guess_free_port().await;
     let zmqpubrawtx = Self::guess_free_port().await;
-    let bitcoind = Command::new(executables::bitcoind_executable(&target_dir).await)
+    let bitcoind = Command::new(executables::bitcoind(&target_dir).await)
       .arg("-chain=regtest")
       .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
       .arg(format!("-rpcport={}", bitcoind_rpc_port))
@@ -86,7 +86,7 @@ impl LndTestContext {
     let lnd_rpc_port = Self::guess_free_port().await;
 
     let lnd = 'outer: loop {
-      let lnd = Command::new(executables::lnd_executable(&target_dir).await)
+      let lnd = Command::new(executables::lnd(&target_dir).await)
         .args(&[
           "--bitcoin.regtest",
           "--bitcoin.active",
@@ -118,7 +118,7 @@ impl LndTestContext {
         .unwrap();
       loop {
         let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
-          executables::lncli_executable(&executables::target_dir())
+          executables::lncli(&executables::target_dir())
             .await
             .to_str()
             .unwrap()
@@ -185,7 +185,7 @@ impl LndTestContext {
 
   async fn bitcoin_cli_command(&self) -> Vec<String> {
     vec![
-      executables::bitcoin_cli_executable(&executables::target_dir())
+      executables::bitcoin_cli(&executables::target_dir())
         .await
         .to_str()
         .unwrap()
@@ -211,7 +211,7 @@ impl LndTestContext {
   }
 
   pub async fn lncli_command(&self) -> Vec<String> {
-    let mut result = vec![executables::lncli_executable(&executables::target_dir())
+    let mut result = vec![executables::lncli(&executables::target_dir())
       .await
       .to_str()
       .unwrap()
