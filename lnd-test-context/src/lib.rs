@@ -1,5 +1,6 @@
 use crate::owned_child::{CommandExt, OwnedChild};
 use cradle::*;
+use lazy_static::lazy_static;
 use std::{
   collections::BTreeSet,
   fs,
@@ -30,7 +31,7 @@ pub struct LndTestContext {
 
 impl LndTestContext {
   async fn guess_free_port() -> u16 {
-    lazy_static::lazy_static! {
+    lazy_static! {
       static ref SET: Mutex<BTreeSet<u16>> = Mutex::const_new(BTreeSet::new());
     }
     let mut set = SET.lock().await;
@@ -118,12 +119,7 @@ impl LndTestContext {
         .unwrap();
       loop {
         let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
-          executables::lncli(&executables::target_dir())
-            .await
-            .to_str()
-            .unwrap()
-            .to_string(),
-          Self::lncli_default_arguments(&lnddir, lnd_rpc_port).await,
+          Self::lncli_command_static(&lnddir, lnd_rpc_port).await,
           "getinfo"
         );
         if status.success() {
@@ -152,7 +148,7 @@ impl LndTestContext {
       .enable_all()
       .build()
       .unwrap()
-      .block_on(async { LndTestContext::new().await })
+      .block_on(LndTestContext::new())
   }
 
   fn bitcoind_dir(&self) -> String {
@@ -199,8 +195,13 @@ impl LndTestContext {
     ]
   }
 
-  pub async fn lncli_default_arguments(lnd_dir: &Path, lnd_rpc_port: u16) -> Vec<String> {
+  pub async fn lncli_command_static(lnd_dir: &Path, lnd_rpc_port: u16) -> Vec<String> {
     vec![
+      executables::lncli(&executables::target_dir())
+        .await
+        .to_str()
+        .unwrap()
+        .to_string(),
       "--network".to_string(),
       "regtest".to_string(),
       "--lnddir".to_string(),
@@ -211,13 +212,7 @@ impl LndTestContext {
   }
 
   pub async fn lncli_command(&self) -> Vec<String> {
-    let mut result = vec![executables::lncli(&executables::target_dir())
-      .await
-      .to_str()
-      .unwrap()
-      .to_string()];
-    result.extend(Self::lncli_default_arguments(&self.lnd_dir(), self.lnd_rpc_port).await);
-    result
+    Self::lncli_command_static(&self.lnd_dir(), self.lnd_rpc_port).await
   }
 
   pub async fn run_lncli_command<I: cradle::Input>(&self, input: I) -> serde_json::Value {
