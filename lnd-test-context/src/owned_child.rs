@@ -22,9 +22,8 @@ impl CommandExt for Command {
 
 impl Drop for OwnedChild {
   fn drop(&mut self) {
-    if let Ok(mut guard) = self.inner.lock() {
-      let _ = guard.kill();
-      let _ = guard.wait();
-    }
+    let mut child = self.inner.lock().unwrap();
+    let _ = child.kill();
+    let _ = child.wait();
   }
 }
