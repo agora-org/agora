@@ -29,6 +29,31 @@ impl Files {
     self.base_directory.join_file_path(&tail.join(""))
   }
 
+  fn check_path(path: &InputPath) -> Result<()> {
+    if path
+      .as_ref()
+      .symlink_metadata()
+      .with_context(|| Error::filesystem_io(path))?
+      .file_type()
+      .is_symlink()
+    {
+      Err(Error::SymlinkAccess {
+        path: path.as_ref().to_owned(),
+      })
+    } else if path
+      .as_ref()
+      .file_name()
+      .map(|file_name| file_name.to_string_lossy().starts_with('.'))
+      .unwrap_or(false)
+    {
+      Err(Error::HiddenFileAccess {
+        path: path.as_ref().to_owned(),
+      })
+    } else {
+      Ok(())
+    }
+  }
+
   pub(crate) async fn serve(
     &mut self,
     request: &Request<Body>,
@@ -38,16 +63,7 @@ impl Files {
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
-      let file_type = prefix
-        .as_ref()
-        .symlink_metadata()
-        .with_context(|| Error::filesystem_io(&prefix))?
-        .file_type();
-      if file_type.is_symlink() {
-        return Err(Error::SymlinkAccess {
-          path: prefix.as_ref().to_owned(),
-        });
-      }
+      Self::check_path(&prefix)?;
     }
 
     let file_type = file_path
@@ -83,18 +99,14 @@ impl Files {
       .await
       .with_context(|| Error::filesystem_io(path))?
     {
-      let file_type = entry.file_type().await.map_err(|source| {
-        match path.join_relative(Path::new(&entry.file_name())) {
-          Err(error) => error,
-          Ok(entry_path) => Error::FilesystemIo {
-            path: entry_path.display_path().to_owned(),
-            source,
-          },
-        }
-      })?;
-      if file_type.is_symlink() {
+      let input_path = path.join_relative(Path::new(&entry.file_name()))?;
+      if Self::check_path(&input_path).is_err() {
         continue;
       }
+      let file_type = entry
+        .file_type()
+        .await
+        .with_context(|| Error::filesystem_io(&input_path))?;
       entries.push((entry.file_name(), file_type));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
