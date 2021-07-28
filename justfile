@@ -1,15 +1,15 @@
 all: build test smoke clippy fmt-check forbid check-install check-lockfile
 
 build:
-  cargo check --all
-  cargo check --tests
-  cargo check --tests --all-features
+  cargo lcheck --all
+  cargo lcheck --tests
+  cargo lcheck --tests --all-features
 
 test pattern='':
-  cargo test --all --all-features {{pattern}}
+  cargo ltest --all --all-features {{pattern}}
 
 smoke +args="":
-  cargo test --test smoke {{args}}
+  cargo ltest --test smoke {{args}}
 
 clippy:
   cargo clippy --all-targets --all-features
