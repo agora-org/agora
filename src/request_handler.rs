@@ -764,7 +764,7 @@ pub(crate) mod tests {
     test(|context| async move {
       let dir = context.files_directory().join(".dir");
       std::fs::create_dir(&dir).unwrap();
-      std::fs::write(dir.join("foo.txt"), "hello");
+      std::fs::write(dir.join("foo.txt"), "hello").unwrap();
       let response = reqwest::get(context.files_url().join(".dir/foo.txt").unwrap())
         .await
         .unwrap();
