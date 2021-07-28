@@ -29,7 +29,7 @@ impl Files {
     self.base_directory.join_file_path(&tail.join(""))
   }
 
-  fn exclude_file(path: &InputPath) -> Result<()> {
+  fn check_path(path: &InputPath) -> Result<()> {
     if path
       .as_ref()
       .symlink_metadata()
@@ -37,23 +37,21 @@ impl Files {
       .file_type()
       .is_symlink()
     {
-      return Err(Error::SymlinkAccess {
+      Err(Error::SymlinkAccess {
         path: path.as_ref().to_owned(),
-      });
-    }
-
-    if path
+      })
+    } else if path
       .as_ref()
       .file_name()
       .map(|file_name| file_name.to_string_lossy().starts_with("."))
       .unwrap_or(false)
     {
-      return Err(Error::HiddenFileAccess {
+      Err(Error::HiddenFileAccess {
         path: path.as_ref().to_owned(),
-      });
+      })
+    } else {
+      Ok(())
     }
-
-    Ok(())
   }
 
   pub(crate) async fn serve(
@@ -65,7 +63,7 @@ impl Files {
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
-      Self::exclude_file(&prefix)?;
+      Self::check_path(&prefix)?;
     }
 
     let file_type = file_path
@@ -102,7 +100,7 @@ impl Files {
       .with_context(|| Error::filesystem_io(path))?
     {
       let input_path = path.join_relative(Path::new(&entry.file_name()))?;
-      if Self::exclude_file(&input_path).is_err() {
+      if Self::check_path(&input_path).is_err() {
         continue;
       }
       let file_type = entry
