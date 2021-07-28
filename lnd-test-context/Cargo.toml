@@ -23,5 +23,5 @@ version = "1.7.1"
 features = ["fs", "parking_lot"]
 
 [dependencies.tonic]
-version = "0.4.3"
+version = "0.5.0"
 features = ["transport", "tls", "h2"]

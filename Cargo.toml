@@ -26,7 +26,7 @@ pin-project = "1.0.7"
 rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
-tonic = "0.4.3"
+tonic = "0.5.0"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"

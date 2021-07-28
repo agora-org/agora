@@ -8,7 +8,7 @@ use lnrpc::{
 use openssl::x509::X509;
 #[cfg(test)]
 use std::{convert::TryInto, sync::Arc};
-use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
+use tonic::{metadata::AsciiMetadataValue, service::interceptor_fn, Code, Status};
 
 mod grpc_service;
 
@@ -18,7 +18,7 @@ pub mod lnrpc {
 
 #[derive(Debug, Clone)]
 pub struct Client {
-  inner: LightningClient<GrpcService>,
+  inner: LightningClient<tonic::service::interceptor::InterceptedService<GrpcService, _>>,
   #[cfg(test)]
   lnd_test_context: Arc<LndTestContext>,
 }
@@ -31,21 +31,23 @@ impl Client {
     #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
     let grpc_service = GrpcService::new(authority, certificate)?;
-    let inner = match macaroon {
-      Some(macaroon) => {
-        let macaroon = hex::encode_upper(macaroon)
+    let macaroon = match macaroon {
+      Some(macaroon) => Some(
+        hex::encode_upper(macaroon)
           .parse::<AsciiMetadataValue>()
-          .expect("Client::new: hex characters are valid metadata values");
-        LightningClient::with_interceptor(
-          grpc_service,
-          Interceptor::new(move |mut request| {
-            request.metadata_mut().insert("macaroon", macaroon.clone());
-            Ok(request)
-          }),
-        )
-      }
-      None => LightningClient::new(grpc_service),
+          .expect("Client::new: hex characters are valid metadata values"),
+      ),
+      None => None,
     };
+    let inner = LightningClient::with_interceptor(
+      grpc_service,
+      (move |mut request| {
+        if let Some(macaroon) = macaroon {
+          request.metadata_mut().insert("macaroon", macaroon.clone());
+        }
+        Ok(request)
+      }),
+    );
 
     Ok(Client {
       inner,
