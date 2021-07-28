@@ -12,7 +12,7 @@ smoke +args="":
   cargo ltest --test smoke {{args}}
 
 clippy:
-  cargo clippy --all-targets --all-features
+  cargo lclippy --all-targets --all-features
 
 fmt-check:
   cargo fmt --all -- --check
