@@ -115,7 +115,7 @@ pub(crate) mod tests {
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, test, test_with_environment},
+    test_utils::{assert_contains, assert_not_contains, test, test_with_environment},
   };
   use guard::guard_unwrap;
   use hyper::StatusCode;
@@ -717,6 +717,55 @@ pub(crate) mod tests {
   fn missing_asset_not_found() {
     test(|context| async move {
       let response = reqwest::get(context.base_url().join("static/does-not-exist").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn listing_does_not_contain_hidden_file() {
+    test(|context| async move {
+      std::fs::write(context.files_directory().join(".some-test-file.txt"), "").unwrap();
+      let haystack = html(context.base_url()).await.root_element().html();
+      let needle = ".some-test-file.txt";
+      assert_not_contains(&haystack, needle);
+    });
+  }
+
+  #[test]
+  fn return_404_for_hidden_files() {
+    test(|context| async move {
+      std::fs::write(context.files_directory().join(".foo.txt"), "").unwrap();
+      assert_eq!(
+        reqwest::get(context.files_url().join(".foo.txt").unwrap())
+          .await
+          .unwrap()
+          .status(),
+        StatusCode::NOT_FOUND
+      )
+    });
+  }
+
+  #[test]
+  fn return_404_for_hidden_directories() {
+    test(|context| async move {
+      let dir = context.files_directory().join(".dir");
+      std::fs::create_dir(&dir).unwrap();
+      let response = reqwest::get(context.files_url().join(".dir").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+  }
+
+  #[test]
+  fn return_404_for_files_in_hidden_directories() {
+    test(|context| async move {
+      let dir = context.files_directory().join(".dir");
+      std::fs::create_dir(&dir).unwrap();
+      std::fs::write(dir.join("foo.txt"), "hello");
+      let response = reqwest::get(context.files_url().join(".dir/foo.txt").unwrap())
         .await
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);

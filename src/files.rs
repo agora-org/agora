@@ -43,9 +43,21 @@ impl Files {
         .symlink_metadata()
         .with_context(|| Error::filesystem_io(&prefix))?
         .file_type();
+
       if file_type.is_symlink() {
         return Err(Error::SymlinkAccess {
           path: prefix.as_ref().to_owned(),
+        });
+      }
+
+      if prefix
+        .as_ref()
+        .file_name()
+        .map(|file_name| file_name.to_string_lossy().starts_with("."))
+        .unwrap_or(false)
+      {
+        return Err(Error::HiddenFileAccess {
+          path: file_path.as_ref().to_owned(),
         });
       }
     }
@@ -92,10 +104,11 @@ impl Files {
           },
         }
       })?;
-      if file_type.is_symlink() {
+      let file_name = entry.file_name();
+      if file_type.is_symlink() || file_name.to_string_lossy().starts_with(".") {
         continue;
       }
-      entries.push((entry.file_name(), file_type));
+      entries.push((file_name, file_type));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
