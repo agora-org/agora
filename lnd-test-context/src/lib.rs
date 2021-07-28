@@ -64,6 +64,7 @@ impl LndTestContext {
     let bitcoind_rpc_port = Self::guess_free_port().await;
     let zmqpubrawblock = Self::guess_free_port().await;
     let zmqpubrawtx = Self::guess_free_port().await;
+    let onion_port = Self::guess_free_port().await;
     let bitcoind = Command::new(executables::bitcoind().await)
       .arg("-chain=regtest")
       .arg(format!("-datadir={}", bitcoinddir.to_str().unwrap()))
@@ -71,10 +72,7 @@ impl LndTestContext {
       .arg("-rpcuser=user")
       .arg("-rpcpassword=password")
       .arg(format!("-port={}", bitcoind_peer_port))
-      .arg(format!(
-        "-bind=127.0.0.1:{}=onion",
-        Self::guess_free_port().await
-      ))
+      .arg(format!("-bind=127.0.0.1:{}=onion", onion_port))
       .arg(format!(
         "-zmqpubrawblock=tcp://127.0.0.1:{}",
         zmqpubrawblock

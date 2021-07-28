@@ -43,7 +43,7 @@ impl Files {
     } else if path
       .as_ref()
       .file_name()
-      .map(|file_name| file_name.to_string_lossy().starts_with("."))
+      .map(|file_name| file_name.to_string_lossy().starts_with('.'))
       .unwrap_or(false)
     {
       Err(Error::HiddenFileAccess {
