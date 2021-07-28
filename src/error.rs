@@ -23,6 +23,8 @@ pub(crate) enum Error {
   CurrentDir { source: io::Error },
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo { source: io::Error, path: PathBuf },
+  #[snafu(display("Forbidden access to hidden file: {}", path.display()))]
+  HiddenFileAccess { path: PathBuf },
   #[snafu(display(
     "Internal error, this is probably a bug in agora: {}\n\
       Consider filing an issue: https://github.com/soenkehahn/agora/issues/new/",
@@ -65,7 +67,8 @@ impl Error {
         StatusCode::NOT_FOUND
       }
       InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
-      InvoiceNotFound { .. }
+      HiddenFileAccess { .. }
+      | InvoiceNotFound { .. }
       | LndNotConfigured { .. }
       | RouteNotFound { .. }
       | SymlinkAccess { .. }
