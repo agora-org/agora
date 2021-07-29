@@ -33,7 +33,7 @@ mod tests {
   #[test]
   fn loads_the_default_config_when_no_files_given() {
     let temp_dir = TempDir::new().unwrap();
-    let config = Config::for_dir(&temp_dir.path()).unwrap();
+    let config = Config::for_dir(temp_dir.path()).unwrap();
     assert_eq!(config, Config { paid: false });
   }
 
@@ -41,7 +41,7 @@ mod tests {
   fn loads_config_from_files() {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "paid: true").unwrap();
-    let config = Config::for_dir(&temp_dir.path()).unwrap();
+    let config = Config::for_dir(temp_dir.path()).unwrap();
     assert_eq!(config, Config { paid: true });
   }
 
@@ -60,7 +60,7 @@ mod tests {
   fn io_error_when_reading_config_file() {
     let temp_dir = TempDir::new().unwrap();
     fs::create_dir(temp_dir.path().join(".agora.yaml")).unwrap();
-    let result = Config::for_dir(&temp_dir.path());
+    let result = Config::for_dir(temp_dir.path());
     assert_matches!(
       result,
       Err(Error::FilesystemIo { path, .. })
@@ -72,7 +72,7 @@ mod tests {
   fn invalid_config() {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "{{{").unwrap();
-    let result = Config::for_dir(&temp_dir.path());
+    let result = Config::for_dir(temp_dir.path());
     assert_matches!(
       result,
       Err(Error::ConfigDeserialize { path, .. })
@@ -90,7 +90,7 @@ mod tests {
       serde_yaml::to_string(&config).unwrap(),
     )
     .unwrap();
-    let result = Config::for_dir(&temp_dir.path());
+    let result = Config::for_dir(temp_dir.path());
     assert_matches!(
       result,
       Err(Error::ConfigDeserialize { path, .. })
@@ -102,7 +102,7 @@ mod tests {
   fn paid_is_optional() {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "{}").unwrap();
-    let config = Config::for_dir(&temp_dir.path()).unwrap();
+    let config = Config::for_dir(temp_dir.path()).unwrap();
     assert_eq!(config, Config { paid: false });
   }
 }
