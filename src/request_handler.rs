@@ -250,7 +250,7 @@ pub(crate) mod tests {
   #[test]
   fn listing_contains_file() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join("some-test-file.txt"), "").unwrap();
+      fs::write(context.files_directory().join("some-test-file.txt"), "").unwrap();
       let haystack = html(context.base_url()).await.root_element().html();
       let needle = "some-test-file.txt";
       assert_contains(&haystack, needle);
@@ -260,8 +260,8 @@ pub(crate) mod tests {
   #[test]
   fn listing_contains_multiple_files() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join("a.txt"), "").unwrap();
-      std::fs::write(context.files_directory().join("b.txt"), "").unwrap();
+      fs::write(context.files_directory().join("a.txt"), "").unwrap();
+      fs::write(context.files_directory().join("b.txt"), "").unwrap();
       let haystack = html(context.base_url()).await.root_element().html();
       assert_contains(&haystack, "a.txt");
       assert_contains(&haystack, "b.txt");
@@ -271,9 +271,9 @@ pub(crate) mod tests {
   #[test]
   fn listing_is_sorted_alphabetically() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join("b"), "").unwrap();
-      std::fs::write(context.files_directory().join("c"), "").unwrap();
-      std::fs::write(context.files_directory().join("a"), "").unwrap();
+      fs::write(context.files_directory().join("b"), "").unwrap();
+      fs::write(context.files_directory().join("c"), "").unwrap();
+      fs::write(context.files_directory().join("a"), "").unwrap();
       let html = html(context.base_url()).await;
       let haystack: Vec<&str> = css_select(&html, "a:not([download])")
         .into_iter()
@@ -287,7 +287,7 @@ pub(crate) mod tests {
   #[test]
   fn listed_files_can_be_played_in_browser() {
     test(|context| async move {
-      std::fs::write(
+      fs::write(
         context.files_directory().join("some-test-file.txt"),
         "contents",
       )
@@ -305,7 +305,7 @@ pub(crate) mod tests {
   #[test]
   fn listed_files_have_download_links() {
     test(|context| async move {
-      std::fs::write(
+      fs::write(
         context.files_directory().join("some-test-file.txt"),
         "contents",
       )
@@ -323,7 +323,7 @@ pub(crate) mod tests {
   #[test]
   fn listed_files_have_percent_encoded_hrefs() {
     test(|context| async move {
-      std::fs::write(
+      fs::write(
         context
           .files_directory()
           .join("filename with special chäracters"),
@@ -499,8 +499,8 @@ pub(crate) mod tests {
   #[test]
   fn subdirectories_appear_in_listings() {
     test(|context| async move {
-      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
-      std::fs::write(context.files_directory().join("foo/bar.txt"), "hello").unwrap();
+      fs::create_dir(context.files_directory().join("foo")).unwrap();
+      fs::write(context.files_directory().join("foo/bar.txt"), "hello").unwrap();
       let root_listing = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&root_listing, "a").as_slice());
       assert_eq!(a.inner_html(), "foo/");
@@ -519,7 +519,7 @@ pub(crate) mod tests {
   #[test]
   fn no_trailing_slash_redirects_to_trailing_slash() {
     test(|context| async move {
-      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      fs::create_dir(context.files_directory().join("foo")).unwrap();
       let client = Client::builder().redirect(Policy::none()).build().unwrap();
       let request = client
         .get(context.files_url().join("foo").unwrap())
@@ -549,8 +549,8 @@ pub(crate) mod tests {
   #[test]
   fn redirects_correctly_for_two_layers_of_subdirectories() {
     test(|context| async move {
-      std::fs::create_dir_all(context.files_directory().join("foo/bar")).unwrap();
-      std::fs::write(context.files_directory().join("foo/bar/baz.txt"), "").unwrap();
+      fs::create_dir_all(context.files_directory().join("foo/bar")).unwrap();
+      fs::write(context.files_directory().join("foo/bar/baz.txt"), "").unwrap();
       let listing = html(&context.files_url().join("foo/bar").unwrap()).await;
       guard_unwrap!(let &[a] = css_select(&listing, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "baz.txt")
@@ -560,7 +560,7 @@ pub(crate) mod tests {
   #[test]
   fn file_errors_are_associated_with_file_path() {
     let stderr = test(|context| async move {
-      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      fs::create_dir(context.files_directory().join("foo")).unwrap();
       assert_eq!(
         reqwest::get(context.files_url().join("foo/bar.txt").unwrap())
           .await
@@ -581,7 +581,7 @@ pub(crate) mod tests {
   #[test]
   fn requesting_files_with_trailing_slash_redirects() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      fs::write(context.files_directory().join("foo"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo/").unwrap())
         .await
         .unwrap();
@@ -607,7 +607,7 @@ pub(crate) mod tests {
   #[test]
   fn files_are_not_cached() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join("foo"), "bar").unwrap();
+      fs::write(context.files_directory().join("foo"), "bar").unwrap();
       let response = reqwest::get(context.files_url().join("foo").unwrap())
         .await
         .unwrap();
@@ -634,7 +634,7 @@ pub(crate) mod tests {
   fn disallow_file_downloads_via_symlinks() {
     test(|context| async move {
       let file = context.files_directory().join("file");
-      std::fs::write(&file, "contents").unwrap();
+      fs::write(&file, "contents").unwrap();
       symlink(file, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
@@ -647,9 +647,9 @@ pub(crate) mod tests {
   fn disallow_file_downloads_via_intermediate_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
-      std::fs::create_dir(&dir).unwrap();
+      fs::create_dir(&dir).unwrap();
       symlink(&dir, context.files_directory().join("link"));
-      std::fs::write(dir.join("file"), "contents").unwrap();
+      fs::write(dir.join("file"), "contents").unwrap();
       let response = reqwest::get(context.files_url().join("link/file").unwrap())
         .await
         .unwrap();
@@ -661,7 +661,7 @@ pub(crate) mod tests {
   fn disallow_listing_directories_via_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
-      std::fs::create_dir(&dir).unwrap();
+      fs::create_dir(&dir).unwrap();
       symlink(dir, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
@@ -674,9 +674,9 @@ pub(crate) mod tests {
   fn disallow_listing_directories_via_intermediate_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
-      std::fs::create_dir(&dir).unwrap();
+      fs::create_dir(&dir).unwrap();
       symlink(&dir, context.files_directory().join("link"));
-      std::fs::create_dir(dir.join("subdir")).unwrap();
+      fs::create_dir(dir.join("subdir")).unwrap();
       let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
         .await
         .unwrap();
@@ -688,7 +688,7 @@ pub(crate) mod tests {
   fn remove_symlinks_from_listings() {
     test(|context| async move {
       let file = context.files_directory().join("file");
-      std::fs::write(&file, "").unwrap();
+      fs::write(&file, "").unwrap();
       symlink(file, context.files_directory().join("link"));
       let html = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
@@ -700,7 +700,7 @@ pub(crate) mod tests {
   fn serves_static_assets() {
     test(|context| async move {
       let response = text(&context.base_url().join("static/index.css").unwrap()).await;
-      let expected = std::fs::read_to_string("static/index.css").unwrap();
+      let expected = fs::read_to_string("static/index.css").unwrap();
       assert_eq!(response, expected);
     });
   }
@@ -729,7 +729,7 @@ pub(crate) mod tests {
   #[test]
   fn listing_does_not_contain_hidden_file() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join(".some-test-file.txt"), "").unwrap();
+      fs::write(context.files_directory().join(".some-test-file.txt"), "").unwrap();
       let haystack = html(context.base_url()).await.root_element().html();
       let needle = ".some-test-file.txt";
       assert_not_contains(&haystack, needle);
@@ -739,7 +739,7 @@ pub(crate) mod tests {
   #[test]
   fn return_404_for_hidden_files() {
     test(|context| async move {
-      std::fs::write(context.files_directory().join(".foo.txt"), "").unwrap();
+      fs::write(context.files_directory().join(".foo.txt"), "").unwrap();
       assert_eq!(
         reqwest::get(context.files_url().join(".foo.txt").unwrap())
           .await
@@ -754,7 +754,7 @@ pub(crate) mod tests {
   fn return_404_for_hidden_directories() {
     test(|context| async move {
       let dir = context.files_directory().join(".dir");
-      std::fs::create_dir(&dir).unwrap();
+      fs::create_dir(&dir).unwrap();
       let response = reqwest::get(context.files_url().join(".dir").unwrap())
         .await
         .unwrap();
@@ -766,8 +766,8 @@ pub(crate) mod tests {
   fn return_404_for_files_in_hidden_directories() {
     test(|context| async move {
       let dir = context.files_directory().join(".dir");
-      std::fs::create_dir(&dir).unwrap();
-      std::fs::write(dir.join("foo.txt"), "hello").unwrap();
+      fs::create_dir(&dir).unwrap();
+      fs::write(dir.join("foo.txt"), "hello").unwrap();
       let response = reqwest::get(context.files_url().join(".dir/foo.txt").unwrap())
         .await
         .unwrap();
@@ -787,12 +787,12 @@ mod slow_tests {
   use pretty_assertions::assert_eq;
   use regex::Regex;
   use scraper::Html;
-  use std::path::MAIN_SEPARATOR;
+  use std::{fs, path::MAIN_SEPARATOR};
 
   #[test]
   fn serves_files_for_free_by_default() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::write(context.files_directory().join("foo"), "contents").unwrap();
+      fs::write(context.files_directory().join("foo"), "contents").unwrap();
       let body = text(&context.files_url().join("foo").unwrap()).await;
       assert_eq!(body, "contents",);
     });
@@ -801,13 +801,13 @@ mod slow_tests {
   #[test]
   fn redirects_to_invoice_url() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::create_dir(context.files_directory().join("foo")).unwrap();
-      std::fs::write(
+      fs::create_dir(context.files_directory().join("foo")).unwrap();
+      fs::write(
         context.files_directory().join("foo/.agora.yaml"),
         "paid: true",
       )
       .unwrap();
-      std::fs::write(context.files_directory().join("foo/bar"), "").unwrap();
+      fs::write(context.files_directory().join("foo/bar"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
         .await
         .unwrap();
@@ -843,8 +843,8 @@ mod slow_tests {
   #[test]
   fn invoice_url_serves_bech32_encoded_invoice() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::write(context.files_directory().join("foo"), "").unwrap();
-      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("foo"), "").unwrap();
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
       let html = html(&context.files_url().join("foo").unwrap()).await;
       guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
       assert_contains(&payment_request.inner_html(), "lnbcrt1");
@@ -854,8 +854,8 @@ mod slow_tests {
   #[test]
   fn invoice_url_contains_filename() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
-      std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
       let html = html(&context.files_url().join("test-filename").unwrap()).await;
       guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
       assert_contains(&payment_request.inner_html(), "test-filename");
@@ -867,8 +867,8 @@ mod slow_tests {
     let receiver = LndTestContext::new_blocking();
     #[allow(clippy::redundant_clone)]
     test_with_lnd(&receiver.clone(), |context: TestContext| async move {
-      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
-      std::fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("foo"), "precious content").unwrap();
       let response = get(&context.files_url().join("foo").unwrap()).await;
       let invoice_url = response.url().clone();
       let html = Html::parse_document(&response.text().await.unwrap());
