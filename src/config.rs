@@ -6,7 +6,12 @@ use std::{fs, io, path::Path};
 #[derive(PartialEq, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Config {
+  #[serde(default = "const_true")]
   pub(crate) paid: bool,
+}
+
+fn const_true() -> bool {
+  true
 }
 
 impl Config {
@@ -97,5 +102,11 @@ mod tests {
     );
   }
 
-  // fixme: default values
+  #[test]
+  fn paid_is_optional() {
+    let temp_dir = TempDir::new().unwrap();
+    fs::write(temp_dir.path().join(".agora.yaml"), "{}").unwrap();
+    let config = Config::for_dir(&temp_dir.path()).unwrap();
+    assert_eq!(config, Config { paid: true });
+  }
 }
