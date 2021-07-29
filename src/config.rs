@@ -6,12 +6,8 @@ use std::{fs, io, path::Path};
 #[derive(PartialEq, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Config {
-  #[serde(default = "const_true")]
+  #[serde(default)]
   pub(crate) paid: bool,
-}
-
-fn const_true() -> bool {
-  true
 }
 
 impl Config {
@@ -20,7 +16,7 @@ impl Config {
     let file_path = path.join(".agora.yaml");
     match fs::read_to_string(&file_path) {
       Ok(yaml) => serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path }),
-      Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self { paid: true }),
+      Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self { paid: false }),
       Err(source) => Err(Error::FilesystemIo {
         path: file_path,
         source,
@@ -38,15 +34,15 @@ mod tests {
   fn loads_the_default_config_when_no_files_given() {
     let temp_dir = TempDir::new().unwrap();
     let config = Config::for_dir(&temp_dir.path()).unwrap();
-    assert_eq!(config, Config { paid: true });
+    assert_eq!(config, Config { paid: false });
   }
 
   #[test]
   fn loads_config_from_files() {
     let temp_dir = TempDir::new().unwrap();
-    fs::write(temp_dir.path().join(".agora.yaml"), "paid: false").unwrap();
+    fs::write(temp_dir.path().join(".agora.yaml"), "paid: true").unwrap();
     let config = Config::for_dir(&temp_dir.path()).unwrap();
-    assert_eq!(config, Config { paid: false });
+    assert_eq!(config, Config { paid: true });
   }
 
   #[test]
@@ -107,6 +103,6 @@ mod tests {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "{}").unwrap();
     let config = Config::for_dir(&temp_dir.path()).unwrap();
-    assert_eq!(config, Config { paid: true });
+    assert_eq!(config, Config { paid: false });
   }
 }

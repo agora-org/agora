@@ -790,9 +790,23 @@ mod slow_tests {
   use std::path::MAIN_SEPARATOR;
 
   #[test]
+  fn serves_files_for_free_by_default() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join("foo"), "contents").unwrap();
+      let body = text(&context.files_url().join("foo").unwrap()).await;
+      assert_eq!(body, "contents",);
+    });
+  }
+
+  #[test]
   fn redirects_to_invoice_url() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::create_dir(context.files_directory().join("foo")).unwrap();
+      std::fs::write(
+        context.files_directory().join("foo/.agora.yaml"),
+        "paid: true",
+      )
+      .unwrap();
       std::fs::write(context.files_directory().join("foo/bar"), "").unwrap();
       let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
         .await
@@ -830,6 +844,7 @@ mod slow_tests {
   fn invoice_url_serves_bech32_encoded_invoice() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       std::fs::write(context.files_directory().join("foo"), "").unwrap();
+      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
       let html = html(&context.files_url().join("foo").unwrap()).await;
       guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
       assert_contains(&payment_request.inner_html(), "lnbcrt1");
@@ -839,6 +854,7 @@ mod slow_tests {
   #[test]
   fn invoice_url_contains_filename() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
       std::fs::write(context.files_directory().join("test-filename"), "").unwrap();
       let html = html(&context.files_url().join("test-filename").unwrap()).await;
       guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
@@ -851,6 +867,7 @@ mod slow_tests {
     let receiver = LndTestContext::new_blocking();
     #[allow(clippy::redundant_clone)]
     test_with_lnd(&receiver.clone(), |context: TestContext| async move {
+      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
       std::fs::write(context.files_directory().join("foo"), "precious content").unwrap();
       let response = get(&context.files_url().join("foo").unwrap()).await;
       let invoice_url = response.url().clone();
@@ -864,16 +881,6 @@ mod slow_tests {
       let StdoutUntrimmed(_) =
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
-    });
-  }
-
-  #[test]
-  fn serves_files_for_free_with_config() {
-    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-      std::fs::write(context.files_directory().join("foo"), "contents").unwrap();
-      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: false").unwrap();
-      let body = text(&context.files_url().join("foo").unwrap()).await;
-      assert_eq!(body, "contents",);
     });
   }
 }
