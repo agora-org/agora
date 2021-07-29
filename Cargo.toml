@@ -27,6 +27,7 @@ rust-embed = "5.9.0"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
+serde_yaml = "0.8.17"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
@@ -35,6 +36,10 @@ optional = true
 [dependencies.hyper]
 version = "0.14.7"
 features = ["server", "stream", "tcp", "http1", "http2"]
+
+[dependencies.serde]
+version = "1.0.126"
+features = ["derive"]
 
 [dependencies.tokio]
 version = "1.5.0"

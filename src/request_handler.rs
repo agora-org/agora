@@ -863,4 +863,14 @@ mod slow_tests {
       assert_eq!(text(&invoice_url).await, "precious content");
     });
   }
+
+  #[test]
+  fn serves_files_for_free_with_config() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      std::fs::write(context.files_directory().join("foo"), "contents").unwrap();
+      std::fs::write(context.files_directory().join(".agora.yaml"), "paid: false").unwrap();
+      let body = text(&context.files_url().join("foo").unwrap()).await;
+      assert_eq!(body, "contents",);
+    });
+  }
 }

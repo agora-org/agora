@@ -1,4 +1,5 @@
 use crate::{
+  config::Config,
   error::{self, Error, Result},
   file_stream::FileStream,
   input_path::InputPath,
@@ -171,8 +172,14 @@ impl Files {
   }
 
   async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
+    let config = Config::for_dir(
+      path
+        .as_ref()
+        .parent()
+        .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
+    );
     match &mut self.lnd_client {
-      Some(lnd_client) => {
+      Some(lnd_client) if config.paid => {
         let file_path = tail.join("");
         let invoice = lnd_client
           .add_invoice(&file_path, 1000)
@@ -184,7 +191,7 @@ impl Files {
           file_path,
         ))
       }
-      None => Self::serve_file(path).await,
+      Some(_) | None => Self::serve_file(path).await,
     }
   }
 
