@@ -214,10 +214,13 @@ pub(crate) mod tests {
       .enable_all()
       .build()
       .unwrap()
-      .block_on(async {
-        let error = Server::setup(&mut environment).await.unwrap_err();
-        guard_unwrap!(let Error::FilesystemIo { .. } = error);
-      });
+      .block_on(
+        async {
+          #![allow(clippy::unused_unit)]
+          let error = Server::setup(&mut environment).await.unwrap_err();
+          guard_unwrap!(let Error::FilesystemIo { .. } = error);
+        },
+      );
   }
 
   #[test]
@@ -307,7 +310,7 @@ pub(crate) mod tests {
         "contents",
       )
       .unwrap();
-      let html = html(&context.files_url()).await;
+      let html = html(context.files_url()).await;
       guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
       assert_contains(&a.inner_html(), "download");
       let file_url = a.value().attr("href").unwrap();
@@ -353,9 +356,9 @@ pub(crate) mod tests {
       let response = &mut [0; 1024];
       let bytes = stream.read(response).await.unwrap();
       let response = str::from_utf8(&response[..bytes]).unwrap();
-      assert_contains(&response, "HTTP/1.1 400 Bad Request");
+      assert_contains(response, "HTTP/1.1 400 Bad Request");
     });
-    assert_contains(&stderr, &"Invalid URI file path: foo/../bar.txt");
+    assert_contains(&stderr, "Invalid URI file path: foo/../bar.txt");
   }
 
   #[test]
@@ -369,7 +372,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URI file path: foo//bar.txt");
+    assert_contains(&stderr, "Invalid URI file path: foo//bar.txt");
   }
 
   #[test]
@@ -383,7 +386,7 @@ pub(crate) mod tests {
         StatusCode::BAD_REQUEST
       )
     });
-    assert_contains(&stderr, &"Invalid URI file path: /foo.txt");
+    assert_contains(&stderr, "Invalid URI file path: /foo.txt");
   }
 
   #[test]

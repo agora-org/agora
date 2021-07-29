@@ -71,7 +71,7 @@ mod tests {
   async fn file_stream_yields_file_contents() {
     let tempdir = tempfile::tempdir().unwrap();
     let dir = tempdir.path();
-    let file_path = InputPath::new_unchecked(&dir, "foo.txt");
+    let file_path = InputPath::new_unchecked(dir, "foo.txt");
 
     let input = &[0x15; 200];
 

@@ -73,7 +73,7 @@ impl Files {
       .file_type();
 
     if !file_type.is_dir() {
-      if let Some(stripped) = request.uri().path().strip_suffix("/") {
+      if let Some(stripped) = request.uri().path().strip_suffix('/') {
         return redirect(stripped.to_owned());
       }
     }
