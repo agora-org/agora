@@ -177,7 +177,7 @@ impl Files {
         .as_ref()
         .parent()
         .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
-    );
+    )?;
     match &mut self.lnd_client {
       Some(lnd_client) if config.paid => {
         let file_path = tail.join("");

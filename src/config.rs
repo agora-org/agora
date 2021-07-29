@@ -1,17 +1,25 @@
-use serde::Deserialize;
+use crate::error::{self, Error, Result};
+use serde::{Deserialize, Serialize};
+use snafu::ResultExt;
 use std::{fs, io, path::Path};
 
-#[derive(PartialEq, Debug, Deserialize)]
+#[derive(PartialEq, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Config {
   pub(crate) paid: bool,
 }
 
 impl Config {
-  pub(crate) fn for_dir(path: &Path) -> Self {
-    match fs::read_to_string(path.join(".agora.yaml")) {
-      Ok(yaml) => serde_yaml::from_str(&yaml).expect("fixme"),
-      Err(error) if error.kind() == io::ErrorKind::NotFound => Self { paid: true },
-      _ => todo!(),
+  pub(crate) fn for_dir(path: &Path) -> Result<Self> {
+    path.read_dir().context(error::FilesystemIo { path })?;
+    let file_path = path.join(".agora.yaml");
+    match fs::read_to_string(&file_path) {
+      Ok(yaml) => serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path }),
+      Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self { paid: true }),
+      Err(source) => Err(Error::FilesystemIo {
+        path: file_path,
+        source,
+      }),
     }
   }
 }
@@ -24,7 +32,7 @@ mod tests {
   #[test]
   fn loads_the_default_config_when_no_files_given() {
     let temp_dir = TempDir::new().unwrap();
-    let config = Config::for_dir(&temp_dir.path());
+    let config = Config::for_dir(&temp_dir.path()).unwrap();
     assert_eq!(config, Config { paid: true });
   }
 
@@ -32,10 +40,62 @@ mod tests {
   fn loads_config_from_files() {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "paid: false").unwrap();
-    let config = Config::for_dir(&temp_dir.path());
+    let config = Config::for_dir(&temp_dir.path()).unwrap();
     assert_eq!(config, Config { paid: false });
   }
 
-  // fixme: what if the directory doesn't exist?
-  // fixme: io error when reading config file
+  #[test]
+  fn directory_does_not_exist() {
+    let temp_dir = TempDir::new().unwrap();
+    let result = Config::for_dir(&temp_dir.path().join("does-not-exist"));
+    assert_matches!(
+      result,
+      Err(Error::FilesystemIo { path, source })
+        if path == temp_dir.path().join("does-not-exist") && source.kind() == io::ErrorKind::NotFound
+    );
+  }
+
+  #[test]
+  fn io_error_when_reading_config_file() {
+    let temp_dir = TempDir::new().unwrap();
+    fs::create_dir(temp_dir.path().join(".agora.yaml")).unwrap();
+    let result = Config::for_dir(&temp_dir.path());
+    assert_matches!(
+      result,
+      Err(Error::FilesystemIo { path, .. })
+        if path == temp_dir.path().join(".agora.yaml")
+    );
+  }
+
+  #[test]
+  fn invalid_config() {
+    let temp_dir = TempDir::new().unwrap();
+    fs::write(temp_dir.path().join(".agora.yaml"), "{{{").unwrap();
+    let result = Config::for_dir(&temp_dir.path());
+    assert_matches!(
+      result,
+      Err(Error::ConfigDeserialize { path, .. })
+        if path == temp_dir.path().join(".agora.yaml")
+    );
+  }
+
+  #[test]
+  fn unknown_fields() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut config = serde_yaml::to_value(Config { paid: false }).unwrap();
+    config["unknown_field"] = serde_yaml::Value::Null;
+    fs::write(
+      temp_dir.path().join(".agora.yaml"),
+      serde_yaml::to_string(&config).unwrap(),
+    )
+    .unwrap();
+    let result = Config::for_dir(&temp_dir.path());
+    assert_matches!(
+      result,
+      Err(Error::ConfigDeserialize { path, .. })
+        if path == temp_dir.path().join(".agora.yaml")
+    );
+  }
+
+  // fixme: default values
 }
