@@ -1,3 +1,5 @@
+set positional-arguments
+
 all: build test smoke clippy fmt-check forbid check-install check-lockfile
 
 build:
@@ -5,11 +7,12 @@ build:
   cargo lcheck --tests
   cargo lcheck --tests --all-features
 
-test pattern='':
-  cargo ltest --all --all-features {{pattern}}
+test *args="--all":
+  cargo ltest "$@"
+  cargo ltest --all-features "$@"
 
-smoke +args="":
-  cargo ltest --test smoke {{args}}
+smoke *args:
+  cargo ltest --test smoke "$@"
 
 clippy:
   cargo lclippy --all-targets --all-features
