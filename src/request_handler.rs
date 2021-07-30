@@ -789,7 +789,10 @@ pub(crate) mod tests {
 
     assert_contains(
       &stderr,
-      "Paid file request requires LND client configuration: `www/foo`",
+      &format!(
+        "Paid file request requires LND client configuration: `www{}foo`",
+        MAIN_SEPARATOR
+      ),
     );
   }
 }
