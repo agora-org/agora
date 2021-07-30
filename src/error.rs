@@ -90,7 +90,7 @@ impl Error {
       | LndNotConfiguredPaidFileRequest { .. }
       | LndRpcCertificateParse { .. }
       | LndRpcConnect { .. }
-      | LndRpcStatus { .. } 
+      | LndRpcStatus { .. }
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
       | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
