@@ -19,6 +19,11 @@ pub(crate) enum Error {
     display("Failed to parse command line arguments: {}", source)
   )]
   Clap { source: clap::Error },
+  #[snafu(display("Failed to deserialize config file at `{}`: {}", path.display(), source))]
+  ConfigDeserialize {
+    source: serde_yaml::Error,
+    path: PathBuf,
+  },
   #[snafu(display("Failed to retrieve current directory: {}", source))]
   CurrentDir { source: io::Error },
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
@@ -37,26 +42,28 @@ pub(crate) enum Error {
   InvoiceId { source: hex::FromHexError },
   #[snafu(display("Invoice not found: {}", hex::encode(r_hash)))]
   InvoiceNotFound { r_hash: [u8; 32] },
-  #[snafu(display("Request handler panicked: {}", source))]
-  RequestHandlerPanic { source: JoinError },
-  #[snafu(display("URI path did not match any route: {}", uri_path))]
-  RouteNotFound { uri_path: String },
-  #[snafu(display("Failed running HTTP server: {}", source))]
-  ServerRun { source: hyper::Error },
-  #[snafu(display("Forbidden access to symlink: {}", path.display()))]
-  SymlinkAccess { path: PathBuf },
-  #[snafu(display("Static asset not found: {}", uri_path))]
-  StaticAssetNotFound { uri_path: String },
-  #[snafu(display("IO error writing to stderr: {}", source))]
-  StderrWrite { source: io::Error },
-  #[snafu(display("Request requires LND client: {}", uri_path))]
-  LndNotConfigured { uri_path: String },
+  #[snafu(display("Invoice request requires LND client configuration: {}", uri_path))]
+  LndNotConfiguredInvoiceRequest { uri_path: String },
+  #[snafu(display("Paid file request requires LND client configuration: `{}`", path.display()))]
+  LndNotConfiguredPaidFileRequest { path: PathBuf },
   #[snafu(display("OpenSSL error parsing LND RPC certificate: {}", source))]
   LndRpcCertificateParse { source: openssl::error::ErrorStack },
   #[snafu(display("OpenSSL error connecting to LND RPC server: {}", source))]
   LndRpcConnect { source: openssl::error::ErrorStack },
   #[snafu(display("LND RPC call failed: {}", source))]
   LndRpcStatus { source: tonic::Status },
+  #[snafu(display("Request handler panicked: {}", source))]
+  RequestHandlerPanic { source: JoinError },
+  #[snafu(display("URI path did not match any route: {}", uri_path))]
+  RouteNotFound { uri_path: String },
+  #[snafu(display("Failed running HTTP server: {}", source))]
+  ServerRun { source: hyper::Error },
+  #[snafu(display("Static asset not found: {}", uri_path))]
+  StaticAssetNotFound { uri_path: String },
+  #[snafu(display("IO error writing to stderr: {}", source))]
+  StderrWrite { source: io::Error },
+  #[snafu(display("Forbidden access to symlink: {}", path.display()))]
+  SymlinkAccess { path: PathBuf },
 }
 
 impl Error {
@@ -69,22 +76,24 @@ impl Error {
       InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
       HiddenFileAccess { .. }
       | InvoiceNotFound { .. }
-      | LndNotConfigured { .. }
+      | LndNotConfiguredInvoiceRequest { .. }
       | RouteNotFound { .. }
-      | SymlinkAccess { .. }
-      | StaticAssetNotFound { .. } => StatusCode::NOT_FOUND,
+      | StaticAssetNotFound { .. }
+      | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }
+      | ConfigDeserialize { .. }
       | CurrentDir { .. }
       | FilesystemIo { .. }
       | Internal { .. }
+      | LndNotConfiguredPaidFileRequest { .. }
+      | LndRpcCertificateParse { .. }
+      | LndRpcConnect { .. }
+      | LndRpcStatus { .. }
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
-      | StderrWrite { .. }
-      | LndRpcConnect { .. }
-      | LndRpcCertificateParse { .. }
-      | LndRpcStatus { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
 

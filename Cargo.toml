@@ -24,6 +24,7 @@ openssl = "0.10.35"
 percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 rust-embed = "5.9.0"
+serde_yaml = "0.8.17"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
@@ -35,6 +36,10 @@ optional = true
 [dependencies.hyper]
 version = "0.14.7"
 features = ["server", "stream", "tcp", "http1", "http2"]
+
+[dependencies.serde]
+version = "1.0.126"
+features = ["derive"]
 
 [dependencies.tokio]
 version = "1.5.0"
