@@ -36,6 +36,9 @@ check-lockfile:
 watch +command='test':
   cargo watch --exec '{{command}}'
 
+push: all
+  git push
+
 publish remote: all
   #!/usr/bin/env bash
   set -euxo pipefail
