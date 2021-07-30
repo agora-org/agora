@@ -774,6 +774,24 @@ pub(crate) mod tests {
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
   }
+
+  #[test]
+  fn requesting_paid_file_with_no_lnd_returns_internal_error() {
+    let stderr = test(|context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+      let status = reqwest::get(context.files_url().join("foo").unwrap())
+        .await
+        .unwrap()
+        .status();
+      assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    });
+
+    assert_contains(
+      &stderr,
+      "Paid file request requires LND client configuration: `www/foo`",
+    );
+  }
 }
 
 #[cfg(all(test, feature = "slow-tests"))]

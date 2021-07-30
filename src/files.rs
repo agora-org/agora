@@ -178,21 +178,29 @@ impl Files {
         .parent()
         .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
     )?;
-    match &mut self.lnd_client {
-      Some(lnd_client) if config.paid => {
-        let file_path = tail.join("");
-        let invoice = lnd_client
-          .add_invoice(&file_path, 1000)
-          .await
-          .context(error::LndRpcStatus)?;
-        redirect(format!(
-          "/invoice/{}/{}",
-          hex::encode(invoice.r_hash),
-          file_path,
-        ))
-      }
-      Some(_) | None => Self::serve_file(path).await,
+
+    if !config.paid {
+      return Self::serve_file(path).await;
     }
+
+    let lnd_client =
+      self
+        .lnd_client
+        .as_mut()
+        .ok_or_else(|| Error::LndNotConfiguredPaidFileRequest {
+          path: path.display_path().to_owned(),
+        })?;
+
+    let file_path = tail.join("");
+    let invoice = lnd_client
+      .add_invoice(&file_path, 1000)
+      .await
+      .context(error::LndRpcStatus)?;
+    redirect(format!(
+      "/invoice/{}/{}",
+      hex::encode(invoice.r_hash),
+      file_path,
+    ))
   }
 
   async fn serve_file(path: &InputPath) -> Result<Response<Body>> {
@@ -210,12 +218,13 @@ impl Files {
     request: &Request<Body>,
     r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
-    let lnd_client = self
-      .lnd_client
-      .as_mut()
-      .ok_or_else(|| Error::LndNotConfigured {
-        uri_path: request.uri().path().to_owned(),
-      })?;
+    let lnd_client =
+      self
+        .lnd_client
+        .as_mut()
+        .ok_or_else(|| Error::LndNotConfiguredInvoiceRequest {
+          uri_path: request.uri().path().to_owned(),
+        })?;
     let invoice = lnd_client
       .lookup_invoice(r_hash)
       .await

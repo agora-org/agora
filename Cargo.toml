@@ -24,10 +24,10 @@ openssl = "0.10.35"
 percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 rust-embed = "5.9.0"
+serde_yaml = "0.8.17"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
-serde_yaml = "0.8.17"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"

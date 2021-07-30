@@ -42,8 +42,10 @@ pub(crate) enum Error {
   InvoiceId { source: hex::FromHexError },
   #[snafu(display("Invoice not found: {}", hex::encode(r_hash)))]
   InvoiceNotFound { r_hash: [u8; 32] },
-  #[snafu(display("Request requires LND client: {}", uri_path))]
-  LndNotConfigured { uri_path: String },
+  #[snafu(display("Invoice request requires LND client configuration: {}", uri_path))]
+  LndNotConfiguredInvoiceRequest { uri_path: String },
+  #[snafu(display("Paid file request requires LND client configuration: `{}`", path.display()))]
+  LndNotConfiguredPaidFileRequest { path: PathBuf },
   #[snafu(display("OpenSSL error parsing LND RPC certificate: {}", source))]
   LndRpcCertificateParse { source: openssl::error::ErrorStack },
   #[snafu(display("OpenSSL error connecting to LND RPC server: {}", source))]
@@ -74,7 +76,7 @@ impl Error {
       InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
       HiddenFileAccess { .. }
       | InvoiceNotFound { .. }
-      | LndNotConfigured { .. }
+      | LndNotConfiguredInvoiceRequest { .. }
       | RouteNotFound { .. }
       | StaticAssetNotFound { .. }
       | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
@@ -85,12 +87,13 @@ impl Error {
       | CurrentDir { .. }
       | FilesystemIo { .. }
       | Internal { .. }
+      | LndNotConfiguredPaidFileRequest { .. }
+      | LndRpcCertificateParse { .. }
+      | LndRpcConnect { .. }
+      | LndRpcStatus { .. } 
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
-      | StderrWrite { .. }
-      | LndRpcConnect { .. }
-      | LndRpcCertificateParse { .. }
-      | LndRpcStatus { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }
 
