@@ -28,6 +28,7 @@ serde_yaml = "0.8.17"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
+lexiclean = "0.0.1"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
