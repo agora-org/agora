@@ -17,6 +17,7 @@ bytes = "1.0.1"
 futures = "0.3.14"
 hex = "0.4.3"
 http = "0.2.4"
+lexiclean = "0.0.1"
 lnd-client = { path = "lnd-client" }
 maud = "0.22.2"
 mime_guess = "2.0.3"
@@ -28,7 +29,6 @@ serde_yaml = "0.8.17"
 snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
-lexiclean = "0.0.1"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
