@@ -46,7 +46,12 @@ impl Files {
     {
       let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
 
-      let destination = path.as_ref().parent().expect("TODO").join(link).lexiclean();
+      let destination = path
+        .as_ref()
+        .parent()
+        .expect("Input paths are always absolute, and thus have parents or are `/`, and `/` cannot be a symlink.")
+        .join(link)
+        .lexiclean();
 
       if !destination.starts_with(&self.base_directory) {
         return Err(Error::SymlinkAccess {
