@@ -802,11 +802,12 @@ pub(crate) mod tests {
   #[test]
   fn remove_escaping_symlinks_from_listings() {
     test(|context| async move {
-      let file = context.files_directory().join("../file");
-      fs::write(&file, "").unwrap();
-      symlink("../file", context.files_directory().join("link"));
+      fs::write(&context.files_directory().join("../escaping"), "").unwrap();
+      fs::write(&context.files_directory().join("local"), "").unwrap();
+      symlink("../escaping", context.files_directory().join("link"));
       let html = html(context.files_url()).await;
-      guard_unwrap!(let &[] = css_select(&html, "a:not([download])").as_slice());
+      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "local");
     });
   }
 
