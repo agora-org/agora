@@ -78,6 +78,7 @@ impl RequestHandler {
     match components.as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
+      ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       ["/", "invoice/", r_hash_hex, ..] => {
         let mut r_hash = [0; 32];
@@ -152,6 +153,33 @@ pub(crate) mod tests {
     test(|context| async move {
       let client = Client::builder().redirect(Policy::none()).build().unwrap();
       let request = client.get(context.base_url().clone()).build().unwrap();
+      let response = client.execute(request).await.unwrap();
+      assert_eq!(response.status(), StatusCode::FOUND);
+      assert_eq!(
+        &context
+          .base_url()
+          .join(
+            response
+              .headers()
+              .get(header::LOCATION)
+              .unwrap()
+              .to_str()
+              .unwrap()
+          )
+          .unwrap(),
+        context.files_url()
+      );
+    });
+  }
+
+  #[test]
+  fn files_route_without_trailing_slash_redirects_to_files() {
+    test(|context| async move {
+      let client = Client::builder().redirect(Policy::none()).build().unwrap();
+      let request = client
+        .get(context.base_url().join("files").unwrap())
+        .build()
+        .unwrap();
       let response = client.execute(request).await.unwrap();
       assert_eq!(response.status(), StatusCode::FOUND);
       assert_eq!(
