@@ -116,7 +116,7 @@ pub(crate) mod tests {
   use crate::{
     error::Error,
     server::Server,
-    test_utils::{assert_contains, assert_not_contains, test, test_with_environment},
+    test_utils::{assert_contains, assert_not_contains, test, test_with_environment, TestContext},
   };
   use guard::guard_unwrap;
   use hyper::StatusCode;
@@ -148,54 +148,37 @@ pub(crate) mod tests {
     html.select(&selector).collect::<Vec<_>>()
   }
 
+  async fn redirect_url(context: &TestContext, url: &Url) -> Url {
+    let client = Client::builder().redirect(Policy::none()).build().unwrap();
+    let request = client.get(url.clone()).build().unwrap();
+    let response = client.execute(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::FOUND);
+    context
+      .base_url()
+      .join(
+        response
+          .headers()
+          .get(header::LOCATION)
+          .unwrap()
+          .to_str()
+          .unwrap(),
+      )
+      .unwrap()
+  }
+
   #[test]
   fn index_route_redirects_to_files() {
     test(|context| async move {
-      let client = Client::builder().redirect(Policy::none()).build().unwrap();
-      let request = client.get(context.base_url().clone()).build().unwrap();
-      let response = client.execute(request).await.unwrap();
-      assert_eq!(response.status(), StatusCode::FOUND);
-      assert_eq!(
-        &context
-          .base_url()
-          .join(
-            response
-              .headers()
-              .get(header::LOCATION)
-              .unwrap()
-              .to_str()
-              .unwrap()
-          )
-          .unwrap(),
-        context.files_url()
-      );
+      let redirect_url = redirect_url(&context, context.base_url()).await;
+      assert_eq!(&redirect_url, context.files_url());
     });
   }
 
   #[test]
   fn files_route_without_trailing_slash_redirects_to_files() {
     test(|context| async move {
-      let client = Client::builder().redirect(Policy::none()).build().unwrap();
-      let request = client
-        .get(context.base_url().join("files").unwrap())
-        .build()
-        .unwrap();
-      let response = client.execute(request).await.unwrap();
-      assert_eq!(response.status(), StatusCode::FOUND);
-      assert_eq!(
-        &context
-          .base_url()
-          .join(
-            response
-              .headers()
-              .get(header::LOCATION)
-              .unwrap()
-              .to_str()
-              .unwrap()
-          )
-          .unwrap(),
-        context.files_url()
-      );
+      let redirect_url = redirect_url(&context, &context.base_url().join("files").unwrap()).await;
+      assert_eq!(&redirect_url, context.files_url());
     });
   }
 
@@ -548,29 +531,8 @@ pub(crate) mod tests {
   fn no_trailing_slash_redirects_to_trailing_slash() {
     test(|context| async move {
       fs::create_dir(context.files_directory().join("foo")).unwrap();
-      let client = Client::builder().redirect(Policy::none()).build().unwrap();
-      let request = client
-        .get(context.files_url().join("foo").unwrap())
-        .build()
-        .unwrap();
-      let response = client.execute(request).await.unwrap();
-      assert_eq!(response.status(), StatusCode::FOUND);
-      assert_eq!(
-        context
-          .files_url()
-          .join("foo")
-          .unwrap()
-          .join(
-            response
-              .headers()
-              .get(header::LOCATION)
-              .unwrap()
-              .to_str()
-              .unwrap()
-          )
-          .unwrap(),
-        context.files_url().join("foo/").unwrap()
-      );
+      let redirect_url = redirect_url(&context, &context.files_url().join("foo").unwrap()).await;
+      assert_eq!(redirect_url, context.files_url().join("foo/").unwrap());
     });
   }
 
