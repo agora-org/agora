@@ -5,8 +5,10 @@ use reqwest::Url;
 use std::{
   ffi::OsString,
   future::Future,
+  panic,
   path::{Path, PathBuf},
 };
+use tokio::task;
 
 macro_rules! assert_matches {
   ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {
@@ -102,9 +104,9 @@ where
       let port = server.port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      let test_result = tokio::task::LocalSet::new()
+      let test_result = task::LocalSet::new()
         .run_until(async move {
-          tokio::task::spawn_local(f(TestContext {
+          task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
             files_directory,
@@ -115,7 +117,7 @@ where
       if let Err(test_join_error) = test_result {
         eprintln!("stderr from server: {}", environment.stderr.contents());
         if test_join_error.is_panic() {
-          std::panic::resume_unwind(test_join_error.into_panic());
+          panic::resume_unwind(test_join_error.into_panic());
         } else {
           panic!("test shouldn't be cancelled: {}", test_join_error);
         }
@@ -124,7 +126,7 @@ where
       match server_join_handle.await {
         Err(server_join_error) if server_join_error.is_cancelled() => {}
         Err(server_join_error) => {
-          std::panic::resume_unwind(server_join_error.into_panic());
+          panic::resume_unwind(server_join_error.into_panic());
         }
         Ok(()) => panic!("server terminated"),
       }
