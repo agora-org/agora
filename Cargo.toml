@@ -25,9 +25,11 @@ percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 rust-embed = "5.9.0"
 serde_yaml = "0.8.17"
-snafu = "0.6.10"
 structopt = "0.3.21"
 tonic = "0.4.3"
+backtrace = "0.3.61"
+color-backtrace = "0.5.1"
+termcolor = "1.1.2"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
@@ -40,6 +42,10 @@ features = ["server", "stream", "tcp", "http1", "http2"]
 [dependencies.serde]
 version = "1.0.126"
 features = ["derive"]
+
+[dependencies.snafu]
+version = "0.6.10"
+features = ["backtraces-impl-backtrace-crate"]
 
 [dependencies.tokio]
 version = "1.5.0"
@@ -68,9 +74,6 @@ features = ["blocking", "stream"]
 name = "smoke"
 path = "tests/smoke.rs"
 test = false
-
-[profile.dev]
-debug = false
 
 [features]
 slow-tests = ["lnd-test-context"]

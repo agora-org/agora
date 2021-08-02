@@ -1,8 +1,10 @@
 use crate::input_path::InputPath;
+use color_backtrace::BacktracePrinter;
 use hyper::StatusCode;
-use snafu::Snafu;
+use snafu::{Backtrace, ErrorCompat, Snafu};
 use std::{fmt::Debug, io, path::PathBuf};
 use structopt::clap;
+use termcolor::WriteColor;
 use tokio::task::JoinError;
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
@@ -29,7 +31,7 @@ pub(crate) enum Error {
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo { source: io::Error, path: PathBuf },
   #[snafu(display("Forbidden access to hidden file: {}", path.display()))]
-  HiddenFileAccess { path: PathBuf },
+  HiddenFileAccess { path: PathBuf, backtrace: Backtrace },
   #[snafu(display(
     "Internal error, this is probably a bug in agora: {}\n\
       Consider filing an issue: https://github.com/soenkehahn/agora/issues/new/",
@@ -106,6 +108,22 @@ impl Error {
   pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<PathBuf> {
     FilesystemIo {
       path: file_path.display_path().to_owned(),
+    }
+  }
+
+  pub(crate) fn print_backtrace(&self, write_color: &mut impl WriteColor) {
+    if let Some(backtrace) = ErrorCompat::backtrace(self) {
+      BacktracePrinter::new()
+        .add_frame_filter(Box::new(|frames| {
+          frames.retain(
+            |frame| match frame.filename.as_ref().and_then(|x| x.to_str()) {
+              Some(file) => !(file.starts_with("/rustc/") || file.contains("/.cargo/registry/")),
+              None => false,
+            },
+          );
+        }))
+        .print_trace(backtrace, write_color)
+        .ok();
     }
   }
 }

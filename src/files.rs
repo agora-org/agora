@@ -5,6 +5,7 @@ use crate::{
   input_path::InputPath,
   redirect::redirect,
 };
+use backtrace::Backtrace;
 use hyper::{header, Body, Request, Response, StatusCode};
 use lnd_client::lnrpc::invoice::InvoiceState;
 use maud::{html, Markup, DOCTYPE};
@@ -49,6 +50,7 @@ impl Files {
     {
       Err(Error::HiddenFileAccess {
         path: path.as_ref().to_owned(),
+        backtrace: Backtrace::new(),
       })
     } else {
       Ok(())
