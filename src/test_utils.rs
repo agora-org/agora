@@ -55,7 +55,7 @@ where
 pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
 where
   Function: FnOnce(TestContext) -> Fut,
-  Fut: Future<Output = ()>,
+  Fut: Future<Output = ()> + 'static,
 {
   test_with_arguments(
     &[
