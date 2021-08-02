@@ -44,7 +44,7 @@ pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   test_with_arguments(&[], f)
 }
@@ -55,7 +55,7 @@ where
   Function: FnOnce(TestContext) -> Fut,
   Fut: Future<Output = ()>,
 {
-  let stderr = test_with_arguments(
+  test_with_arguments(
     &[
       "--lnd-rpc-authority",
       &lnd_test_context.lnd_rpc_authority(),
@@ -65,14 +65,13 @@ where
       lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
     ],
     f,
-  );
-  stderr
+  )
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   let mut environment = Environment::test(&[]);
   environment
@@ -91,7 +90,7 @@ pub(crate) fn test_with_environment<Function, F>(
 ) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   tokio::runtime::Builder::new_current_thread()
     .enable_all()
@@ -103,14 +102,24 @@ where
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      f(TestContext {
-        base_url: url.clone(),
-        files_url: url.join("files/").unwrap(),
-        files_directory,
-      })
-      .await;
-      join_handle.abort();
-      environment.stderr.contents()
+      tokio::task::LocalSet::new()
+        .run_until(async move {
+          let result = tokio::task::spawn_local(f(TestContext {
+            base_url: url.clone(),
+            files_url: url.join("files/").unwrap(),
+            files_directory,
+          }))
+          .await;
+          if let Err(join_error) = result {
+            eprintln!("stderr from server: {}", environment.stderr.contents());
+            if join_error.is_panic() {
+              std::panic::resume_unwind(join_error.into_panic());
+            }
+          }
+          join_handle.abort();
+          environment.stderr.contents()
+        })
+        .await
     })
 }
 
