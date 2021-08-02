@@ -102,24 +102,24 @@ where
       let port = server.port();
       let join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      tokio::task::LocalSet::new()
+      let result = tokio::task::LocalSet::new()
         .run_until(async move {
-          let result = tokio::task::spawn_local(f(TestContext {
+          tokio::task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
             files_directory,
           }))
-          .await;
-          if let Err(join_error) = result {
-            eprintln!("stderr from server: {}", environment.stderr.contents());
-            if join_error.is_panic() {
-              std::panic::resume_unwind(join_error.into_panic());
-            }
-          }
-          join_handle.abort();
-          environment.stderr.contents()
+          .await
         })
-        .await
+        .await;
+      if let Err(join_error) = result {
+        eprintln!("stderr from server: {}", environment.stderr.contents());
+        if join_error.is_panic() {
+          std::panic::resume_unwind(join_error.into_panic());
+        }
+      }
+      join_handle.abort();
+      environment.stderr.contents()
     })
 }
 
