@@ -1,33 +1,33 @@
-use std::{
-  io::{self, Write},
-  sync::{Arc, Mutex},
-};
+use std::io::{self, Write};
 use termcolor::{ColorSpec, WriteColor};
+
+#[cfg(test)]
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub(crate) enum Stderr {
-  Production(Arc<Mutex<termcolor::StandardStream>>),
+  Production,
   #[cfg(test)]
   Test(Arc<Mutex<termcolor::Buffer>>),
 }
 
 impl Stderr {
   pub fn production() -> Stderr {
-    Stderr::Production(Arc::new(Mutex::new(termcolor::StandardStream::stderr(
-      termcolor::ColorChoice::Auto,
-    ))))
+    Stderr::Production
   }
 
   #[cfg(test)]
   pub fn test() -> Stderr {
-    // fixme: use something else on windows
-    Stderr::Test(Arc::new(Mutex::new(termcolor::Buffer::ansi())))
+    #[cfg(windows)]
+    return Stderr::Test(Arc::new(Mutex::new(termcolor::Buffer::console())));
+    #[cfg(not(windows))]
+    return Stderr::Test(Arc::new(Mutex::new(termcolor::Buffer::ansi())));
   }
 
   #[cfg(test)]
   pub fn contents(&self) -> String {
     match self {
-      Stderr::Production(_) => panic!("can't get contents of production stderr"),
+      Stderr::Production => panic!("can't get contents of production stderr"),
       Stderr::Test(arc) => String::from_utf8(arc.lock().unwrap().as_slice().to_vec()).unwrap(),
     }
   }
@@ -36,13 +36,7 @@ impl Stderr {
 impl Write for Stderr {
   fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
     match self {
-      Stderr::Production(arc) => {
-        if let Ok(mut guard) = arc.lock() {
-          return guard.write(buf);
-        } else {
-          std::io::stderr().write(buf)
-        }
-      }
+      Stderr::Production => std::io::stderr().write(buf),
       #[cfg(test)]
       Stderr::Test(arc) => arc.lock().unwrap().write(buf),
     }
@@ -50,12 +44,7 @@ impl Write for Stderr {
 
   fn flush(&mut self) -> io::Result<()> {
     match self {
-      Stderr::Production(arc) => {
-        if let Ok(mut guard) = arc.lock() {
-          guard.flush()?;
-        }
-        Ok(())
-      }
+      Stderr::Production => std::io::stderr().flush(),
       #[cfg(test)]
       Stderr::Test(arc) => arc.lock().unwrap().flush(),
     }
@@ -65,10 +54,9 @@ impl Write for Stderr {
 impl WriteColor for Stderr {
   fn supports_color(&self) -> bool {
     match self {
-      Stderr::Production(stream) => match stream.lock() {
-        Ok(guard) => guard.supports_color(),
-        Err(_) => termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).supports_color(),
-      },
+      Stderr::Production => {
+        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).supports_color()
+      }
       #[cfg(test)]
       Stderr::Test(cursor) => {
         let guard = cursor.lock().unwrap();
@@ -79,12 +67,8 @@ impl WriteColor for Stderr {
 
   fn set_color(&mut self, spec: &ColorSpec) -> io::Result<()> {
     match self {
-      Stderr::Production(stream) => {
-        if let Ok(mut guard) = stream.lock() {
-          guard.set_color(spec)
-        } else {
-          termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).set_color(spec)
-        }
+      Stderr::Production => {
+        termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).set_color(spec)
       }
       #[cfg(test)]
       Stderr::Test(cursor) => {
@@ -96,10 +80,7 @@ impl WriteColor for Stderr {
 
   fn reset(&mut self) -> io::Result<()> {
     match self {
-      Stderr::Production(stream) => match stream.lock() {
-        Ok(mut guard) => guard.reset(),
-        Err(_) => termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).reset(),
-      },
+      Stderr::Production => termcolor::StandardStream::stderr(termcolor::ColorChoice::Auto).reset(),
       #[cfg(test)]
       Stderr::Test(cursor) => {
         let mut guard = cursor.lock().unwrap();
