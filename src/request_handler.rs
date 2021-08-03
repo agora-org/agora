@@ -16,13 +16,12 @@ use hyper::{
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
-  fmt::Debug,
   io::Write,
   path::Path,
   task::{self, Poll},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) struct RequestHandler {
   pub(crate) stderr: Stderr,
   pub(crate) files: Files,
@@ -46,7 +45,8 @@ impl RequestHandler {
     match self.response_result(request).await {
       Ok(response) => response,
       Err(error) => {
-        writeln!(stderr, "{}", error).unwrap();
+        error.print_backtrace(&mut stderr);
+        writeln!(stderr, "{}", error).ok();
         Response::builder()
           .status(error.status())
           .body(Body::empty())
@@ -228,7 +228,7 @@ pub(crate) mod tests {
       .block_on(
         async {
           #![allow(clippy::unused_unit)]
-          let error = Server::setup(&mut environment).await.unwrap_err();
+          let error = Server::setup(&mut environment).await.err().unwrap();
           guard_unwrap!(let Error::FilesystemIo { .. } = error);
         },
       );
@@ -784,6 +784,20 @@ pub(crate) mod tests {
         MAIN_SEPARATOR
       ),
     );
+  }
+
+  #[test]
+  fn errors_contain_backtraces() {
+    let stderr = test(|context| async move {
+      fs::write(context.files_directory().join(".hidden"), "").unwrap();
+      let status = reqwest::get(context.files_url().join(".hidden").unwrap())
+        .await
+        .unwrap()
+        .status();
+      assert_eq!(status, StatusCode::NOT_FOUND);
+    });
+
+    assert_contains(&stderr, "agora::files::Files::check_path");
   }
 }
 
