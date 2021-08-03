@@ -2,7 +2,11 @@ use crate::input_path::InputPath;
 use color_backtrace::BacktracePrinter;
 use hyper::StatusCode;
 use snafu::{Backtrace, ErrorCompat, Snafu};
-use std::{fmt::Debug, io, path::PathBuf};
+use std::{
+  fmt::Debug,
+  io,
+  path::{PathBuf, MAIN_SEPARATOR},
+};
 use structopt::clap;
 use termcolor::WriteColor;
 use tokio::task::JoinError;
@@ -117,7 +121,13 @@ impl Error {
         .add_frame_filter(Box::new(|frames| {
           frames.retain(
             |frame| match frame.filename.as_ref().and_then(|x| x.to_str()) {
-              Some(file) => !(file.starts_with("/rustc/") || file.contains("/.cargo/registry/")),
+              Some(file) => {
+                !(file.starts_with("/rustc/")
+                  || file.contains(&format!(
+                    "{}.cargo{}registry{}",
+                    MAIN_SEPARATOR, MAIN_SEPARATOR, MAIN_SEPARATOR
+                  )))
+              }
               None => false,
             },
           );
