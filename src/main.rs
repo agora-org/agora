@@ -23,7 +23,7 @@ async fn main() {
   // #[cfg(windows)]
   // ansi_term::enable_ansi_support().ok();
   if let Err(error) = run().await {
-    if let crate::error::Error::Clap { source } = error {
+    if let crate::error::Error::Clap { source, .. } = error {
       source.exit();
     } else {
       error.print_backtrace(&mut termcolor::StandardStream::stderr(

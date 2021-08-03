@@ -2,6 +2,7 @@ use crate::{
   environment::Environment,
   error::{Error, Result},
 };
+use backtrace::Backtrace;
 use mime_guess::MimeGuess;
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
@@ -40,6 +41,7 @@ impl InputPath {
       .transpose()?
       .ok_or_else(|| Error::InvalidFilePath {
         uri_path: uri_path.to_owned(),
+        backtrace: Backtrace::new(),
       })
   }
 

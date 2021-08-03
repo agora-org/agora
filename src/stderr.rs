@@ -18,9 +18,9 @@ impl Stderr {
 
   #[cfg(test)]
   pub fn test() -> Stderr {
-    return Stderr::Test(Arc::new(Mutex::new(
+    Stderr::Test(Arc::new(Mutex::new(
       termcolor::BufferWriter::stderr(termcolor::ColorChoice::Auto).buffer(),
-    )));
+    )))
   }
 
   #[cfg(test)]

@@ -797,7 +797,7 @@ pub(crate) mod tests {
       assert_eq!(status, StatusCode::NOT_FOUND);
     });
 
-    assert_contains(&stderr, &format!("agora::files::Files::check_path",));
+    assert_contains(&stderr, "agora::files::Files::check_path");
   }
 }
 
