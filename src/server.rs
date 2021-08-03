@@ -4,6 +4,7 @@ use crate::{
   error::{self, Error, Result},
   request_handler::RequestHandler,
 };
+use backtrace::Backtrace;
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use snafu::ResultExt;
@@ -48,6 +49,7 @@ impl Server {
       .next()
       .ok_or_else(|| Error::AddressResolutionNoAddresses {
         input: arguments.address.clone(),
+        backtrace: Backtrace::new(),
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(

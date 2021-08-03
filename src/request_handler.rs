@@ -900,6 +900,20 @@ pub(crate) mod tests {
       ),
     );
   }
+
+  #[test]
+  fn errors_contain_backtraces() {
+    let stderr = test(|context| async move {
+      fs::write(context.files_directory().join(".hidden"), "").unwrap();
+      let status = reqwest::get(context.files_url().join(".hidden").unwrap())
+        .await
+        .unwrap()
+        .status();
+      assert_eq!(status, StatusCode::NOT_FOUND);
+    });
+
+    assert_contains(&stderr, "agora::files::Files::check_path");
+  }
 }
 
 #[cfg(all(test, feature = "slow-tests"))]

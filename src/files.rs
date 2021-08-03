@@ -57,6 +57,7 @@ impl Files {
       if !destination.starts_with(&self.base_directory) {
         return Err(Error::SymlinkAccess {
           path: path.display_path().to_owned(),
+          backtrace: Backtrace::new(),
         });
       }
     }
@@ -210,6 +211,7 @@ impl Files {
         .as_mut()
         .ok_or_else(|| Error::LndNotConfiguredPaidFileRequest {
           path: path.display_path().to_owned(),
+          backtrace: Backtrace::new(),
         })?;
 
     let file_path = tail.join("");
@@ -245,12 +247,16 @@ impl Files {
         .as_mut()
         .ok_or_else(|| Error::LndNotConfiguredInvoiceRequest {
           uri_path: request.uri().path().to_owned(),
+          backtrace: Backtrace::new(),
         })?;
     let invoice = lnd_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
-      .ok_or(Error::InvoiceNotFound { r_hash })?;
+      .ok_or_else(|| Error::InvoiceNotFound {
+        r_hash,
+        backtrace: Backtrace::new(),
+      })?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();

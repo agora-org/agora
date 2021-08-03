@@ -1,4 +1,5 @@
 use crate::error::{self, Error, Result};
+use backtrace::Backtrace;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use std::{fs, io, path::Path};
@@ -20,6 +21,7 @@ impl Config {
       Err(source) => Err(Error::FilesystemIo {
         path: file_path,
         source,
+        backtrace: Backtrace::new(),
       }),
     }
   }
@@ -56,7 +58,7 @@ mod tests {
     let result = Config::for_dir(&temp_dir.path().join("does-not-exist"));
     assert_matches!(
       result,
-      Err(Error::FilesystemIo { path, source })
+      Err(Error::FilesystemIo { path, source, .. })
         if path == temp_dir.path().join("does-not-exist") && source.kind() == io::ErrorKind::NotFound
     );
   }
@@ -92,7 +94,7 @@ mod tests {
     let result = Config::for_dir(temp_dir.path());
     assert_matches!(
       result,
-      Err(Error::ConfigDeserialize { path, source })
+      Err(Error::ConfigDeserialize { path, source, .. })
         if path == temp_dir.path().join(".agora.yaml")
            && source.to_string().contains("unknown field `unknown_field`")
     );
