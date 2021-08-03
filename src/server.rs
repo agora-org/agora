@@ -1,16 +1,15 @@
 use crate::{
   arguments::Arguments,
   environment::Environment,
-  error::{self, Error, Result},
+  error::{self, Result},
   request_handler::RequestHandler,
 };
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use snafu::ResultExt;
-use std::{fmt::Debug, io::Write, net::ToSocketAddrs};
+use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
-#[derive(Debug)]
 pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   #[cfg(test)]
@@ -47,8 +46,11 @@ impl Server {
         input: &arguments.address,
       })?
       .next()
-      .ok_or_else(|| Error::AddressResolutionNoAddresses {
-        input: arguments.address.clone(),
+      .ok_or_else(|| {
+        error::AddressResolutionNoAddresses {
+          input: arguments.address.clone(),
+        }
+        .build()
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
@@ -127,6 +129,7 @@ impl Server {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::error::Error;
   use std::net::IpAddr;
 
   #[test]
@@ -165,7 +168,7 @@ mod tests {
       .build()
       .unwrap()
       .block_on(async {
-        let error = Server::setup(&mut environment).await.unwrap_err();
+        let error = Server::setup(&mut environment).await.err().unwrap();
         assert_matches!(error, Error::AddressResolutionIo { input, ..} if input == "host.invalid");
       });
   }

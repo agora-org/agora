@@ -54,9 +54,12 @@ impl Files {
         .lexiclean();
 
       if !destination.starts_with(&self.base_directory) {
-        return Err(Error::SymlinkAccess {
-          path: path.display_path().to_owned(),
-        });
+        return Err(
+          error::SymlinkAccess {
+            path: path.display_path().to_owned(),
+          }
+          .build(),
+        );
       }
     }
 
@@ -66,9 +69,12 @@ impl Files {
       .map(|file_name| file_name.to_string_lossy().starts_with('.'))
       .unwrap_or(false)
     {
-      return Err(Error::HiddenFileAccess {
-        path: path.as_ref().to_owned(),
-      });
+      return Err(
+        error::HiddenFileAccess {
+          path: path.as_ref().to_owned(),
+        }
+        .build(),
+      );
     }
 
     Ok(())
@@ -202,13 +208,12 @@ impl Files {
       return Self::serve_file(path).await;
     }
 
-    let lnd_client =
-      self
-        .lnd_client
-        .as_mut()
-        .ok_or_else(|| Error::LndNotConfiguredPaidFileRequest {
-          path: path.display_path().to_owned(),
-        })?;
+    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+      error::LndNotConfiguredPaidFileRequest {
+        path: path.display_path().to_owned(),
+      }
+      .build()
+    })?;
 
     let file_path = tail.join("");
     let invoice = lnd_client
@@ -237,18 +242,17 @@ impl Files {
     request: &Request<Body>,
     r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
-    let lnd_client =
-      self
-        .lnd_client
-        .as_mut()
-        .ok_or_else(|| Error::LndNotConfiguredInvoiceRequest {
-          uri_path: request.uri().path().to_owned(),
-        })?;
+    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+      error::LndNotConfiguredInvoiceRequest {
+        uri_path: request.uri().path().to_owned(),
+      }
+      .build()
+    })?;
     let invoice = lnd_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
-      .ok_or(Error::InvoiceNotFound { r_hash })?;
+      .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();

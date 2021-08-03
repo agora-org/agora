@@ -1,6 +1,6 @@
-use crate::error::{self, Error, Result};
+use crate::error::{self, Result};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 use std::{fs, io, path::Path};
 
 #[derive(PartialEq, Debug, Default, Deserialize, Serialize)]
@@ -17,10 +17,7 @@ impl Config {
     match fs::read_to_string(&file_path) {
       Ok(yaml) => serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path }),
       Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self::default()),
-      Err(source) => Err(Error::FilesystemIo {
-        path: file_path,
-        source,
-      }),
+      Err(source) => Err(error::FilesystemIo { path: file_path }.into_error(source)),
     }
   }
 }
@@ -28,6 +25,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::error::Error;
   use tempfile::TempDir;
 
   #[test]
@@ -56,7 +54,7 @@ mod tests {
     let result = Config::for_dir(&temp_dir.path().join("does-not-exist"));
     assert_matches!(
       result,
-      Err(Error::FilesystemIo { path, source })
+      Err(Error::FilesystemIo { path, source, .. })
         if path == temp_dir.path().join("does-not-exist") && source.kind() == io::ErrorKind::NotFound
     );
   }
@@ -92,7 +90,7 @@ mod tests {
     let result = Config::for_dir(temp_dir.path());
     assert_matches!(
       result,
-      Err(Error::ConfigDeserialize { path, source })
+      Err(Error::ConfigDeserialize { path, source, .. })
         if path == temp_dir.path().join(".agora.yaml")
            && source.to_string().contains("unknown field `unknown_field`")
     );

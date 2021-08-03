@@ -1,6 +1,6 @@
 use crate::{
   environment::Environment,
-  error::{Error, Result},
+  error::{self, Error, Result},
 };
 use mime_guess::MimeGuess;
 use percent_encoding::percent_decode_str;
@@ -38,8 +38,11 @@ impl InputPath {
     self
       .join_file_path_option(uri_path)
       .transpose()?
-      .ok_or_else(|| Error::InvalidFilePath {
-        uri_path: uri_path.to_owned(),
+      .ok_or_else(|| {
+        error::InvalidFilePath {
+          uri_path: uri_path.to_owned(),
+        }
+        .build()
       })
   }
 
