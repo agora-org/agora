@@ -120,6 +120,7 @@ pub(crate) mod tests {
   };
   use guard::guard_unwrap;
   use hyper::StatusCode;
+  use lexiclean::Lexiclean;
   use pretty_assertions::assert_eq;
   use reqwest::{redirect::Policy, Client, Url};
   use scraper::{ElementRef, Html, Selector};
@@ -621,9 +622,41 @@ pub(crate) mod tests {
   }
 
   #[test]
-  fn disallow_file_downloads_via_symlinks() {
+  fn allow_file_downloads_via_local_symlinks() {
     test(|context| async move {
-      let file = context.files_directory().join("file");
+      fs::write(&context.files_directory().join("file"), "contents").unwrap();
+      symlink("file", context.files_directory().join("link"));
+      let response = reqwest::get(context.files_url().join("link").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::OK);
+    });
+  }
+
+  #[test]
+  fn disallow_file_downloads_via_escaping_symlinks() {
+    let stderr = test(|context| async move {
+      fs::write(&context.files_directory().join("../file"), "contents").unwrap();
+      symlink("../file", context.files_directory().join("link"));
+      let response = reqwest::get(context.files_url().join("link").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    });
+    assert_contains(
+      &stderr,
+      &format!(
+        "Forbidden access to escaping symlink: `www{}link`",
+        MAIN_SEPARATOR
+      ),
+    );
+  }
+
+  #[test]
+  fn disallow_file_downloads_via_absolute_escaping_symlinks() {
+    let stderr = test(|context| async move {
+      let file = context.files_directory().join("../file").lexiclean();
+      assert!(file.is_absolute());
       fs::write(&file, "contents").unwrap();
       symlink(file, context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
@@ -631,58 +664,140 @@ pub(crate) mod tests {
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
+    assert_contains(
+      &stderr,
+      &format!(
+        "Forbidden access to escaping symlink: `www{}link`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
-  fn disallow_file_downloads_via_intermediate_symlinks() {
+  fn allow_file_downloads_via_local_intermediate_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       fs::create_dir(&dir).unwrap();
-      symlink(&dir, context.files_directory().join("link"));
+      symlink("dir", context.files_directory().join("link"));
+      fs::write(dir.join("file"), "contents").unwrap();
+      let response = reqwest::get(context.files_url().join("link/file").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::OK);
+    });
+  }
+
+  #[test]
+  fn disallow_file_downloads_via_escaping_intermediate_symlinks() {
+    let stderr = test(|context| async move {
+      let dir = context.files_directory().join("../dir");
+      fs::create_dir(&dir).unwrap();
+      symlink("../dir", context.files_directory().join("link"));
       fs::write(dir.join("file"), "contents").unwrap();
       let response = reqwest::get(context.files_url().join("link/file").unwrap())
         .await
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
+    assert_contains(
+      &stderr,
+      &format!(
+        "Forbidden access to escaping symlink: `www{}link`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
-  fn disallow_listing_directories_via_symlinks() {
+  fn allow_listing_directories_via_local_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       fs::create_dir(&dir).unwrap();
-      symlink(dir, context.files_directory().join("link"));
+      symlink("dir", context.files_directory().join("link"));
+      let response = reqwest::get(context.files_url().join("link").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::OK);
+    });
+  }
+
+  #[test]
+  fn disallow_listing_directories_via_escaping_symlinks() {
+    let stderr = test(|context| async move {
+      let dir = context.files_directory().join("../dir");
+      fs::create_dir(&dir).unwrap();
+      symlink("../dir", context.files_directory().join("link"));
       let response = reqwest::get(context.files_url().join("link").unwrap())
         .await
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
+    assert_contains(
+      &stderr,
+      &format!(
+        "Forbidden access to escaping symlink: `www{}link`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
-  fn disallow_listing_directories_via_intermediate_symlinks() {
+  fn allow_listing_directories_via_intermediate_local_symlinks() {
     test(|context| async move {
       let dir = context.files_directory().join("dir");
       fs::create_dir(&dir).unwrap();
-      symlink(&dir, context.files_directory().join("link"));
+      symlink("dir", context.files_directory().join("link"));
+      fs::create_dir(dir.join("subdir")).unwrap();
+      let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
+        .await
+        .unwrap();
+      assert_eq!(response.status(), StatusCode::OK);
+    });
+  }
+
+  #[test]
+  fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
+    let stderr = test(|context| async move {
+      let dir = context.files_directory().join("../dir");
+      fs::create_dir(&dir).unwrap();
+      symlink("../dir", context.files_directory().join("link"));
       fs::create_dir(dir.join("subdir")).unwrap();
       let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
         .await
         .unwrap();
       assert_eq!(response.status(), StatusCode::NOT_FOUND);
     });
+    assert_contains(
+      &stderr,
+      &format!(
+        "Forbidden access to escaping symlink: `www{}link`",
+        MAIN_SEPARATOR
+      ),
+    );
   }
 
   #[test]
-  fn remove_symlinks_from_listings() {
+  fn show_local_symlinks_in_listings() {
     test(|context| async move {
       let file = context.files_directory().join("file");
       fs::write(&file, "").unwrap();
       symlink(file, context.files_directory().join("link"));
       let html = html(context.files_url()).await;
-      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+      guard_unwrap!(let &[a, b] = css_select(&html, "a:not([download])").as_slice());
       assert_eq!(a.inner_html(), "file");
+      assert_eq!(b.inner_html(), "link");
+    });
+  }
+
+  #[test]
+  fn remove_escaping_symlinks_from_listings() {
+    test(|context| async move {
+      fs::write(&context.files_directory().join("../escaping"), "").unwrap();
+      fs::write(&context.files_directory().join("local"), "").unwrap();
+      symlink("../escaping", context.files_directory().join("link"));
+      let html = html(context.files_url()).await;
+      guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+      assert_eq!(a.inner_html(), "local");
     });
   }
 

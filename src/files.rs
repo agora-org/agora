@@ -7,11 +7,17 @@ use crate::{
 };
 use backtrace::Backtrace;
 use hyper::{header, Body, Request, Response, StatusCode};
+use lexiclean::Lexiclean;
 use lnd_client::lnrpc::invoice::InvoiceState;
 use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
-use std::{ffi::OsString, fmt::Debug, fs::FileType, path::Path};
+use std::{
+  ffi::OsString,
+  fmt::Debug,
+  fs::{self, FileType},
+  path::Path,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
@@ -31,7 +37,7 @@ impl Files {
     self.base_directory.join_file_path(&tail.join(""))
   }
 
-  fn check_path(path: &InputPath) -> Result<()> {
+  fn check_path(&self, path: &InputPath) -> Result<()> {
     if path
       .as_ref()
       .symlink_metadata()
@@ -39,22 +45,35 @@ impl Files {
       .file_type()
       .is_symlink()
     {
-      Err(Error::SymlinkAccess {
-        path: path.as_ref().to_owned(),
-      })
-    } else if path
+      let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
+
+      let destination = path
+        .as_ref()
+        .parent()
+        .expect("Input paths are always absolute, and thus have parents or are `/`, and `/` cannot be a symlink.")
+        .join(link)
+        .lexiclean();
+
+      if !destination.starts_with(&self.base_directory) {
+        return Err(Error::SymlinkAccess {
+          path: path.display_path().to_owned(),
+        });
+      }
+    }
+
+    if path
       .as_ref()
       .file_name()
       .map(|file_name| file_name.to_string_lossy().starts_with('.'))
       .unwrap_or(false)
     {
-      Err(Error::HiddenFileAccess {
+      return Err(Error::HiddenFileAccess {
         path: path.as_ref().to_owned(),
         backtrace: Backtrace::new(),
-      })
-    } else {
-      Ok(())
+      });
     }
+
+    Ok(())
   }
 
   pub(crate) async fn serve(
@@ -66,7 +85,7 @@ impl Files {
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
-      Self::check_path(&prefix)?;
+      self.check_path(&prefix)?;
     }
 
     let file_type = file_path
@@ -86,13 +105,13 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      Self::list(&file_path).await
+      self.list(&file_path).await
     } else {
       self.access_file(tail, &file_path).await
     }
   }
 
-  async fn read_dir(path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
+  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
     let mut read_dir = tokio::fs::read_dir(path)
       .await
       .with_context(|| Error::filesystem_io(path))?;
@@ -103,7 +122,7 @@ impl Files {
       .with_context(|| Error::filesystem_io(path))?
     {
       let input_path = path.join_relative(Path::new(&entry.file_name()))?;
-      if Self::check_path(&input_path).is_err() {
+      if self.check_path(&input_path).is_err() {
         continue;
       }
       let file_type = entry
@@ -139,9 +158,9 @@ impl Files {
 
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
-  async fn list(dir: &InputPath) -> Result<Response<Body>> {
+  async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
     let contents = html! {
-      @for (file_name, file_type) in Self::read_dir(dir).await? {
+      @for (file_name, file_type) in self.read_dir(dir).await? {
         @let file_name = {
           let mut file_name = file_name.to_string_lossy().into_owned();
           if file_type.is_dir() {

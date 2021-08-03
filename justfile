@@ -33,7 +33,7 @@ check-install:
 check-lockfile:
   cargo update --locked --package agora
 
-watch +command='test':
+watch +command='ltest':
   cargo watch --exec '{{command}}'
 
 push: all

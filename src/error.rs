@@ -68,7 +68,7 @@ pub(crate) enum Error {
   StaticAssetNotFound { uri_path: String },
   #[snafu(display("IO error writing to stderr: {}", source))]
   StderrWrite { source: io::Error },
-  #[snafu(display("Forbidden access to symlink: {}", path.display()))]
+  #[snafu(display("Forbidden access to escaping symlink: `{}`", path.display()))]
   SymlinkAccess { path: PathBuf },
 }
 
