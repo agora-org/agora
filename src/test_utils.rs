@@ -5,8 +5,10 @@ use reqwest::Url;
 use std::{
   ffi::OsString,
   future::Future,
+  panic,
   path::{Path, PathBuf},
 };
+use tokio::task;
 
 macro_rules! assert_matches {
   ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {
@@ -44,7 +46,7 @@ pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
 pub(crate) fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   test_with_arguments(&[], f)
 }
@@ -53,9 +55,9 @@ where
 pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
 where
   Function: FnOnce(TestContext) -> Fut,
-  Fut: Future<Output = ()>,
+  Fut: Future<Output = ()> + 'static,
 {
-  let stderr = test_with_arguments(
+  test_with_arguments(
     &[
       "--lnd-rpc-authority",
       &lnd_test_context.lnd_rpc_authority(),
@@ -65,14 +67,13 @@ where
       lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
     ],
     f,
-  );
-  stderr
+  )
 }
 
 pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   let mut environment = Environment::test(&[]);
   environment
@@ -91,7 +92,7 @@ pub(crate) fn test_with_environment<Function, F>(
 ) -> String
 where
   Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()>,
+  F: Future<Output = ()> + 'static,
 {
   tokio::runtime::Builder::new_current_thread()
     .enable_all()
@@ -101,15 +102,34 @@ where
       let server = Server::setup(environment).await.unwrap();
       let files_directory = server.directory().to_owned();
       let port = server.port();
-      let join_handle = tokio::spawn(async { server.run().await.unwrap() });
+      let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      f(TestContext {
-        base_url: url.clone(),
-        files_url: url.join("files/").unwrap(),
-        files_directory,
-      })
-      .await;
-      join_handle.abort();
+      let test_result = task::LocalSet::new()
+        .run_until(async move {
+          task::spawn_local(f(TestContext {
+            base_url: url.clone(),
+            files_url: url.join("files/").unwrap(),
+            files_directory,
+          }))
+          .await
+        })
+        .await;
+      if let Err(test_join_error) = test_result {
+        eprintln!("stderr from server: {}", environment.stderr.contents());
+        if test_join_error.is_panic() {
+          panic::resume_unwind(test_join_error.into_panic());
+        } else {
+          panic!("test shouldn't be cancelled: {}", test_join_error);
+        }
+      }
+      server_join_handle.abort();
+      match server_join_handle.await {
+        Err(server_join_error) if server_join_error.is_cancelled() => {}
+        Err(server_join_error) => {
+          panic::resume_unwind(server_join_error.into_panic());
+        }
+        Ok(()) => panic!("server terminated"),
+      }
       environment.stderr.contents()
     })
 }
