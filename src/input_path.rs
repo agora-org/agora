@@ -1,8 +1,7 @@
 use crate::{
   environment::Environment,
-  error::{Error, Result},
+  error::{self, Error, Result},
 };
-use backtrace::Backtrace;
 use mime_guess::MimeGuess;
 use percent_encoding::percent_decode_str;
 use std::path::{Component, Path, PathBuf};
@@ -39,9 +38,11 @@ impl InputPath {
     self
       .join_file_path_option(uri_path)
       .transpose()?
-      .ok_or_else(|| Error::InvalidFilePath {
-        uri_path: uri_path.to_owned(),
-        backtrace: Backtrace::new(),
+      .ok_or_else(|| {
+        error::InvalidFilePath {
+          uri_path: uri_path.to_owned(),
+        }
+        .build()
       })
   }
 

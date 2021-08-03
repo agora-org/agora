@@ -155,10 +155,7 @@ impl Error {
   }
 
   pub(crate) fn internal(message: impl Into<String>) -> Self {
-    Self::Internal {
-      message: message.into(),
-      backtrace: Backtrace::new(),
-    }
+    Internal { message }.build()
   }
 
   pub(crate) fn filesystem_io(file_path: &InputPath) -> FilesystemIo<PathBuf> {

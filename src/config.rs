@@ -1,7 +1,6 @@
-use crate::error::{self, Error, Result};
-use backtrace::Backtrace;
+use crate::error::{self, Result};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 use std::{fs, io, path::Path};
 
 #[derive(PartialEq, Debug, Default, Deserialize, Serialize)]
@@ -18,11 +17,7 @@ impl Config {
     match fs::read_to_string(&file_path) {
       Ok(yaml) => serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path }),
       Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Self::default()),
-      Err(source) => Err(Error::FilesystemIo {
-        path: file_path,
-        source,
-        backtrace: Backtrace::new(),
-      }),
+      Err(source) => Err(error::FilesystemIo { path: file_path }.into_error(source)),
     }
   }
 }
@@ -30,6 +25,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::error::Error;
   use tempfile::TempDir;
 
   #[test]

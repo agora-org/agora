@@ -1,10 +1,9 @@
 use crate::{
   arguments::Arguments,
   environment::Environment,
-  error::{self, Error, Result},
+  error::{self, Result},
   request_handler::RequestHandler,
 };
-use backtrace::Backtrace;
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use snafu::ResultExt;
@@ -47,9 +46,11 @@ impl Server {
         input: &arguments.address,
       })?
       .next()
-      .ok_or_else(|| Error::AddressResolutionNoAddresses {
-        input: arguments.address.clone(),
-        backtrace: Backtrace::new(),
+      .ok_or_else(|| {
+        error::AddressResolutionNoAddresses {
+          input: arguments.address.clone(),
+        }
+        .build()
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
@@ -128,6 +129,7 @@ impl Server {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::error::Error;
   use std::net::IpAddr;
 
   #[test]

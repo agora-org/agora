@@ -13,7 +13,9 @@ homepage = "https://github.com/soenkehahn/agora"
 members = [".", "bin/prerelease", "lnd-client", "lnd-test-context"]
 
 [dependencies]
+backtrace = "0.3.61"
 bytes = "1.0.1"
+color-backtrace = "0.5.1"
 futures = "0.3.14"
 hex = "0.4.3"
 http = "0.2.4"
@@ -26,10 +28,8 @@ pin-project = "1.0.7"
 rust-embed = "5.9.0"
 serde_yaml = "0.8.17"
 structopt = "0.3.21"
-tonic = "0.4.3"
-backtrace = "0.3.61"
-color-backtrace = "0.5.1"
 termcolor = "1.1.2"
+tonic = "0.4.3"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"

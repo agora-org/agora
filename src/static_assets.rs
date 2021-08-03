@@ -1,5 +1,4 @@
-use crate::error::{Error, Result};
-use backtrace::Backtrace;
+use crate::error::{self, Error, Result};
 use hyper::{header, Body, Response};
 use rust_embed::RustEmbed;
 
@@ -20,10 +19,7 @@ impl StaticAssets {
           .body(bytes.into())
           .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
       }
-      None => Err(Error::StaticAssetNotFound {
-        uri_path: path,
-        backtrace: Backtrace::new(),
-      }),
+      None => Err(error::StaticAssetNotFound { uri_path: path }.build()),
     }
   }
 }
