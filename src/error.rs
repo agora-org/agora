@@ -119,7 +119,7 @@ pub(crate) enum Error {
     source: io::Error,
     backtrace: Backtrace,
   },
-  #[snafu(display("Forbidden access to symlink: {}", path.display()))]
+  #[snafu(display("Forbidden access to escaping symlink: `{}`", path.display()))]
   SymlinkAccess { path: PathBuf, backtrace: Backtrace },
 }
 
