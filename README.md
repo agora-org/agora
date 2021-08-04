@@ -36,20 +36,20 @@ This produces a statically linked binary that runs on, e.g., Alpine and CentOS L
 
 ### Configuration
 
-You can configure what network port and addresses `agora` will be listening on, and what directory it will serve.
+You can configure the network port and address `agora` listens on, and the directory it serves.
 See `agora --help` for details.
 
 ### LND Configuration
 
-By default `agora` will serve files for free.
-In order to be able to charge for downloads, `agora` must be connected to an [LND](https://github.com/lightningnetwork/lnd) instance.
-There's multiple command line flags to configure this connection, see `agora --help` for details.
+By default `agora` serves files for free.
+To charge for downloads, `agora` must be connected to an [LND](https://github.com/lightningnetwork/lnd) instance.
+There are multiple command line flags to configure this connection, see `agora --help` for details.
 
 To configure which files are free and which are paid, see [Access Configuration](#access-configuration) below.
 
 ### Access Configuration
 
-You can put an `.agora.yaml` configuration file into directories served by `agora` to configure access to the files in that directory.
+You can put a `.agora.yaml` configuration file into directories served by `agora` to configure access to files in that directory.
 Currently, access configuration does not apply recursively to files in subdirectories,
 so you'll need a `.agora.yaml` file in every directory you want to configure.
 
@@ -60,7 +60,7 @@ The default configuration is:
 paid: false
 ```
 
-Currently, `agora` charges the low low price of 1000 satoshis for all paid files.
+Currently, `agora` charges the low low price of 1,000 satoshis for all paid files.
 
 ## Development
 
