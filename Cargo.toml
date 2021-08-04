@@ -27,7 +27,6 @@ percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 rust-embed = "5.9.0"
 serde_yaml = "0.8.17"
-structopt = "0.3.21"
 termcolor = "1.1.2"
 tonic = "0.4.3"
 
@@ -46,6 +45,10 @@ features = ["derive"]
 [dependencies.snafu]
 version = "0.6.10"
 features = ["backtraces-impl-backtrace-crate"]
+
+[dependencies.structopt]
+version = "0.3.21"
+features = ["wrap_help"]
 
 [dependencies.tokio]
 version = "1.5.0"
