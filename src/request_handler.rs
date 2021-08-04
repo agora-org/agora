@@ -610,14 +610,23 @@ pub(crate) mod tests {
     });
   }
 
-  fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) {
+  fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
     #[cfg(unix)]
-    std::os::unix::fs::symlink(original, link).unwrap();
+    std::os::unix::fs::symlink(contents, link).unwrap();
     #[cfg(windows)]
-    if original.as_ref().is_dir() {
-      std::os::windows::fs::symlink_dir(original, link).unwrap();
-    } else {
-      std::os::windows::fs::symlink_file(original, link).unwrap();
+    {
+      let target = link.as_ref().parent().unwrap().join(&contents);
+      if target.is_dir() {
+        std::os::windows::fs::symlink_dir(contents, link).unwrap();
+      } else if target.is_file() {
+        std::os::windows::fs::symlink_file(contents, link).unwrap();
+      } else {
+        panic!(
+          "unsupported file type for paths: contents: `{}`, link: `{}`",
+          contents.as_ref().display(),
+          link.as_ref().display(),
+        );
+      }
     }
   }
 
