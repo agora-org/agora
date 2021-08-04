@@ -19,6 +19,7 @@ color-backtrace = "0.5.1"
 futures = "0.3.14"
 hex = "0.4.3"
 http = "0.2.4"
+lexiclean = "0.0.1"
 lnd-client = { path = "lnd-client" }
 maud = "0.22.2"
 mime_guess = "2.0.3"
