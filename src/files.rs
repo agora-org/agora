@@ -5,9 +5,9 @@ use crate::{
   input_path::InputPath,
   redirect::redirect,
 };
+use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use hyper::{header, Body, Request, Response, StatusCode};
 use lexiclean::Lexiclean;
-use lnd_client::lnrpc::invoice::InvoiceState;
 use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::ResultExt;
@@ -21,11 +21,14 @@ use std::{
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   base_directory: InputPath,
-  lnd_client: Option<lnd_client::Client>,
+  lnd_client: Option<agora_lnd_client::Client>,
 }
 
 impl Files {
-  pub(crate) fn new(base_directory: InputPath, lnd_client: Option<lnd_client::Client>) -> Self {
+  pub(crate) fn new(
+    base_directory: InputPath,
+    lnd_client: Option<agora_lnd_client::Client>,
+  ) -> Self {
     Self {
       base_directory,
       lnd_client,

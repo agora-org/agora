@@ -53,11 +53,11 @@ publish remote: all
 clean-binaries:
   rm -rf target/bitcoin* target/ln*
 
-run authority:
-  scp root@{{authority}}:/var/lib/lnd/tls.cert target/tls.cert
-  scp root@{{authority}}:/var/lib/lnd/data/chain/bitcoin/testnet/invoice.macaroon target/invoice.macaroon
+run domain:
+  scp root@{{domain}}:/var/lib/lnd/tls.cert target/tls.cert
+  scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/testnet/invoice.macaroon target/invoice.macaroon
   cargo run -- \
-    --lnd-rpc-authority {{authority}}:10009 \
+    --lnd-rpc-authority {{domain}}:10009 \
     --lnd-rpc-cert-path target/tls.cert \
     --lnd-rpc-macaroon-path target/invoice.macaroon \
     --directory .
