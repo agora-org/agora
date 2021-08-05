@@ -32,7 +32,7 @@ tonic = "0.4.3"
 
 [dependencies.agora-lnd-client]
 path = "agora-lnd-client"
-version = "=0.0.0"
+version = "0.0.0"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
