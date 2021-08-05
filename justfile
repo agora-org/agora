@@ -45,9 +45,11 @@ publish remote: all
   VERSION=`cargo run -- --version | cut -d' ' -f2`
   git diff --no-ext-diff --quiet --exit-code
   git branch | grep '* master'
+  (cd agora-lnd-client && cargo publish --dry-run)
   cargo publish --dry-run
   git tag -a $VERSION -m "Release version $VERSION"
   git push {{remote}} $VERSION
+  (cd agora-lnd-client && cargo publish)
   cargo publish
 
 clean-binaries:
