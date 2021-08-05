@@ -75,7 +75,6 @@ features = ["blocking", "stream"]
 
 [dev-dependencies.lnd-test-context]
 path = "lnd-test-context"
-version = "0.0.0"
 
 [[test]]
 name = "smoke"
