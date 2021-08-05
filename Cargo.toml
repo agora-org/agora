@@ -36,6 +36,7 @@ version = "0.0.0"
 
 [dependencies.lnd-test-context]
 path = "lnd-test-context"
+version = "0.0.0"
 optional = true
 
 [dependencies.hyper]
