@@ -80,6 +80,16 @@ impl RequestHandler {
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
+      ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
+        let r_hash_hex = file_name.strip_suffix(".svg").expect("fixme");
+        let mut r_hash = [0; 32];
+        hex::decode_to_slice(
+          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
+          &mut r_hash,
+        )
+        .context(error::InvoiceId)?;
+        self.files.serve_invoice_qr_code(&request, r_hash).await
+      }
       ["/", "invoice/", r_hash_hex, ..] => {
         let mut r_hash = [0; 32];
         hex::decode_to_slice(
@@ -923,6 +933,14 @@ pub(crate) mod tests {
 
     assert_contains(&stderr, "agora::files::Files::check_path");
   }
+
+  #[test]
+  #[ignore]
+  fn returns_404_for_made_up_invoice() {}
+
+  #[test]
+  #[ignore]
+  fn returns_404_for_made_up_invoice_qr_code() {}
 }
 
 #[cfg(all(test, feature = "slow-tests"))]
@@ -1008,6 +1026,40 @@ mod slow_tests {
       let html = html(&context.files_url().join("test-filename").unwrap()).await;
       guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
       assert_contains(&payment_request.inner_html(), "test-filename");
+    });
+  }
+
+  #[test]
+  fn invoice_url_links_to_qr_code() {
+    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      let response = get(&context.files_url().join("test-filename").unwrap()).await;
+      let response_url = response.url().clone();
+      let html = Html::parse_document(&response.text().await.unwrap());
+      guard_unwrap!(let &[qr_code] = css_select(&html, "img[alt=\"Lightning Network Invoice QR Code\"]").as_slice());
+      let qr_code_url = qr_code.value().attr("src").unwrap();
+      let regex = Regex::new("^/invoice/[a-f0-9]{64}.svg$").unwrap();
+      assert!(
+        regex.is_match(qr_code_url),
+        "qr code URL is not a qr code url: {}",
+        qr_code_url,
+      );
+      let qr_code_url = response_url.join(qr_code_url).unwrap();
+      let qr_code = get(&qr_code_url).await.bytes().await.unwrap();
+      fs::write("qr-code.svg", qr_code).unwrap();
+
+      let img = image::open("qr-code.svg").unwrap();
+
+      let decoder = bardecoder::default_decoder();
+
+      let results = decoder.decode(&img);
+      for result in results {
+        eprintln!("{}", result.unwrap());
+      }
+
+      todo!("look at the file");
+      todo!("test content type of svg");
     });
   }
 

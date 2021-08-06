@@ -262,20 +262,51 @@ impl Files {
         let path = self.tail_to_path(&tail_from_invoice)?;
         Self::serve_file(&path).await
       }
-      _ => Ok(Files::serve_html(html! {
-        div class="invoice" {
-          div class="label" {
-            "Lightning Payment Request to access "
-            span class="filename" {
-                (invoice.memo)
+      _ => {
+        let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
+        Ok(Files::serve_html(html! {
+          div class="invoice" {
+            div class="label" {
+              "Lightning Payment Request to access "
+              span class="filename" {
+                  (invoice.memo)
+              }
+              ":"
             }
-            ":"
+            div class="payment-request" {
+              (invoice.payment_request)
+            }
+            img alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
-          div class="payment-request" {
-            (invoice.payment_request)
-          }
-        }
-      })),
+        }))
+      }
     }
+  }
+
+  pub(crate) async fn serve_invoice_qr_code(
+    &mut self,
+    request: &Request<Body>,
+    r_hash: [u8; 32],
+  ) -> Result<Response<Body>> {
+    use qrcodegen::{QrCode, QrCodeEcc};
+
+    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+      error::LndNotConfiguredInvoiceRequest {
+        uri_path: request.uri().path().to_owned(),
+      }
+      .build()
+    })?;
+    let invoice = lnd_client
+      .lookup_invoice(r_hash)
+      .await
+      .context(error::LndRpcStatus)?
+      .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
+    let qr_code = QrCode::encode_text(&invoice.payment_request.to_uppercase(), QrCodeEcc::Medium)
+      .expect("fixme");
+    Ok(
+      Response::builder()
+        .body(Body::from(qr_code.to_svg_string(4)))
+        .expect("fixme"),
+    )
   }
 }
