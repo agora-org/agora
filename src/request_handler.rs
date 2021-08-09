@@ -954,12 +954,9 @@ mod slow_tests {
   use pretty_assertions::assert_eq;
   use regex::Regex;
   use scraper::Html;
-  use std::{
-    fs,
-    path::{Path, PathBuf, MAIN_SEPARATOR},
-  };
+  use std::{fs, path::MAIN_SEPARATOR};
 
-  use core::slice::SlicePattern;
+  // use core::slice::SlicePattern;
 
   #[test]
   fn serves_files_for_free_by_default() {
@@ -1034,9 +1031,9 @@ mod slow_tests {
     });
   }
 
-  fn svg_to_png(svg: &[u8], destination: impl AsRef<Path>) {
+  fn decode_qr_code_from_svg(svg: &str) -> String {
     let options = usvg::Options::default();
-    let svg = usvg::Tree::from_data(&svg, &options).unwrap();
+    let svg = usvg::Tree::from_data(svg.as_bytes(), &options).unwrap();
     let svg_size = dbg!(svg.svg_node().size.to_screen_size());
     let (png_width, png_height) = (svg_size.width() * 10, svg_size.height() * 10);
     let mut pixmap = tiny_skia::Pixmap::new(png_width, png_height).unwrap();
@@ -1046,7 +1043,21 @@ mod slow_tests {
       pixmap.as_mut(),
     )
     .unwrap();
-    pixmap.save_png(destination).unwrap();
+    let png_bytes = pixmap.encode_png().unwrap();
+
+    let img = image::load_from_memory(&png_bytes).unwrap();
+
+    let decoder = bardecoder::default_decoder();
+
+    let mut decoded = decoder
+      .decode(&img)
+      .into_iter()
+      .collect::<Result<Vec<String>, _>>()
+      .unwrap();
+
+    assert_eq!(decoded.len(), 1);
+
+    decoded.pop().unwrap()
   }
 
   #[test]
@@ -1072,24 +1083,8 @@ mod slow_tests {
         qr_code_url,
       );
       let qr_code_url = invoice_url.join(qr_code_url).unwrap();
-      let qr_code = get(&qr_code_url).await.bytes().await.unwrap();
-      let svg_path = PathBuf::from("qr-code.svg");
-      let png_path = PathBuf::from("qr-code.png");
-      fs::write(&svg_path, &qr_code).unwrap();
-
-      svg_to_png(qr_code.as_slice(), &png_path);
-
-      let img = image::open(&png_path).unwrap();
-
-      let decoder = bardecoder::default_decoder();
-
-      let foo: Vec<String> = decoder
-        .decode(&img)
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-      guard_unwrap!(let &[payment_request] = &foo.as_slice());
-      dbg!(&payment_request);
+      let qr_code_svg = text(&qr_code_url).await;
+      let payment_request = decode_qr_code_from_svg(&qr_code_svg);
 
       let sender = LndTestContext::new().await;
       sender.connect(&receiver).await;
@@ -1099,7 +1094,6 @@ mod slow_tests {
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
 
-      // fixme: use temporary directory
       // fixme: test content type of svg
     });
   }
