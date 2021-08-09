@@ -55,9 +55,9 @@ publish remote: all
 clean-binaries:
   rm -rf target/bitcoin* target/ln*
 
-run domain:
+run domain='test.agora.download' network='testnet':
   scp root@{{domain}}:/var/lib/lnd/tls.cert target/tls.cert
-  scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/testnet/invoice.macaroon target/invoice.macaroon
+  scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/{{network}}/invoice.macaroon target/invoice.macaroon
   cargo run -- \
     --lnd-rpc-authority {{domain}}:10009 \
     --lnd-rpc-cert-path target/tls.cert \
