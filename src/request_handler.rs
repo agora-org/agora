@@ -948,8 +948,6 @@ mod slow_tests {
   use scraper::Html;
   use std::{fs, path::MAIN_SEPARATOR};
 
-  // use core::slice::SlicePattern;
-
   #[test]
   fn serves_files_for_free_by_default() {
     test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
