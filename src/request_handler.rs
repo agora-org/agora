@@ -1034,19 +1034,14 @@ mod slow_tests {
     )
     .unwrap();
     let png_bytes = pixmap.encode_png().unwrap();
-
     let img = image::load_from_memory(&png_bytes).unwrap();
-
     let decoder = bardecoder::default_decoder();
-
     let mut decoded = decoder
       .decode(&img)
       .into_iter()
       .collect::<Result<Vec<String>, _>>()
       .unwrap();
-
     assert_eq!(decoded.len(), 1);
-
     decoded.pop().unwrap()
   }
 
