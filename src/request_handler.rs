@@ -69,6 +69,12 @@ impl RequestHandler {
     response
   }
 
+  fn decode_invoice_id(invoice_id_hex: &str) -> Result<[u8; 32]> {
+    let mut invoice_id = [0; 32];
+    hex::decode_to_slice(invoice_id_hex, &mut invoice_id).context(error::InvoiceId)?;
+    Ok(invoice_id)
+  }
+
   async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
     let components = request
       .uri()
@@ -80,14 +86,18 @@ impl RequestHandler {
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
-      ["/", "invoice/", r_hash_hex, ..] => {
-        let mut r_hash = [0; 32];
-        hex::decode_to_slice(
-          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
-          &mut r_hash,
-        )
-        .context(error::InvoiceId)?;
-        self.files.serve_invoice(&request, r_hash).await
+      ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
+        let invoice_id = Self::decode_invoice_id(
+          file_name
+            .strip_suffix(".svg")
+            .expect("file_name ends with `.svg`"),
+        )?;
+        self.files.serve_invoice_qr_code(&request, invoice_id).await
+      }
+      ["/", "invoice/", invoice_id, ..] => {
+        let invoice_id =
+          Self::decode_invoice_id(invoice_id.strip_suffix('/').unwrap_or(invoice_id))?;
+        self.files.serve_invoice(&request, invoice_id).await
       }
       _ => Err(Error::RouteNotFound {
         uri_path: request.uri().path().to_owned(),
@@ -931,7 +941,7 @@ mod slow_tests {
   use crate::test_utils::{assert_contains, test_with_lnd, TestContext};
   use cradle::*;
   use guard::guard_unwrap;
-  use hyper::StatusCode;
+  use hyper::{header, StatusCode};
   use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
   use regex::Regex;
@@ -1011,6 +1021,71 @@ mod slow_tests {
     });
   }
 
+  fn decode_qr_code_from_svg(svg: &str) -> String {
+    let options = usvg::Options::default();
+    let svg = usvg::Tree::from_data(svg.as_bytes(), &options).unwrap();
+    let svg_size = svg.svg_node().size.to_screen_size();
+    let (png_width, png_height) = (svg_size.width() * 10, svg_size.height() * 10);
+    let mut pixmap = tiny_skia::Pixmap::new(png_width, png_height).unwrap();
+    resvg::render(
+      &svg,
+      usvg::FitTo::Size(png_width, png_height),
+      pixmap.as_mut(),
+    )
+    .unwrap();
+    let png_bytes = pixmap.encode_png().unwrap();
+    let img = image::load_from_memory(&png_bytes).unwrap();
+    let decoder = bardecoder::default_decoder();
+    let mut decoded = decoder
+      .decode(&img)
+      .into_iter()
+      .collect::<Result<Vec<String>, _>>()
+      .unwrap();
+    assert_eq!(decoded.len(), 1);
+    decoded.pop().unwrap()
+  }
+
+  #[test]
+  fn invoice_url_links_to_qr_code() {
+    let receiver = LndTestContext::new_blocking();
+    test_with_lnd(&receiver.clone(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(
+        context.files_directory().join("test-filename"),
+        "precious content",
+      )
+      .unwrap();
+      let response = get(&context.files_url().join("test-filename").unwrap()).await;
+      let invoice_url = response.url().clone();
+      let html = Html::parse_document(&response.text().await.unwrap());
+      guard_unwrap!(let &[qr_code] = css_select(&html, "img.qr-code").as_slice());
+      let qr_code_url = qr_code.value().attr("src").unwrap();
+      assert!(
+        Regex::new("^/invoice/[a-f0-9]{64}.svg$")
+          .unwrap()
+          .is_match(qr_code_url),
+        "qr code URL is not a qr code url: {}",
+        qr_code_url,
+      );
+      let qr_code_url = invoice_url.join(qr_code_url).unwrap();
+      let response = get(&qr_code_url).await;
+      assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "image/svg+xml"
+      );
+      let qr_code_svg = response.text().await.unwrap();
+      let payment_request = decode_qr_code_from_svg(&qr_code_svg);
+
+      let sender = LndTestContext::new().await;
+      sender.connect(&receiver).await;
+      sender.generate_lnd_btc().await;
+      sender.open_channel_to(&receiver, 1_000_000).await;
+      let StdoutUntrimmed(_) =
+        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+      assert_eq!(text(&invoice_url).await, "precious content");
+    });
+  }
+
   #[test]
   fn paying_invoice_allows_downloading_file() {
     let receiver = LndTestContext::new_blocking();
@@ -1031,5 +1106,49 @@ mod slow_tests {
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
     });
+  }
+
+  #[test]
+  fn returns_404_for_made_up_invoice() {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      assert_eq!(
+        reqwest::get(
+          context
+            .base_url()
+            .join(&format!("invoice/{}/test-filename", "a".repeat(64)))
+            .unwrap()
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::NOT_FOUND
+      );
+    });
+
+    assert_contains(&stderr, &format!("Invoice not found: {}", "a".repeat(64)));
+  }
+
+  #[test]
+  fn returns_404_for_made_up_invoice_qr_code() {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      assert_eq!(
+        reqwest::get(
+          context
+            .base_url()
+            .join(&format!("invoice/{}.svg", "a".repeat(64)))
+            .unwrap()
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::NOT_FOUND
+      );
+    });
+
+    assert_contains(&stderr, &format!("Invoice not found: {}", "a".repeat(64)));
   }
 }
