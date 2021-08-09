@@ -933,14 +933,6 @@ pub(crate) mod tests {
 
     assert_contains(&stderr, "agora::files::Files::check_path");
   }
-
-  #[test]
-  #[ignore]
-  fn returns_404_for_made_up_invoice() {}
-
-  #[test]
-  #[ignore]
-  fn returns_404_for_made_up_invoice_qr_code() {}
 }
 
 #[cfg(all(test, feature = "slow-tests"))]
@@ -1034,7 +1026,7 @@ mod slow_tests {
   fn decode_qr_code_from_svg(svg: &str) -> String {
     let options = usvg::Options::default();
     let svg = usvg::Tree::from_data(svg.as_bytes(), &options).unwrap();
-    let svg_size = dbg!(svg.svg_node().size.to_screen_size());
+    let svg_size = svg.svg_node().size.to_screen_size();
     let (png_width, png_height) = (svg_size.width() * 10, svg_size.height() * 10);
     let mut pixmap = tiny_skia::Pixmap::new(png_width, png_height).unwrap();
     resvg::render(
@@ -1098,14 +1090,8 @@ mod slow_tests {
       let StdoutUntrimmed(_) =
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
-
-      // fixme: test content type of svg
     });
   }
-
-  #[test]
-  #[ignore]
-  fn qr_codes_have_a_good_size() {}
 
   #[test]
   fn paying_invoice_allows_downloading_file() {
@@ -1127,5 +1113,49 @@ mod slow_tests {
         cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
     });
+  }
+
+  #[test]
+  fn returns_404_for_made_up_invoice() {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      assert_eq!(
+        reqwest::get(
+          context
+            .base_url()
+            .join(&format!("invoice/{}/test-filename", "a".repeat(64)))
+            .unwrap()
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::NOT_FOUND
+      );
+    });
+
+    assert_contains(&stderr, &format!("Invoice not found: {}", "a".repeat(64)));
+  }
+
+  #[test]
+  fn returns_404_for_made_up_invoice_qr_code() {
+    let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+      fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      assert_eq!(
+        reqwest::get(
+          context
+            .base_url()
+            .join(&format!("invoice/{}.svg", "a".repeat(64)))
+            .unwrap()
+        )
+        .await
+        .unwrap()
+        .status(),
+        StatusCode::NOT_FOUND
+      );
+    });
+
+    assert_contains(&stderr, &format!("Invoice not found: {}", "a".repeat(64)));
   }
 }
