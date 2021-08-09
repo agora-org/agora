@@ -1058,7 +1058,7 @@ mod slow_tests {
       let response = get(&context.files_url().join("test-filename").unwrap()).await;
       let invoice_url = response.url().clone();
       let html = Html::parse_document(&response.text().await.unwrap());
-      guard_unwrap!(let &[qr_code] = css_select(&html, "img[alt=\"Lightning Network Invoice QR Code\"]").as_slice());
+      guard_unwrap!(let &[qr_code] = css_select(&html, "img.qr-code").as_slice());
       let qr_code_url = qr_code.value().attr("src").unwrap();
       assert!(
         Regex::new("^/invoice/[a-f0-9]{64}.svg$")
