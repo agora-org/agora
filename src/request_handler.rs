@@ -88,7 +88,7 @@ impl RequestHandler {
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
         let invoice_id = Self::decode_invoice_id(
-          &file_name
+          file_name
             .strip_suffix(".svg")
             .expect("file_name ends with `.svg`"),
         )?;
@@ -96,7 +96,7 @@ impl RequestHandler {
       }
       ["/", "invoice/", invoice_id, ..] => {
         let invoice_id =
-          Self::decode_invoice_id(&invoice_id.strip_suffix('/').unwrap_or(invoice_id))?;
+          Self::decode_invoice_id(invoice_id.strip_suffix('/').unwrap_or(invoice_id))?;
         self.files.serve_invoice(&request, invoice_id).await
       }
       _ => Err(Error::RouteNotFound {
