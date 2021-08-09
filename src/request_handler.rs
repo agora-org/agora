@@ -954,7 +954,12 @@ mod slow_tests {
   use pretty_assertions::assert_eq;
   use regex::Regex;
   use scraper::Html;
-  use std::{fs, path::MAIN_SEPARATOR};
+  use std::{
+    fs,
+    path::{Path, PathBuf, MAIN_SEPARATOR},
+  };
+
+  use core::slice::SlicePattern;
 
   #[test]
   fn serves_files_for_free_by_default() {
@@ -1029,39 +1034,79 @@ mod slow_tests {
     });
   }
 
+  fn svg_to_png(svg: &[u8], destination: impl AsRef<Path>) {
+    let options = usvg::Options::default();
+    let svg = usvg::Tree::from_data(&svg, &options).unwrap();
+    let svg_size = dbg!(svg.svg_node().size.to_screen_size());
+    let (png_width, png_height) = (svg_size.width() * 10, svg_size.height() * 10);
+    let mut pixmap = tiny_skia::Pixmap::new(png_width, png_height).unwrap();
+    resvg::render(
+      &svg,
+      usvg::FitTo::Size(png_width, png_height),
+      pixmap.as_mut(),
+    )
+    .unwrap();
+    pixmap.save_png(destination).unwrap();
+  }
+
   #[test]
   fn invoice_url_links_to_qr_code() {
-    test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    let receiver = LndTestContext::new_blocking();
+    test_with_lnd(&receiver.clone(), |context| async move {
       fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
-      fs::write(context.files_directory().join("test-filename"), "").unwrap();
+      fs::write(
+        context.files_directory().join("test-filename"),
+        "precious content",
+      )
+      .unwrap();
       let response = get(&context.files_url().join("test-filename").unwrap()).await;
-      let response_url = response.url().clone();
+      let invoice_url = response.url().clone();
       let html = Html::parse_document(&response.text().await.unwrap());
       guard_unwrap!(let &[qr_code] = css_select(&html, "img[alt=\"Lightning Network Invoice QR Code\"]").as_slice());
       let qr_code_url = qr_code.value().attr("src").unwrap();
-      let regex = Regex::new("^/invoice/[a-f0-9]{64}.svg$").unwrap();
       assert!(
-        regex.is_match(qr_code_url),
+        Regex::new("^/invoice/[a-f0-9]{64}.svg$")
+          .unwrap()
+          .is_match(qr_code_url),
         "qr code URL is not a qr code url: {}",
         qr_code_url,
       );
-      let qr_code_url = response_url.join(qr_code_url).unwrap();
+      let qr_code_url = invoice_url.join(qr_code_url).unwrap();
       let qr_code = get(&qr_code_url).await.bytes().await.unwrap();
-      fs::write("qr-code.svg", qr_code).unwrap();
+      let svg_path = PathBuf::from("qr-code.svg");
+      let png_path = PathBuf::from("qr-code.png");
+      fs::write(&svg_path, &qr_code).unwrap();
 
-      let img = image::open("qr-code.svg").unwrap();
+      svg_to_png(qr_code.as_slice(), &png_path);
+
+      let img = image::open(&png_path).unwrap();
 
       let decoder = bardecoder::default_decoder();
 
-      let results = decoder.decode(&img);
-      for result in results {
-        eprintln!("{}", result.unwrap());
-      }
+      let foo: Vec<String> = decoder
+        .decode(&img)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+      guard_unwrap!(let &[payment_request] = &foo.as_slice());
+      dbg!(&payment_request);
 
-      todo!("look at the file");
-      todo!("test content type of svg");
+      let sender = LndTestContext::new().await;
+      sender.connect(&receiver).await;
+      sender.generate_lnd_btc().await;
+      sender.open_channel_to(&receiver, 1_000_000).await;
+      let StdoutUntrimmed(_) =
+        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+      assert_eq!(text(&invoice_url).await, "precious content");
+
+      // fixme: use temporary directory
+      // fixme: test content type of svg
     });
   }
+
+  #[test]
+  #[ignore]
+  fn qr_codes_have_a_good_size() {}
 
   #[test]
   fn paying_invoice_allows_downloading_file() {

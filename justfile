@@ -8,8 +8,13 @@ build:
   cargo lcheck --tests --all-features
 
 test *args="--all":
-  cargo ltest "$@"
   cargo ltest --all-features "$@"
+
+fast-tests *args="-p agora":
+  cargo ltest $@
+
+slow-tests *args="slow_tests":
+  cargo ltest --features slow-tests "$@"
 
 smoke *args:
   cargo ltest --test smoke "$@"

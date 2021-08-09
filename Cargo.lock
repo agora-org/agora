@@ -62,9 +62,11 @@ dependencies = [
  "structopt",
  "tempfile",
  "termcolor",
+ "tiny-skia",
  "tokio",
  "tonic",
  "tower",
+ "usvg",
 ]
 
 [[package]]
