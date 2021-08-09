@@ -97,6 +97,15 @@ pub(crate) enum Error {
     source: tonic::Status,
     backtrace: Backtrace,
   },
+  #[snafu(display(
+    "Payment request `{}` too long for QR code: {}",
+    payment_request,
+    source
+  ))]
+  PaymentRequestTooLongForQrCode {
+    payment_request: String,
+    source: qrcodegen::DataTooLong,
+  },
   #[snafu(display("Request handler panicked: {}", source))]
   RequestHandlerPanic {
     source: JoinError,
@@ -148,6 +157,7 @@ impl Error {
       | LndRpcCertificateParse { .. }
       | LndRpcConnect { .. }
       | LndRpcStatus { .. }
+      | PaymentRequestTooLongForQrCode { .. }
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
       | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,

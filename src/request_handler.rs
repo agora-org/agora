@@ -69,6 +69,12 @@ impl RequestHandler {
     response
   }
 
+  fn decode_invoice_id(invoice_id_hex: &str) -> Result<[u8; 32]> {
+    let mut invoice_id = [0; 32];
+    hex::decode_to_slice(invoice_id_hex, &mut invoice_id).context(error::InvoiceId)?;
+    Ok(invoice_id)
+  }
+
   async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
     let components = request
       .uri()
@@ -81,23 +87,17 @@ impl RequestHandler {
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
-        let r_hash_hex = file_name.strip_suffix(".svg").expect("fixme");
-        let mut r_hash = [0; 32];
-        hex::decode_to_slice(
-          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
-          &mut r_hash,
-        )
-        .context(error::InvoiceId)?;
-        self.files.serve_invoice_qr_code(&request, r_hash).await
+        let invoice_id = Self::decode_invoice_id(
+          &file_name
+            .strip_suffix(".svg")
+            .expect("file_name ends with `.svg`"),
+        )?;
+        self.files.serve_invoice_qr_code(&request, invoice_id).await
       }
-      ["/", "invoice/", r_hash_hex, ..] => {
-        let mut r_hash = [0; 32];
-        hex::decode_to_slice(
-          r_hash_hex.strip_suffix('/').unwrap_or(r_hash_hex),
-          &mut r_hash,
-        )
-        .context(error::InvoiceId)?;
-        self.files.serve_invoice(&request, r_hash).await
+      ["/", "invoice/", invoice_id, ..] => {
+        let invoice_id =
+          Self::decode_invoice_id(&invoice_id.strip_suffix('/').unwrap_or(invoice_id))?;
+        self.files.serve_invoice(&request, invoice_id).await
       }
       _ => Err(Error::RouteNotFound {
         uri_path: request.uri().path().to_owned(),

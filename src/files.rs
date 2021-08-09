@@ -276,7 +276,7 @@ impl Files {
             div class="payment-request" {
               (invoice.payment_request)
             }
-            img alt="Lightning Network Invoice QR Code" src=(qr_code_url);
+            img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
         }))
       }
@@ -301,13 +301,14 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
-    let qr_code = QrCode::encode_text(&invoice.payment_request.to_uppercase(), QrCodeEcc::Medium)
-      .expect("fixme");
+    let payment_request = invoice.payment_request.to_uppercase();
+    let qr_code = QrCode::encode_text(&payment_request, QrCodeEcc::Medium)
+      .context(error::PaymentRequestTooLongForQrCode { payment_request })?;
     Ok(
       Response::builder()
         .header(header::CONTENT_TYPE, "image/svg+xml")
         .body(Body::from(qr_code.to_svg_string(4)))
-        .expect("fixme"),
+        .expect("All arguments to response builder are valid"),
     )
   }
 }

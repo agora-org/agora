@@ -3,6 +3,7 @@
   list-style: none;
   margin: auto;
   max-width: 100%;
+  min-width: 400px;
   padding: 0%;
   width: 800px;
 }
@@ -57,4 +58,10 @@
   font-family: "Courier New", Courier, monospace;
   overflow-wrap: anywhere;
   user-select: all;
+}
+
+.invoice > .qr-code {
+  display: block;
+  margin: auto;
+  width: 400px;
 }
