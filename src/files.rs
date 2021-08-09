@@ -305,6 +305,7 @@ impl Files {
       .expect("fixme");
     Ok(
       Response::builder()
+        .header(header::CONTENT_TYPE, "image/svg+xml")
         .body(Body::from(qr_code.to_svg_string(4)))
         .expect("fixme"),
     )

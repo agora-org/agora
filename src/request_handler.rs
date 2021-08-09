@@ -949,7 +949,7 @@ mod slow_tests {
   use crate::test_utils::{assert_contains, test_with_lnd, TestContext};
   use cradle::*;
   use guard::guard_unwrap;
-  use hyper::StatusCode;
+  use hyper::{header, StatusCode};
   use lnd_test_context::LndTestContext;
   use pretty_assertions::assert_eq;
   use regex::Regex;
@@ -1083,7 +1083,12 @@ mod slow_tests {
         qr_code_url,
       );
       let qr_code_url = invoice_url.join(qr_code_url).unwrap();
-      let qr_code_svg = text(&qr_code_url).await;
+      let response = get(&qr_code_url).await;
+      assert_eq!(
+        response.headers().get(header::CONTENT_TYPE).unwrap(),
+        "image/svg+xml"
+      );
+      let qr_code_svg = response.text().await.unwrap();
       let payment_request = decode_qr_code_from_svg(&qr_code_svg);
 
       let sender = LndTestContext::new().await;
