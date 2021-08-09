@@ -10,8 +10,8 @@ build:
 test *args="--all":
   cargo ltest --all-features "$@"
 
-fast-tests *args="-p agora":
-  cargo ltest $@
+fast-tests *args="":
+  cargo ltest "$@"
 
 slow-tests *args="slow_tests":
   cargo ltest --features slow-tests "$@"
