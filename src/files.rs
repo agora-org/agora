@@ -165,6 +165,23 @@ impl Files {
 
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
+  fn render_index(dir: &InputPath) -> Option<Markup> {
+    use pulldown_cmark::{html, Options, Parser};
+
+    let index_markdown = fs::read_to_string(dir.as_ref().join(".index.md")).ok()?;
+    let mut options = Options::empty();
+    options.insert(
+      Options::ENABLE_TABLES
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_TASKLISTS,
+    );
+    let parser = Parser::new_ext(&index_markdown, options);
+    let mut html_output = String::new();
+    html::push_html(&mut html_output, parser);
+    Some(maud::PreEscaped(html_output))
+  }
+
   async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
     let contents = html! {
       @for (file_name, file_type) in self.read_dir(dir).await? {
@@ -186,6 +203,9 @@ impl Files {
             }
           }
         }
+      }
+      @if let Some(index) = Self::render_index(dir) {
+        (index)
       }
     };
     Ok(Files::serve_html(contents))

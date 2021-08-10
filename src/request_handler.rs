@@ -933,6 +933,18 @@ pub(crate) mod tests {
 
     assert_contains(&stderr, "agora::files::Files::check_path");
   }
+
+  #[test]
+  fn displays_index_markdown_files_as_html() {
+    test(|context| async move {
+      fs::write(context.files_directory().join(".index.md"), "# test header").unwrap();
+      let html = html(context.files_url()).await;
+      guard_unwrap!(let &[index_header] = css_select(&html, "h1").as_slice());
+      assert_eq!(index_header.inner_html(), "test header");
+    });
+  }
+
+  // fixme: unreadable index files
 }
 
 #[cfg(all(test, feature = "slow-tests"))]
