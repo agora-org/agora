@@ -96,14 +96,24 @@ impl Server {
             .await
             .context(error::LndRpcConnect)?;
 
-        client.ping().await.context(error::LndRpcStatus)?;
-
-        writeln!(
-          environment.stderr,
-          "Connected to LND RPC server at {}",
-          lnd_rpc_authority
-        )
-        .context(error::StderrWrite)?;
+        match client.ping().await.context(error::LndRpcStatus) {
+          Err(error) => {
+            writeln!(
+              environment.stderr,
+              "warning: Cannot connect to LND gRPC server at `{}`: {}",
+              lnd_rpc_authority, error,
+            )
+            .context(error::StderrWrite)?;
+          }
+          Ok(()) => {
+            writeln!(
+              environment.stderr,
+              "Connected to LND RPC server at {}",
+              lnd_rpc_authority
+            )
+            .context(error::StderrWrite)?;
+          }
+        }
 
         Ok(Some(client))
       }
