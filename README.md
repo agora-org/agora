@@ -65,8 +65,8 @@ Currently, `agora` charges the low low price of 1,000 satoshis for all paid file
 ## Development Agora Instances
 
 There are Agora instances accessible at [agora.download](http://agora.download) and [test.agora.download](http://test.agora.download).
-[agora.download](http://agora.download) operates on the Bitcoin mainnet, and the invoices it generates can be paid with any mainnet Lightning Network wallet.
-[http://test.agora.download](http://test.agora.download) operates on the Bitcoin testnet, and the invoices it generates can only be paid with a testnet Lightning Network wallet, for example, [htlc.me](https://htlc.me/).
+[agora.download](http://agora.download) operates on the Bitcoin mainnet, and the invoices it generates can be paid with any **mainnet** Lightning Network wallet.
+[http://test.agora.download](http://test.agora.download) operates on the Bitcoin testnet, and the invoices it generates can only be paid with a **testnet** Lightning Network wallet, for example, [htlc.me](https://htlc.me/).
 
 ## Agora Instance Setup and Operation
 
