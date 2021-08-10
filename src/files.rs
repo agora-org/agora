@@ -112,7 +112,7 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      self.list(&file_path).await
+      self.serve_list(&file_path).await
     } else {
       self.access_file(tail, &file_path).await
     }
@@ -154,9 +154,7 @@ impl Files {
           link rel="stylesheet" href="/static/index.css";
         }
         body {
-          ul class="contents" {
-            (contents)
-          }
+          (contents)
         }
       }
     };
@@ -182,30 +180,32 @@ impl Files {
     Some(maud::PreEscaped(html_output))
   }
 
-  async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
+  async fn serve_list(&self, dir: &InputPath) -> Result<Response<Body>> {
     let contents = html! {
-      @for (file_name, file_type) in self.read_dir(dir).await? {
-        @let file_name = {
-          let mut file_name = file_name.to_string_lossy().into_owned();
-          if file_type.is_dir() {
-            file_name.push('/');
-          }
-          file_name
-        };
-        @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
-        li {
-          a href=(encoded) class="view" {
-            (file_name)
-          }
-          @if file_type.is_file() {
-            a download href=(encoded) {
-              (Files::download_icon())
+      ul class="contents" {
+        @for (file_name, file_type) in self.read_dir(dir).await? {
+          @let file_name = {
+            let mut file_name = file_name.to_string_lossy().into_owned();
+            if file_type.is_dir() {
+              file_name.push('/');
+            }
+            file_name
+          };
+          @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
+          li {
+            a href=(encoded) class="view" {
+              (file_name)
+            }
+            @if file_type.is_file() {
+              a download href=(encoded) {
+                (Files::download_icon())
+              }
             }
           }
         }
-      }
-      @if let Some(index) = Self::render_index(dir) {
-        (index)
+        @if let Some(index) = Self::render_index(dir) {
+          (index)
+        }
       }
     };
     Ok(Files::serve_html(contents))
@@ -285,18 +285,20 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         Ok(Files::serve_html(html! {
-          div class="invoice" {
-            div class="label" {
-              "Lightning Payment Request to access "
-              span class="filename" {
-                  (invoice.memo)
+          ul class="contents" {
+            div class="invoice" {
+              div class="label" {
+                "Lightning Payment Request to access "
+                span class="filename" {
+                    (invoice.memo)
+                }
+                ":"
               }
-              ":"
+              div class="payment-request" {
+                (invoice.payment_request)
+              }
+              img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
             }
-            div class="payment-request" {
-              (invoice.payment_request)
-            }
-            img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
         }))
       }

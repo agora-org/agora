@@ -945,6 +945,7 @@ pub(crate) mod tests {
   }
 
   // fixme: unreadable index files
+  // fixme: get index (an qr code) out of the list
 }
 
 #[cfg(all(test, feature = "slow-tests"))]
