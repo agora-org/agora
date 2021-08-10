@@ -77,7 +77,7 @@ An excellent guide to setting up a Lightning Network node on Linux is available 
 
 ### Processing Payments with Agora
 
-In order for your Agora instance to receive payments, not only will it need to be connected to an LND node, but that LND node must have sufficient *inbound liquidity*.
+In order for your Agora instance to receive payments, not only will it need to be connected to an LND node, but that LND node must have sufficient _inbound liquidity_.
 
 Liquidity management is one of the most complicated aspects of the Lightning Network, and certainly one of the most counter-intuitive.
 
@@ -110,7 +110,7 @@ Due to a lack of inbound liquidity, which is, quite simply, money on the other s
 This is an aspect of the Lightning Network that is very different from other payment systems, and from on-chain Bitcoin payments.
 You must arrange to have sufficient inbound liquidity to receive payments.
 
-A question you might ask is, *What if I just want to assume that the customer is good for the money and queue it up myself for settlement once I have the liquidity to spare?*
+A question you might ask is, _What if I just want to assume that the customer is good for the money and queue it up myself for settlement once I have the liquidity to spare?_
 
 Let's imagine that we were in the initial state, Alice had 1 BTC in the channel, Bob 0 BTC, and Alice let Bob make a payment to her of 1 BTC. The new balance would be:
 
