@@ -2,7 +2,7 @@
 name = "publish"
 version = "0.0.0"
 edition = "2018"
-publish = "false"
+publish = false
 
 [dependencies]
 cargo_metadata = "0.14.0"
