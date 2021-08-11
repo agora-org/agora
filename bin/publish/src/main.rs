@@ -1,5 +1,6 @@
 use cargo_metadata::MetadataCommand;
 use cradle::prelude::*;
+use std::env;
 use structopt::StructOpt;
 use tempfile::tempdir;
 
@@ -22,6 +23,8 @@ fn main() {
     CurrentDir(tempdir.path()),
   )
     .run_unit();
+
+  env::set_current_dir(tempdir.path().join("agora")).unwrap();
 
   (
     "git",
@@ -47,18 +50,12 @@ fn main() {
       "cargo",
       "publish",
       "--dry-run",
-      CurrentDir(tempdir.path().join("agora/agora-lnd-client")),
+      CurrentDir("agora-lnd-client"),
     )
       .run_unit();
   }
 
-  (
-    "cargo",
-    "publish",
-    "--dry-run",
-    CurrentDir(tempdir.path().join("agora")),
-  )
-    .run_unit();
+  ("cargo", "publish", "--dry-run").run_unit();
 
   (
     "git",
@@ -70,16 +67,11 @@ fn main() {
   )
     .run_unit();
 
-  ("git", "push", &version.to_string()).run_unit();
+  ("git", "push", "origin", &version.to_string()).run_unit();
 
   if arguments.publish_agora_lnd_client {
-    (
-      "cargo",
-      "publish",
-      CurrentDir(tempdir.path().join("agora/agora-lnd-client")),
-    )
-      .run_unit();
+    ("cargo", "publish", CurrentDir("agora-lnd-client")).run_unit();
   }
 
-  ("cargo", "publish", CurrentDir(tempdir.path().join("agora"))).run_unit();
+  ("cargo", "publish").run_unit();
 }
