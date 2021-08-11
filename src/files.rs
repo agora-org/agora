@@ -285,20 +285,18 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         Ok(Files::serve_html(html! {
-          ul class="contents" {
-            div class="invoice" {
-              div class="label" {
-                "Lightning Payment Request to access "
-                span class="filename" {
-                    (invoice.memo)
-                }
-                ":"
+          div class="invoice" {
+            div class="label" {
+              "Lightning Payment Request to access "
+              span class="filename" {
+                  (invoice.memo)
               }
-              div class="payment-request" {
-                (invoice.payment_request)
-              }
-              img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
+              ":"
             }
+            div class="payment-request" {
+              (invoice.payment_request)
+            }
+            img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
         }))
       }
