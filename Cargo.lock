@@ -1818,7 +1818,7 @@ dependencies = [
 
 [[package]]
 name = "publish"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "cargo_metadata",
  "cradle 0.0.18",
