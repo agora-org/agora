@@ -10,11 +10,12 @@ use hyper::{header, Body, Request, Response, StatusCode};
 use lexiclean::Lexiclean;
 use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 use std::{
   ffi::OsString,
   fmt::Debug,
   fs::{self, FileType},
+  io,
   path::Path,
 };
 
@@ -163,10 +164,17 @@ impl Files {
 
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
-  fn render_index(dir: &InputPath) -> Option<Markup> {
+  fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
 
-    let index_markdown = fs::read_to_string(dir.as_ref().join(".index.md")).ok()?;
+    let file = dir.join_relative(".index.md".as_ref())?;
+
+    let markdown = match fs::read_to_string(&file) {
+      Ok(markdown) => markdown,
+      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+    };
+
     let mut options = Options::empty();
     options.insert(
       Options::ENABLE_TABLES
@@ -174,10 +182,10 @@ impl Files {
         | Options::ENABLE_STRIKETHROUGH
         | Options::ENABLE_TASKLISTS,
     );
-    let parser = Parser::new_ext(&index_markdown, options);
-    let mut html_output = String::new();
-    html::push_html(&mut html_output, parser);
-    Some(maud::PreEscaped(html_output))
+    let parser = Parser::new_ext(&markdown, options);
+    let mut html = String::new();
+    html::push_html(&mut html, parser);
+    Ok(Some(maud::PreEscaped(html)))
   }
 
   async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
@@ -204,7 +212,7 @@ impl Files {
           }
         }
       }
-      @if let Some(index) = Self::render_index(dir) {
+      @if let Some(index) = Self::render_index(dir)? {
         div {
           (index)
         }
