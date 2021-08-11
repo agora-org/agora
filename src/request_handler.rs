@@ -933,6 +933,36 @@ pub(crate) mod tests {
 
     assert_contains(&stderr, "agora::files::Files::check_path");
   }
+
+  #[test]
+  fn displays_index_markdown_files_as_html() {
+    test(|context| async move {
+      fs::write(context.files_directory().join(".index.md"), "# test header").unwrap();
+      let html = html(context.files_url()).await;
+      guard_unwrap!(let &[index_header] = css_select(&html, "h1").as_slice());
+      assert_eq!(index_header.inner_html(), "test header");
+    });
+  }
+
+  #[test]
+  fn returns_error_if_index_is_unusable() {
+    let stderr = test(|context| async move {
+      fs::create_dir(context.files_directory().join(".index.md")).unwrap();
+      let status = reqwest::get(context.files_url().clone())
+        .await
+        .unwrap()
+        .status();
+      assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    });
+
+    assert_contains(
+      &stderr,
+      &format!(
+        "IO error accessing filesystem at `www{}.index.md`: ",
+        MAIN_SEPARATOR
+      ),
+    );
+  }
 }
 
 #[cfg(all(test, feature = "slow-tests"))]

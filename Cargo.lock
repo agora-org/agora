@@ -50,6 +50,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "pretty_assertions",
+ "pulldown-cmark",
  "qrcodegen",
  "regex",
  "reqwest",
@@ -1824,6 +1825,18 @@ dependencies = [
  "cradle 0.0.18",
  "structopt",
  "tempfile",
+]
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffade02495f22453cd593159ea2f59827aae7f53fa8323f756799b670881dcf8"
+dependencies = [
+ "bitflags",
+ "getopts",
+ "memchr",
+ "unicase",
 ]
 
 [[package]]
