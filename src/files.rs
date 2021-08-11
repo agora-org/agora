@@ -186,7 +186,7 @@ impl Files {
   }
 
   async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
-    let listing = html! {
+    let body = html! {
       ul class="listing" {
         @for (file_name, file_type) in self.read_dir(dir).await? {
           @let file_name = {
@@ -215,7 +215,7 @@ impl Files {
         }
       }
     };
-    Ok(Files::serve_html(listing))
+    Ok(Files::serve_html(body))
   }
 
   fn download_icon() -> Markup {
