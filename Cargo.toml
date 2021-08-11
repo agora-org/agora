@@ -10,7 +10,7 @@ repository = "https://github.com/soenkehahn/agora"
 homepage = "https://github.com/soenkehahn/agora"
 
 [workspace]
-members = [".", "bin/prerelease", "agora-lnd-client", "lnd-test-context"]
+members = [".", "agora-lnd-client", "bin/prerelease", "bin/publish", "lnd-test-context"]
 
 [dependencies]
 backtrace = "0.3.61"

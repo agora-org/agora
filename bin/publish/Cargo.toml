@@ -1,0 +1,12 @@
+[package]
+name = "publish"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cargo_metadata = "0.14.0"
+cradle = "0.0.18"
+structopt = "0.3.22"
+tempfile = "3.2.0"

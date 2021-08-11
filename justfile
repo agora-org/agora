@@ -44,18 +44,8 @@ watch +command='ltest':
 push: all
   git push
 
-publish remote: all
-  #!/usr/bin/env bash
-  set -euxo pipefail
-  VERSION=`cargo run -- --version | cut -d' ' -f2`
-  git diff --no-ext-diff --quiet --exit-code
-  git branch | grep '* master'
-  (cd agora-lnd-client && cargo publish --dry-run)
-  cargo publish --dry-run
-  git tag -a $VERSION -m "Release version $VERSION"
-  git push {{remote}} $VERSION
-  (cd agora-lnd-client && cargo publish)
-  cargo publish
+publish revision:
+  cargo run -p publish -- {{revision}}
 
 clean-binaries:
   rm -rf target/bitcoin* target/ln*
