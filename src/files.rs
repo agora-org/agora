@@ -175,13 +175,10 @@ impl Files {
       Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
     };
 
-    let mut options = Options::empty();
-    options.insert(
-      Options::ENABLE_TABLES
-        | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_TASKLISTS,
-    );
+    let options = Options::ENABLE_FOOTNOTES
+      | Options::ENABLE_STRIKETHROUGH
+      | Options::ENABLE_TABLES
+      | Options::ENABLE_TASKLISTS;
     let parser = Parser::new_ext(&markdown, options);
     let mut html = String::new();
     html::push_html(&mut html, parser);
