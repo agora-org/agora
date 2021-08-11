@@ -30,10 +30,12 @@ fn main() {
     "git",
     "merge-base",
     "--is-ancestor",
-    arguments.revision,
+    &arguments.revision,
     "master",
   )
     .run_unit();
+
+  ("git", "checkout", arguments.revision).run_unit();
 
   let metadata = MetadataCommand::new().exec().unwrap();
 
