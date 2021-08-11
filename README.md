@@ -64,7 +64,7 @@ Currently, `agora` charges the low low price of 1,000 satoshis for all paid file
 
 ### Custom Index Pages
 
-`agora` serves file listings for directories.
+`agora` serves directory file listings.
 If a `.index.md` file is present in a directory, `agora` will render the contained Markdown as HTML and include it with the file listing. `agora` expects Commonmark Markdown, extended with footnotes, [strikethrough](https://github.github.com/gfm/#strikethrough-extension-), [tables](https://github.github.com/gfm/#tables-extension-), and [task lists](https://github.github.com/gfm/#task-list-items-extension-).
 
 ## Development Agora Instances
