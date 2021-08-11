@@ -6,17 +6,13 @@ body {
   width: 800px;
 }
 
-.invoice {
-  border-top: 1px solid black;
-}
-
-.contents {
+.listing {
   border-top: 1px solid black;
   list-style: none;
   padding-left: 0;
 }
 
-.contents > li {
+.listing > li {
   border-bottom: 1px solid black;
   display: flex;
   font-family: "Courier New", Courier, monospace;
@@ -45,9 +41,10 @@ body {
 }
 
 .invoice {
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
   border-bottom: 1px solid black;
+  border-top: 1px solid black;
+  padding-bottom: 0.5em;
+  padding-top: 0.5em;
 }
 
 .invoice > .label {

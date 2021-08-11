@@ -112,7 +112,7 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      self.serve_list(&file_path).await
+      self.serve_dir(&file_path).await
     } else {
       self.access_file(tail, &file_path).await
     }
@@ -142,7 +142,7 @@ impl Files {
     Ok(entries)
   }
 
-  fn serve_html(contents: Markup) -> Response<Body> {
+  fn serve_html(body: Markup) -> Response<Body> {
     let html = html! {
       html {
         (DOCTYPE)
@@ -154,7 +154,7 @@ impl Files {
           link rel="stylesheet" href="/static/index.css";
         }
         body {
-          (contents)
+          (body)
         }
       }
     };
@@ -180,9 +180,9 @@ impl Files {
     Some(maud::PreEscaped(html_output))
   }
 
-  async fn serve_list(&self, dir: &InputPath) -> Result<Response<Body>> {
-    let contents = html! {
-      ul class="contents" {
+  async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+    let listing = html! {
+      ul class="listing" {
         @for (file_name, file_type) in self.read_dir(dir).await? {
           @let file_name = {
             let mut file_name = file_name.to_string_lossy().into_owned();
@@ -205,10 +205,12 @@ impl Files {
         }
       }
       @if let Some(index) = Self::render_index(dir) {
-        (index)
+        div {
+          (index)
+        }
       }
     };
-    Ok(Files::serve_html(contents))
+    Ok(Files::serve_html(listing))
   }
 
   fn download_icon() -> Markup {
