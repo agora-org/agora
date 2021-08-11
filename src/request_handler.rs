@@ -951,7 +951,7 @@ pub(crate) mod tests {
 #[cfg(all(test, feature = "slow-tests"))]
 mod slow_tests {
   use super::tests::{css_select, get, html, text};
-  use crate::test_utils::{assert_contains, test_with_lnd, TestContext};
+  use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd, TestContext};
   use cradle::*;
   use guard::guard_unwrap;
   use hyper::{header, StatusCode};
@@ -1163,5 +1163,25 @@ mod slow_tests {
     });
 
     assert_contains(&stderr, &format!("Invoice not found: {}", "a".repeat(64)));
+  }
+
+  #[test]
+  fn warns_when_lnd_is_unreachable_at_startup() {
+    let context = LndTestContext::new_blocking();
+    let stderr = test_with_arguments(
+      &[
+        "--lnd-rpc-authority",
+        "127.0.0.1:12345",
+        "--lnd-rpc-cert-path",
+        context.cert_path().to_str().unwrap(),
+        "--lnd-rpc-macaroon-path",
+        context.invoice_macaroon_path().to_str().unwrap(),
+      ],
+      |_context| async move {},
+    );
+    assert_contains(
+      &stderr,
+      "warning: Cannot connect to LND gRPC server at `127.0.0.1:12345`: LND RPC call failed: ",
+    );
   }
 }
