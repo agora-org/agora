@@ -50,6 +50,7 @@ dependencies = [
  "percent-encoding",
  "pin-project",
  "pretty_assertions",
+ "pulldown-cmark",
  "qrcodegen",
  "regex",
  "reqwest",
@@ -1774,6 +1775,18 @@ checksum = "b518d7cdd93dab1d1122cf07fa9a60771836c668dde9d9e2a139f957f0d9f1bb"
 dependencies = [
  "bytes",
  "prost",
+]
+
+[[package]]
+name = "pulldown-cmark"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffade02495f22453cd593159ea2f59827aae7f53fa8323f756799b670881dcf8"
+dependencies = [
+ "bitflags",
+ "getopts",
+ "memchr",
+ "unicase",
 ]
 
 [[package]]
