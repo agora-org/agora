@@ -203,9 +203,9 @@ impl Files {
             }
           }
         }
-        @if let Some(index) = Self::render_index(dir) {
-          (index)
-        }
+      }
+      @if let Some(index) = Self::render_index(dir) {
+        (index)
       }
     };
     Ok(Files::serve_html(contents))
