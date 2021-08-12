@@ -17,6 +17,8 @@ mod request_handler;
 mod server;
 mod static_assets;
 mod stderr;
+#[cfg(test)]
+mod tests;
 
 #[tokio::main]
 async fn main() {
@@ -37,33 +39,4 @@ async fn run() -> Result<()> {
   let mut environment = Environment::production()?;
   let server = Server::setup(&mut environment).await?;
   server.run().await
-}
-
-#[cfg(test)]
-mod tests {
-  use crate::test_utils::test_with_arguments;
-  use std::net::TcpListener;
-
-  #[test]
-  fn configure_port() {
-    let free_port = {
-      TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-    };
-
-    let args = &["--port", &free_port.to_string()];
-
-    test_with_arguments(args, |_| async move {
-      assert_eq!(
-        reqwest::get(format!("http://localhost:{}", free_port))
-          .await
-          .unwrap()
-          .status(),
-        200
-      )
-    });
-  }
 }
