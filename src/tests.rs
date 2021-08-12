@@ -866,7 +866,7 @@ fn returns_error_if_index_is_unusable() {
   );
 }
 
-#[cfg(all(test, feature = "slow-tests"))]
+#[cfg(feature = "slow-tests")]
 mod slow_tests {
   use super::*;
   use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd, TestContext};
