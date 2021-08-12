@@ -19,21 +19,21 @@ use tokio::{
   net::TcpStream,
 };
 
-pub(super) async fn get(url: &Url) -> reqwest::Response {
+async fn get(url: &Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
   assert_eq!(response.status(), StatusCode::OK);
   response
 }
 
-pub(super) async fn text(url: &Url) -> String {
+async fn text(url: &Url) -> String {
   get(url).await.text().await.unwrap()
 }
 
-pub(super) async fn html(url: &Url) -> Html {
+async fn html(url: &Url) -> Html {
   Html::parse_document(&text(url).await)
 }
 
-pub(super) fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
+fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
   let selector = Selector::parse(selector).unwrap();
   html.select(&selector).collect::<Vec<_>>()
 }
