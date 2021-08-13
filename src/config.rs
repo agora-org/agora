@@ -183,7 +183,7 @@ mod tests {
     assert_eq!(config.base_price, Some(Millisatoshi(3000)));
   }
 
-  fn case(input: &str) {
+  fn invalid_value(input: &str) {
     let expected = format!(
       "invalid value: string \"{}\", expected integer number of satoshis, including unit, e.g. \"1000 sat\" at line 1 column 1",
       serde_yaml::from_str::<String>(input).unwrap(),
@@ -198,37 +198,37 @@ mod tests {
 
   #[test]
   fn leading_space() {
-    case("\" 1 sat\"");
+    invalid_value("\" 1 sat\"");
   }
 
   #[test]
   fn trailing_space() {
-    case("\"1 sat \"");
+    invalid_value("\"1 sat \"");
   }
 
   #[test]
   fn wrong_unit() {
-    case("1 msat");
+    invalid_value("1 msat");
   }
 
   #[test]
   fn missing_unit() {
-    case("\"1\"");
+    invalid_value("\"1\"");
   }
 
   #[test]
   fn number_type() {
-    case("1");
+    invalid_value("1");
   }
 
   #[test]
   fn decimal_point() {
-    case("1.1 sat");
+    invalid_value("1.1 sat");
   }
 
   #[test]
   fn negative_number() {
-    case("-1 sat");
+    invalid_value("-1 sat");
   }
 
   #[test]
