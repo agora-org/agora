@@ -24,7 +24,7 @@ fn redirects_to_invoice_url() {
     fs::create_dir(context.files_directory().join("foo")).unwrap();
     fs::write(
       context.files_directory().join("foo/.agora.yaml"),
-      "paid: true",
+      "{paid: true, base-price: 1000 sat}",
     )
     .unwrap();
     fs::write(context.files_directory().join("foo/bar"), "").unwrap();
@@ -64,7 +64,11 @@ fn non_existant_files_dont_redirect_to_invoice() {
 fn invoice_url_serves_bech32_encoded_invoice() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     fs::write(context.files_directory().join("foo"), "").unwrap();
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     let html = html(&context.files_url().join("foo").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
     assert_contains(&payment_request.inner_html(), "lnbcrt1");
@@ -74,7 +78,11 @@ fn invoice_url_serves_bech32_encoded_invoice() {
 #[test]
 fn invoice_url_contains_filename() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     fs::write(context.files_directory().join("test-filename"), "").unwrap();
     let html = html(&context.files_url().join("test-filename").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
@@ -110,7 +118,11 @@ fn decode_qr_code_from_svg(svg: &str) -> String {
 fn invoice_url_links_to_qr_code() {
   let receiver = LndTestContext::new_blocking();
   test_with_lnd(&receiver.clone(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     fs::write(
       context.files_directory().join("test-filename"),
       "precious content",
@@ -151,7 +163,11 @@ fn invoice_url_links_to_qr_code() {
 fn paying_invoice_allows_downloading_file() {
   let receiver = LndTestContext::new_blocking();
   test_with_lnd(&receiver.clone(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     fs::write(context.files_directory().join("foo"), "precious content").unwrap();
     let response = get(&context.files_url().join("foo").unwrap()).await;
     let invoice_url = response.url().clone();
@@ -211,7 +227,11 @@ fn configuring_paid_without_base_price_returns_error() {
 #[test]
 fn returns_404_for_made_up_invoice() {
   let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     fs::write(context.files_directory().join("test-filename"), "").unwrap();
     assert_eq!(
       reqwest::get(
@@ -233,7 +253,11 @@ fn returns_404_for_made_up_invoice() {
 #[test]
 fn returns_404_for_made_up_invoice_qr_code() {
   let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
     fs::write(context.files_directory().join("test-filename"), "").unwrap();
     assert_eq!(
       reqwest::get(
