@@ -20,10 +20,16 @@ prost = "0.7.0"
 snafu = "0.6.10"
 tonic = "0.4.3"
 tower = "0.4.8"
+regex = "1.5.4"
+num-format = "0.4.0"
 
 [dependencies.openssl]
 version = "0.10.35"
 features = ["vendored"]
+
+[dependencies.serde]
+version = "1.0.127"
+features = ["derive"]
 
 [dev-dependencies]
 cradle = "0.0.11"
@@ -31,6 +37,7 @@ hex-literal = "0.3.1"
 lnd-test-context = { path = "../lnd-test-context" }
 pretty_assertions = "0.7.2"
 reqwest = "0.11.3"
+serde_yaml = "0.8.17"
 sha2 = "0.9.5"
 tempfile = "3.2.0"
 

@@ -1,48 +1,8 @@
 use crate::error::{self, Result};
-use regex::Regex;
-use serde::{
-  de::{self, Visitor},
-  Deserialize, Deserializer,
-};
+use agora_lnd_client::Millisatoshi;
+use serde::Deserialize;
 use snafu::{IntoError, ResultExt};
-use std::{fmt, fs, io, path::Path};
-
-#[derive(PartialEq, Debug)]
-struct Millisatoshi(u64);
-
-impl<'de> Deserialize<'de> for Millisatoshi {
-  fn deserialize<D>(deserializer: D) -> Result<Millisatoshi, D::Error>
-  where
-    D: Deserializer<'de>,
-  {
-    deserializer.deserialize_str(MillisatoshiVisitor)
-  }
-}
-
-struct MillisatoshiVisitor;
-
-impl<'de> Visitor<'de> for MillisatoshiVisitor {
-  type Value = Millisatoshi;
-
-  fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-    formatter.write_str("a string, e.g. \"1000 sat\"")
-  }
-
-  fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-  where
-    E: de::Error,
-  {
-    let regex = Regex::new(r"^([0-9]*) sat$").expect("regex is valid");
-    let captures = regex.captures(value).ok_or_else(|| {
-      de::Error::invalid_value(
-        de::Unexpected::Str(value),
-        &"integer number of satoshis, including unit, e.g. \"1000 sat\"",
-      )
-    })?;
-    let value = captures[1].parse::<u64>().unwrap();
-    Ok(Millisatoshi(value * 1000))
-  }
-}
+use std::{fs, io, path::Path};
 
 #[derive(PartialEq, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -169,64 +129,6 @@ mod tests {
     .unindent();
     fs::write(temp_dir.path().join(".agora.yaml"), yaml).unwrap();
     let config = Config::for_dir(temp_dir.path()).unwrap();
-    assert_eq!(config.base_price, Some(Millisatoshi(3000)));
-  }
-
-  fn invalid_value(input: &str) {
-    let expected = format!(
-      "invalid value: string \"{}\", expected integer number of satoshis, including unit, e.g. \"1000 sat\" at line 1 column 1",
-      serde_yaml::from_str::<String>(input).unwrap(),
-    );
-    assert_eq!(
-      serde_yaml::from_str::<Millisatoshi>(input)
-        .unwrap_err()
-        .to_string(),
-      expected
-    );
-  }
-
-  #[test]
-  fn leading_space() {
-    invalid_value("\" 1 sat\"");
-  }
-
-  #[test]
-  fn trailing_space() {
-    invalid_value("\"1 sat \"");
-  }
-
-  #[test]
-  fn wrong_unit() {
-    invalid_value("1 msat");
-  }
-
-  #[test]
-  fn missing_unit() {
-    invalid_value("\"1\"");
-  }
-
-  #[test]
-  fn number_type() {
-    invalid_value("1");
-  }
-
-  #[test]
-  fn decimal_point() {
-    invalid_value("1.1 sat");
-  }
-
-  #[test]
-  fn negative_number() {
-    invalid_value("-1 sat");
-  }
-
-  #[test]
-  fn list_input() {
-    assert_eq!(
-      serde_yaml::from_str::<Millisatoshi>("[1]")
-        .unwrap_err()
-        .to_string(),
-      "invalid type: sequence, expected a string, e.g. \"1000 sat\" at line 1 column 1"
-    );
+    assert_eq!(config.base_price, Some(Millisatoshi::new(3000)));
   }
 }
