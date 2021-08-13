@@ -8,7 +8,7 @@ use std::{fs, io, path::Path};
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   pub(crate) paid: bool,
-  base_price: Option<Millisatoshi>,
+  pub(crate) base_price: Option<Millisatoshi>,
 }
 
 impl Config {

@@ -181,12 +181,31 @@ fn allows_configuring_invoice_amount() {
     let response = get(&context.files_url().join("foo").unwrap()).await;
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[invoice_element] = css_select(&html, ".invoice").as_slice());
-    assert_contains(&invoice_element.inner_html(), "1234 sat");
+    assert_contains(&invoice_element.inner_html(), "1,234 satoshis");
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
     let invoice = payment_request.parse::<Invoice>().unwrap();
     assert_eq!(invoice.amount_pico_btc().unwrap(), 1234 * 1000 * 10);
   });
+}
+
+#[test]
+fn configuring_paid_without_base_price_returns_error() {
+  let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
+    fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+    let response = reqwest::get(context.files_url().join("foo").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Missing base price for paid file `www{}foo`",
+      MAIN_SEPARATOR
+    ),
+  );
 }
 
 #[test]

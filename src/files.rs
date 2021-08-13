@@ -5,7 +5,7 @@ use crate::{
   input_path::InputPath,
   redirect::redirect,
 };
-use agora_lnd_client::{lnrpc::invoice::InvoiceState, Millisatoshi};
+use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use hyper::{header, Body, Request, Response, StatusCode};
 use lexiclean::Lexiclean;
 use maud::{html, Markup, DOCTYPE};
@@ -246,8 +246,14 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
+    let base_price = config.base_price.ok_or_else(|| {
+      error::ConfigMissingBasePrice {
+        path: path.display_path().to_owned(),
+      }
+      .build()
+    })?;
     let invoice = lnd_client
-      .add_invoice(&file_path, Millisatoshi::new(1000))
+      .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
