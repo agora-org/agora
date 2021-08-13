@@ -1,13 +1,14 @@
 use crate::error::{self, Result};
-use serde::{Deserialize, Serialize};
+use agora_lnd_client::Millisatoshi;
+use serde::Deserialize;
 use snafu::{IntoError, ResultExt};
 use std::{fs, io, path::Path};
 
-#[derive(PartialEq, Debug, Default, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-#[serde(default)]
+#[derive(PartialEq, Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   pub(crate) paid: bool,
+  pub(crate) base_price: Option<Millisatoshi>,
 }
 
 impl Config {
@@ -26,11 +27,19 @@ impl Config {
 mod tests {
   use super::*;
   use crate::error::Error;
+  use pretty_assertions::assert_eq;
   use tempfile::TempDir;
+  use unindent::Unindent;
 
   #[test]
   fn test_default_config() {
-    assert_eq!(Config { paid: false }, Config::default());
+    assert_eq!(
+      Config {
+        paid: false,
+        base_price: None
+      },
+      Config::default()
+    );
   }
 
   #[test]
@@ -45,7 +54,13 @@ mod tests {
     let temp_dir = TempDir::new().unwrap();
     fs::write(temp_dir.path().join(".agora.yaml"), "paid: true").unwrap();
     let config = Config::for_dir(temp_dir.path()).unwrap();
-    assert_eq!(config, Config { paid: true });
+    assert_eq!(
+      config,
+      Config {
+        paid: true,
+        base_price: None
+      }
+    );
   }
 
   #[test]
@@ -102,5 +117,18 @@ mod tests {
     fs::write(temp_dir.path().join(".agora.yaml"), "{}").unwrap();
     let config = Config::for_dir(temp_dir.path()).unwrap();
     assert_eq!(config, Config::default());
+  }
+
+  #[test]
+  fn parses_base_price_in_satoshi() {
+    let temp_dir = TempDir::new().unwrap();
+    let yaml = "
+      paid: true
+      base-price: 3 sat
+    "
+    .unindent();
+    fs::write(temp_dir.path().join(".agora.yaml"), yaml).unwrap();
+    let config = Config::for_dir(temp_dir.path()).unwrap();
+    assert_eq!(config.base_price, Some(Millisatoshi::new(3000)));
   }
 }

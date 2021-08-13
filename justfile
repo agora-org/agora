@@ -59,3 +59,12 @@ run domain='test.agora.download' network='testnet':
     --lnd-rpc-authority {{domain}}:10009 \
     --lnd-rpc-cert-path target/tls.cert \
     --lnd-rpc-macaroon-path target/invoice.macaroon
+
+open:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if command -v xdg-open &> /dev/null; then
+    xdg-open http://localhost:8080
+  else
+    open http://localhost:8080
+  fi
