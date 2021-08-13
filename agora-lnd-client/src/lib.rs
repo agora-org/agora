@@ -6,8 +6,9 @@ use lnrpc::{
   lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
 };
 use openssl::x509::X509;
+use std::convert::TryInto;
 #[cfg(test)]
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
 
 pub use millisatoshi::Millisatoshi;
@@ -87,11 +88,16 @@ impl Client {
   pub async fn add_invoice(
     &mut self,
     memo: &str,
-    value: Millisatoshi,
+    value_msat: Millisatoshi,
   ) -> Result<AddInvoiceResponse, Status> {
     let request = tonic::Request::new(Invoice {
       memo: memo.to_owned(),
-      value_msat: value.value() as i64,
+      value_msat: value_msat.value().try_into().map_err(|source| {
+        Status::new(
+          Code::InvalidArgument,
+          format!("invalid value for `value_msat`: {}", source),
+        )
+      })?,
       ..Invoice::default()
     });
     Ok(self.inner.add_invoice(request).await?.into_inner())
