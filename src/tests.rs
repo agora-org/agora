@@ -870,7 +870,7 @@ fn returns_error_if_index_is_unusable() {
 mod slow_tests {
   use super::*;
   use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd, TestContext};
-  use cradle::*;
+  use cradle::prelude::*;
   use guard::guard_unwrap;
   use hyper::{header, StatusCode};
   use lnd_test_context::LndTestContext;
@@ -1012,7 +1012,7 @@ mod slow_tests {
       sender.generate_lnd_btc().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
       let StdoutUntrimmed(_) =
-        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+        run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
     });
   }
@@ -1034,7 +1034,7 @@ mod slow_tests {
       sender.generate_lnd_btc().await;
       sender.open_channel_to(&receiver, 1_000_000).await;
       let StdoutUntrimmed(_) =
-        cmd!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+        run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
       assert_eq!(text(&invoice_url).await, "precious content");
     });
   }

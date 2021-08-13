@@ -1,4 +1,4 @@
-use cradle::*;
+use cradle::prelude::*;
 use hex_literal::hex;
 use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
@@ -73,7 +73,7 @@ pub async fn bitcoind() -> PathBuf {
   static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
   let _guard = MUTEX.lock().await;
   if !binary.exists() {
-    cmd_unit!(
+    run!(
       %"tar -xzvf",
       bitcoind_archive().await,
       "-C", target_dir(),
@@ -116,13 +116,13 @@ async fn lnd_executables() -> (PathBuf, PathBuf) {
   static MUTEX: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
   let _guard = MUTEX.lock().await;
   if !lnd_itest.exists() {
-    cmd_unit!(
+    run!(
       %"tar -xzvf",
       lnd_tarball().await,
       "-C", target_dir()
     );
     let src_dir = target_dir().join("lnd-source");
-    cmd_unit!(
+    run!(
       %"make build build-itest",
       CurrentDir(&src_dir)
     );

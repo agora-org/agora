@@ -32,7 +32,7 @@ dependencies = [
  "bardecoder",
  "bytes",
  "color-backtrace",
- "cradle 0.0.11",
+ "cradle",
  "executable-path",
  "futures",
  "guard",
@@ -74,7 +74,7 @@ dependencies = [
 name = "agora-lnd-client"
 version = "0.0.0"
 dependencies = [
- "cradle 0.0.11",
+ "cradle",
  "hex",
  "hex-literal",
  "http",
@@ -370,18 +370,7 @@ dependencies = [
 
 [[package]]
 name = "cradle"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7df1b15c1ec82eb06917b6bd5388447af6d85bdf98d690bae93d301ac200dfb2"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
-name = "cradle"
-version = "0.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04279bcc0a74fad216bf5ae0108d51833097f09fddb84d8a948c9f80099cdd22"
+version = "0.0.20"
 dependencies = [
  "rustversion",
 ]
@@ -1143,7 +1132,7 @@ dependencies = [
 name = "lnd-test-context"
 version = "0.0.0"
 dependencies = [
- "cradle 0.0.11",
+ "cradle",
  "hex-literal",
  "lazy_static",
  "pretty_assertions",
@@ -1822,7 +1811,7 @@ name = "publish"
 version = "0.0.0"
 dependencies = [
  "cargo_metadata",
- "cradle 0.0.18",
+ "cradle",
  "structopt",
  "tempfile",
 ]
