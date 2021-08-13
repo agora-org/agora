@@ -1040,6 +1040,11 @@ mod slow_tests {
   }
 
   #[test]
+  fn allows_to_configure_invoice_amount() {
+    todo!();
+  }
+
+  #[test]
   fn returns_404_for_made_up_invoice() {
     let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
       fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
