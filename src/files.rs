@@ -248,7 +248,7 @@ impl Files {
     let file_path = tail.join("");
     let base_price = config.base_price.ok_or_else(|| {
       error::ConfigMissingBasePrice {
-        path: path.display_path().to_owned(),
+        path: path.display_path(),
       }
       .build()
     })?;
