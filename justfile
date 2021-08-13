@@ -61,4 +61,10 @@ run domain='test.agora.download' network='testnet':
     --lnd-rpc-macaroon-path target/invoice.macaroon
 
 open:
-  open http://localhost:8080
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if command -v xdg-open &> /dev/null; then
+    xdg-open http://localhost:8080
+  else
+    open http://localhost:8080
+  fi
