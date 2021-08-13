@@ -201,7 +201,10 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let response = client.add_invoice("", Millisatoshi::new(1)).await.unwrap();
+    let response = client
+      .add_invoice("", Millisatoshi::new(1_000))
+      .await
+      .unwrap();
     assert!(
       !response.payment_request.is_empty(),
       "Bad response: {:?}",
@@ -213,7 +216,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let r_hash = client
-      .add_invoice("test-memo", Millisatoshi::new(42))
+      .add_invoice("test-memo", Millisatoshi::new(42_000))
       .await
       .unwrap()
       .r_hash;
@@ -230,15 +233,15 @@ jlZBq5hr8Nv2qStFfw9qzw==
   async fn lookup_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let _ignored1 = client
-      .add_invoice("foo", Millisatoshi::new(1))
+      .add_invoice("foo", Millisatoshi::new(1_000))
       .await
       .unwrap();
     let created = client
-      .add_invoice("bar", Millisatoshi::new(2))
+      .add_invoice("bar", Millisatoshi::new(2_000))
       .await
       .unwrap();
     let _ignored2 = client
-      .add_invoice("baz", Millisatoshi::new(3))
+      .add_invoice("baz", Millisatoshi::new(3_000))
       .await
       .unwrap();
     let retrieved = client
@@ -274,7 +277,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
   async fn lookup_invoice_not_found_some_invoices() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
     let _ignored1 = client
-      .add_invoice("foo", Millisatoshi::new(1))
+      .add_invoice("foo", Millisatoshi::new(1_000))
       .await
       .unwrap();
     assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
