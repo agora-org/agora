@@ -2,7 +2,7 @@ use crate::error::{self, Result};
 use regex::Regex;
 use serde::{
   de::{self, Visitor},
-  Deserialize, Deserializer, Serialize, Serializer,
+  Deserialize, Deserializer,
 };
 use snafu::{IntoError, ResultExt};
 use std::{fmt, fs, io, path::Path};
@@ -32,7 +32,6 @@ impl<'de> Visitor<'de> for MillisatoshiVisitor {
   where
     E: de::Error,
   {
-    dbg!(&value);
     let regex = Regex::new(r"^([0-9]*) sat$").expect("regex is valid");
     let captures = regex.captures(value).ok_or_else(|| {
       de::Error::invalid_value(
@@ -45,17 +44,7 @@ impl<'de> Visitor<'de> for MillisatoshiVisitor {
   }
 }
 
-impl Serialize for Millisatoshi {
-  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-  where
-    S: Serializer,
-  {
-    todo!();
-    // serializer.serialize_str(*self)
-  }
-}
-
-#[derive(PartialEq, Debug, Default, Deserialize, Serialize)]
+#[derive(PartialEq, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   pub(crate) paid: bool,
