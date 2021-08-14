@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "agora-lnd-client"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "cradle 0.0.11",
  "hex",
