@@ -34,7 +34,7 @@ tonic = "0.4.3"
 
 [dependencies.agora-lnd-client]
 path = "agora-lnd-client"
-version = "0.0.0"
+version = "0.0.1"
 
 [dependencies.hyper]
 version = "0.14.7"
