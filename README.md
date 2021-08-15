@@ -2,8 +2,7 @@
 
 `agora` serves the contents of a local directory, providing file listings and downloads over HTTP.
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
-It allows to charge users for file downloads through [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments.
-For that to work `agora` has to be configured to connect to a working [LND](https://github.com/lightningnetwork/lnd) node.
+If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
 ## Running
 
