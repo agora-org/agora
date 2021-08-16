@@ -28,6 +28,10 @@ Inside the checked out repository, running `cargo build --release` will build `a
 
 From within the repository, you can also run, e.g., `cargo install --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
+## Release RSS Feed
+
+An [RSS](https://en.wikipedia.org/wiki/RSS) feed of `agora` releases is published [here](https://github.com/agora-org/agora/releases.atom).
+
 ## Deployment
 
 The `agora` binary contains its static assets, so it can be copied and run from anywhere on the filesystem.
