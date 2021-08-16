@@ -35,7 +35,7 @@ impl Config {
         Ok(yaml) => {
           let parent =
             serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path })?;
-          config = config.merge_parent(parent);
+          config.merge_parent(parent);
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(source) => return Err(error::FilesystemIo { path: file_path }.into_error(source)),
@@ -44,11 +44,11 @@ impl Config {
     Ok(config)
   }
 
-  fn merge_parent(self, parent: Self) -> Self {
-    Self {
+  fn merge_parent(&mut self, parent: Self) {
+    *self = Self {
       paid: self.paid.or(parent.paid),
       base_price: self.base_price.or(parent.base_price),
-    }
+    };
   }
 }
 
