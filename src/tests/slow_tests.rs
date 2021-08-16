@@ -295,3 +295,23 @@ fn warns_when_lnd_is_unreachable_at_startup() {
     "warning: Cannot connect to LND gRPC server at `127.0.0.1:12345`: LND RPC call failed: ",
   );
 }
+
+#[test]
+fn access_configuration_works_recursively() {
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    fs::create_dir(context.files_directory().join("dir")).unwrap();
+    fs::write(context.files_directory().join("dir/foo"), "").unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    let response = get(&context.files_url().join("dir/foo").unwrap()).await;
+    let regex = Regex::new("^/invoice/[a-f0-9]{64}/dir/foo$").unwrap();
+    assert!(
+      regex.is_match(response.url().path()),
+      "Response URL path was not invoice path: {}",
+      response.url().path(),
+    );
+  });
+}

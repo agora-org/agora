@@ -228,13 +228,14 @@ impl Files {
 
   async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
     let config = Config::for_dir(
+      self.base_directory.as_ref(),
       path
         .as_ref()
         .parent()
         .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
     )?;
 
-    if !config.paid {
+    if !config.paid() {
       return Self::serve_file(path).await;
     }
 
