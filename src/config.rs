@@ -164,12 +164,11 @@ mod tests {
   #[test]
   fn inherits_config() {
     let temp_dir = TempDir::new().unwrap();
-    let yaml = "
-      paid: true
-      base-price: 42 sat
-    "
-    .unindent();
-    fs::write(temp_dir.path().join(".agora.yaml"), yaml).unwrap();
+    fs::write(
+      temp_dir.path().join(".agora.yaml"),
+      "{paid: true, base-price: 42 sat}",
+    )
+    .unwrap();
     fs::create_dir(temp_dir.path().join("dir")).unwrap();
     let config = Config::for_dir(temp_dir.path(), &temp_dir.path().join("dir")).unwrap();
     assert_eq!(
