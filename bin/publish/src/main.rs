@@ -47,18 +47,6 @@ fn main() {
     .unwrap()
     .version;
 
-  if arguments.publish_agora_lnd_client {
-    (
-      "cargo",
-      "publish",
-      "--dry-run",
-      CurrentDir("agora-lnd-client"),
-    )
-      .run();
-  }
-
-  ("cargo", "publish", "--dry-run").run();
-
   (
     "git",
     "tag",

@@ -2,6 +2,7 @@
 
 `agora` serves the contents of a local directory, providing file listings and downloads over HTTP.
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
+If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
 ## Running
 
@@ -26,6 +27,10 @@ You can install Rust with [rustup](https://rustup.rs/).
 Inside the checked out repository, running `cargo build --release` will build `agora` and copy the binary to `./target/release/agora`.
 
 From within the repository, you can also run, e.g., `cargo install --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
+
+## Release RSS Feed
+
+An [RSS](https://en.wikipedia.org/wiki/RSS) feed of `agora` releases is published [here](https://github.com/agora-org/agora/releases.atom).
 
 ## Deployment
 

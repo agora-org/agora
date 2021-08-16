@@ -246,8 +246,14 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
+    let base_price = config.base_price.ok_or_else(|| {
+      error::ConfigMissingBasePrice {
+        path: path.display_path(),
+      }
+      .build()
+    })?;
     let invoice = lnd_client
-      .add_invoice(&file_path, 1000)
+      .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
@@ -283,6 +289,7 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
+    let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
@@ -294,7 +301,7 @@ impl Files {
         Ok(Files::serve_html(html! {
           div class="invoice" {
             div class="label" {
-              "Lightning Payment Request to access "
+              (format!("Lightning Payment Request for {} to access ", value))
               span class="filename" {
                   (invoice.memo)
               }
