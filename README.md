@@ -55,17 +55,38 @@ To configure which files are free and which are paid, see [Access Configuration]
 ### Access Configuration
 
 You can put a `.agora.yaml` configuration file into directories served by `agora` to configure access to files in that directory.
-Currently, access configuration does not apply recursively to files in subdirectories,
-so you'll need a `.agora.yaml` file in every directory you want to configure.
+
+An example configuration is:
+
+```yaml
+# whether or not to charge for files
+paid: true
+# price for files in satoshis
+base-price: 1000 sat
+```
+
+Access configuration applies recursively to files in subdirectories.
+For example you can put this configuration in your base directory:
+
+```yaml
+paid: false
+base-price: 500 sat
+```
+
+Then in some subdirectories you can charge for file downloads by creating an `subdir/.agora.yaml` like this:
+
+```yaml
+paid: true
+```
 
 The default configuration is:
 
 ```yaml
-# whether or not to charge for files
 paid: false
+# `base-price` does not have a default. Setting `paid` to `true`
+# while not having a `base-price` causes an error.
+base-price: null
 ```
-
-Currently, `agora` charges the low low price of 1,000 satoshis for all paid files.
 
 ### Custom Index Pages
 

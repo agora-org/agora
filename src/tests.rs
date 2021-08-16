@@ -866,5 +866,19 @@ fn returns_error_if_index_is_unusable() {
   );
 }
 
+#[test]
+fn ignores_access_config_outside_of_base_directory() {
+  test(|context| async move {
+    fs::write(
+      context.temp_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    fs::write(context.files_directory().join("foo"), "foo").unwrap();
+    let body = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(body, "foo");
+  });
+}
+
 #[cfg(feature = "slow-tests")]
 mod slow_tests;
