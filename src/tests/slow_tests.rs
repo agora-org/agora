@@ -297,7 +297,7 @@ fn warns_when_lnd_is_unreachable_at_startup() {
 }
 
 #[test]
-fn access_configuration_works_recursively() {
+fn inherits_access_configuration() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     fs::create_dir(context.files_directory().join("dir")).unwrap();
     fs::write(context.files_directory().join("dir/foo"), "").unwrap();
