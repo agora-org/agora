@@ -22,7 +22,7 @@ fn main() {
     "git@github.com:agora-org/agora.git",
     CurrentDir(tempdir.path()),
   )
-    .run_unit();
+    .run();
 
   env::set_current_dir(tempdir.path().join("agora")).unwrap();
 
@@ -33,9 +33,9 @@ fn main() {
     &arguments.revision,
     "master",
   )
-    .run_unit();
+    .run();
 
-  ("git", "checkout", arguments.revision).run_unit();
+  ("git", "checkout", arguments.revision).run();
 
   let metadata = MetadataCommand::new().exec().unwrap();
 
@@ -55,13 +55,13 @@ fn main() {
     format!("Release version {}", version),
     version.to_string(),
   )
-    .run_unit();
+    .run();
 
-  ("git", "push", "origin", &version.to_string()).run_unit();
+  ("git", "push", "origin", &version.to_string()).run();
 
   if arguments.publish_agora_lnd_client {
-    ("cargo", "publish", CurrentDir("agora-lnd-client")).run_unit();
+    ("cargo", "publish", CurrentDir("agora-lnd-client")).run();
   }
 
-  ("cargo", "publish").run_unit();
+  ("cargo", "publish").run();
 }

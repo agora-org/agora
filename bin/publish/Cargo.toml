@@ -6,6 +6,6 @@ publish = false
 
 [dependencies]
 cargo_metadata = "0.14.0"
-cradle = "0.0.18"
+cradle = "0.0.21"
 structopt = "0.3.22"
 tempfile = "3.2.0"
