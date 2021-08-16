@@ -238,7 +238,7 @@ mod tests {
       "base-price: 23 sat",
     )
     .unwrap();
-    let config = Config::for_dir(temp_dir.path(), &temp_dir.path()).unwrap();
+    let config = Config::for_dir(temp_dir.path(), temp_dir.path()).unwrap();
     assert_eq!(
       config,
       Config {
