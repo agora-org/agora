@@ -32,7 +32,7 @@ version = "1.0.127"
 features = ["derive"]
 
 [dev-dependencies]
-cradle = { path = "../../../cradle" }
+cradle = "0.0.21"
 hex-literal = "0.3.1"
 lnd-test-context = { path = "../lnd-test-context" }
 pretty_assertions = "0.7.2"
