@@ -65,6 +65,11 @@ body {
   user-select: all;
 }
 
+.invoice > .payment-link {
+  display: block;
+  text-align: center;
+}
+
 .invoice > .qr-code {
   display: block;
   margin: auto;
