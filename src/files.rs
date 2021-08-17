@@ -145,8 +145,8 @@ impl Files {
 
   fn serve_html(body: Markup) -> Response<Body> {
     let html = html! {
+      (DOCTYPE)
       html lang="en" {
-        (DOCTYPE)
         head {
           meta charset="utf-8";
           title {
