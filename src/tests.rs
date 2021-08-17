@@ -885,6 +885,7 @@ fn ignores_access_config_outside_of_base_directory() {
 
 #[test]
 fn paid_files_dont_have_download_button() {
+  #![allow(clippy::unused_unit)]
   test(|context| async move {
     fs::write(
       context.files_directory().join(".agora.yaml"),
