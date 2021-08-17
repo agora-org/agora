@@ -1,5 +1,5 @@
 use crate::owned_child::{CommandExt, OwnedChild};
-use cradle::*;
+use cradle::prelude::*;
 use lazy_static::lazy_static;
 use std::{
   collections::BTreeSet,
@@ -119,7 +119,7 @@ impl LndTestContext {
         .spawn_owned()
         .unwrap();
       loop {
-        let (Exit(status), Stderr(_), StdoutTrimmed(_)) = cmd!(
+        let (Status(status), Stderr(_), StdoutTrimmed(_)) = run_output!(
           Self::lncli_command_static(&lnddir, lnd_rpc_port).await,
           "getinfo"
         );
@@ -133,7 +133,7 @@ impl LndTestContext {
       }
     };
 
-    let StdoutUntrimmed(_) = cmd!(
+    let StdoutUntrimmed(_) = run_output!(
       Self::bitcoin_cli_command_static(&bitcoinddir, bitcoind_rpc_port).await,
       %"createwallet wallet_name=bitcoin-core-test-wallet"
     );
@@ -221,8 +221,8 @@ impl LndTestContext {
     Self::lncli_command_static(&self.lnd_dir(), self.lnd_rpc_port).await
   }
 
-  pub async fn run_lncli_command<I: cradle::Input>(&self, input: I) -> serde_json::Value {
-    let (Exit(status), StdoutUntrimmed(output)) = cmd!(self.lncli_command().await, input);
+  pub async fn run_lncli_command<I: cradle::input::Input>(&self, input: I) -> serde_json::Value {
+    let (Status(status), StdoutUntrimmed(output)) = run_output!(self.lncli_command().await, input);
     if !status.success() {
       eprintln!("{}", output);
       panic!("LndTestContext::run_lncli_command failed");
@@ -237,9 +237,9 @@ impl LndTestContext {
   }
 
   async fn mine_blocks(&self, n: i32) {
-    let StdoutTrimmed(address) = cmd!(self.bitcoin_cli_command().await, "getnewaddress");
+    let StdoutTrimmed(address) = run_output!(self.bitcoin_cli_command().await, "getnewaddress");
 
-    let StdoutUntrimmed(_) = cmd!(
+    let StdoutUntrimmed(_) = run_output!(
       self.bitcoin_cli_command().await,
       "generatetoaddress",
       format!("nblocks={}", n),
@@ -266,7 +266,7 @@ impl LndTestContext {
       .as_str()
       .unwrap()
       .to_string();
-    let StdoutUntrimmed(_) = cmd!(
+    let StdoutUntrimmed(_) = run_output!(
       self.bitcoin_cli_command().await,
       %"sendtoaddress amount=2 fee_rate=100",
       format!("address={}", &lnd_new_address),
@@ -276,7 +276,7 @@ impl LndTestContext {
   }
 
   async fn connect_bitcoinds(&self, other: &LndTestContext) {
-    cmd_unit!(
+    run!(
       self.bitcoin_cli_command().await,
       "addnode",
       format!("node=localhost:{}", other.bitcoind_peer_port),
@@ -284,7 +284,7 @@ impl LndTestContext {
     );
 
     async fn get_number_of_peers(context: &LndTestContext) -> usize {
-      let StdoutUntrimmed(json) = cmd!(context.bitcoin_cli_command().await, "getpeerinfo");
+      let StdoutUntrimmed(json) = run_output!(context.bitcoin_cli_command().await, "getpeerinfo");
       serde_json::from_str::<serde_json::Value>(&json)
         .unwrap()
         .as_array()
@@ -340,7 +340,7 @@ impl LndTestContext {
       .unwrap()
       .to_string();
     loop {
-      let (Exit(status), StdoutUntrimmed(_), Stderr(_)) = cmd!(
+      let (Status(status), StdoutUntrimmed(_), Stderr(_)) = run_output!(
         self.lncli_command().await,
         "payinvoice",
         "--force",
@@ -393,7 +393,7 @@ mod tests {
     a.mine_blocks(42).await;
 
     loop {
-      let StdoutTrimmed(output) = cmd!(b.bitcoin_cli_command().await, "getblockcount");
+      let StdoutTrimmed(output) = run_output!(b.bitcoin_cli_command().await, "getblockcount");
       if output == "42" {
         break;
       }

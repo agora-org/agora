@@ -2,6 +2,7 @@
 
 `agora` serves the contents of a local directory, providing file listings and downloads over HTTP.
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
+If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
 ## Running
 
@@ -27,6 +28,10 @@ Inside the checked out repository, running `cargo build --release` will build `a
 
 From within the repository, you can also run, e.g., `cargo install --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
+## Release RSS Feed
+
+An [RSS](https://en.wikipedia.org/wiki/RSS) feed of `agora` releases is published [here](https://github.com/agora-org/agora/releases.atom).
+
 ## Deployment
 
 The `agora` binary contains its static assets, so it can be copied and run from anywhere on the filesystem.
@@ -50,17 +55,43 @@ To configure which files are free and which are paid, see [Access Configuration]
 ### Access Configuration
 
 You can put a `.agora.yaml` configuration file into directories served by `agora` to configure access to files in that directory.
-Currently, access configuration does not apply recursively to files in subdirectories,
-so you'll need a `.agora.yaml` file in every directory you want to configure.
+
+An example configuration is:
+
+```yaml
+# whether or not to charge for files
+paid: true
+# price for files in satoshis
+base-price: 1000 sat
+```
+
+Access configuration applies recursively to files in subdirectories.
+For example you can put this configuration in your base directory:
+
+```yaml
+paid: false
+base-price: 500 sat
+```
+
+Then in some subdirectories you can charge for file downloads by creating an `subdir/.agora.yaml` like this:
+
+```yaml
+paid: true
+```
 
 The default configuration is:
 
 ```yaml
-# whether or not to charge for files
 paid: false
+# `base-price` does not have a default. Setting `paid` to `true`
+# while not having a `base-price` causes an error.
+base-price: null
 ```
 
-Currently, `agora` charges the low low price of 1,000 satoshis for all paid files.
+### Custom Index Pages
+
+`agora` serves directory file listings.
+If a `.index.md` file is present in a directory, `agora` will render the contained Markdown as HTML and include it with the file listing. `agora` expects Commonmark Markdown, extended with footnotes, [strikethrough](https://github.github.com/gfm/#strikethrough-extension-), [tables](https://github.github.com/gfm/#tables-extension-), and [task lists](https://github.github.com/gfm/#task-list-items-extension-).
 
 ## Development Agora Instances
 

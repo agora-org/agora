@@ -38,6 +38,8 @@ pub(crate) enum Error {
     path: PathBuf,
     backtrace: Backtrace,
   },
+  #[snafu(display("Missing base price for paid file `{}`", path.display()))]
+  ConfigMissingBasePrice { path: PathBuf, backtrace: Backtrace },
   #[snafu(display("Failed to retrieve current directory: {}", source))]
   CurrentDir {
     source: io::Error,
@@ -150,6 +152,7 @@ impl Error {
       | AddressResolutionNoAddresses { .. }
       | Clap { .. }
       | ConfigDeserialize { .. }
+      | ConfigMissingBasePrice { .. }
       | CurrentDir { .. }
       | FilesystemIo { .. }
       | Internal { .. }

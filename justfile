@@ -44,18 +44,8 @@ watch +command='ltest':
 push: all
   git push
 
-publish remote: all
-  #!/usr/bin/env bash
-  set -euxo pipefail
-  VERSION=`cargo run -- --version | cut -d' ' -f2`
-  git diff --no-ext-diff --quiet --exit-code
-  git branch | grep '* master'
-  (cd agora-lnd-client && cargo publish --dry-run)
-  cargo publish --dry-run
-  git tag -a $VERSION -m "Release version $VERSION"
-  git push {{remote}} $VERSION
-  (cd agora-lnd-client && cargo publish)
-  cargo publish
+publish revision:
+  cargo run -p publish -- {{revision}}
 
 clean-binaries:
   rm -rf target/bitcoin* target/ln*
@@ -64,7 +54,17 @@ run domain='test.agora.download' network='testnet':
   scp root@{{domain}}:/var/lib/lnd/tls.cert target/tls.cert
   scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/{{network}}/invoice.macaroon target/invoice.macaroon
   cargo run -- \
+    --address localhost \
+    --directory . \
     --lnd-rpc-authority {{domain}}:10009 \
     --lnd-rpc-cert-path target/tls.cert \
-    --lnd-rpc-macaroon-path target/invoice.macaroon \
-    --directory .
+    --lnd-rpc-macaroon-path target/invoice.macaroon
+
+open:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  if command -v xdg-open &> /dev/null; then
+    xdg-open http://localhost:8080
+  else
+    open http://localhost:8080
+  fi

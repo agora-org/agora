@@ -63,7 +63,8 @@ jobs:
           ~/.cargo/registry
           ~/.cargo/git
           target
-        key: cargo-${{ env.CACHE_KEY }}-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ env.CACHE_KEY }}-${{ runner.os }}-${{ github.sha }}
+        restore-keys: ${{ env.CACHE_KEY }}-${{ runner.os }}-
 
     - name: Install Rust Toolchain Components
       run: |

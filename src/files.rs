@@ -10,11 +10,12 @@ use hyper::{header, Body, Request, Response, StatusCode};
 use lexiclean::Lexiclean;
 use maud::{html, Markup, DOCTYPE};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
-use snafu::ResultExt;
+use snafu::{IntoError, ResultExt};
 use std::{
   ffi::OsString,
   fmt::Debug,
   fs::{self, FileType},
+  io,
   path::Path,
 };
 
@@ -112,7 +113,7 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      self.list(&file_path).await
+      self.serve_dir(&file_path).await
     } else {
       self.access_file(tail, &file_path).await
     }
@@ -142,7 +143,7 @@ impl Files {
     Ok(entries)
   }
 
-  fn serve_html(contents: Markup) -> Response<Body> {
+  fn serve_html(body: Markup) -> Response<Body> {
     let html = html! {
       html {
         (DOCTYPE)
@@ -154,9 +155,7 @@ impl Files {
           link rel="stylesheet" href="/static/index.css";
         }
         body {
-          ul class="contents" {
-            (contents)
-          }
+          (body)
         }
       }
     };
@@ -165,30 +164,58 @@ impl Files {
 
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
-  async fn list(&self, dir: &InputPath) -> Result<Response<Body>> {
-    let contents = html! {
-      @for (file_name, file_type) in self.read_dir(dir).await? {
-        @let file_name = {
-          let mut file_name = file_name.to_string_lossy().into_owned();
-          if file_type.is_dir() {
-            file_name.push('/');
-          }
-          file_name
-        };
-        @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
-        li {
-          a href=(encoded) class="view" {
-            (file_name)
-          }
-          @if file_type.is_file() {
-            a download href=(encoded) {
-              (Files::download_icon())
+  fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
+    use pulldown_cmark::{html, Options, Parser};
+
+    let file = dir.join_relative(".index.md".as_ref())?;
+
+    let markdown = match fs::read_to_string(&file) {
+      Ok(markdown) => markdown,
+      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+    };
+
+    let options = Options::ENABLE_FOOTNOTES
+      | Options::ENABLE_STRIKETHROUGH
+      | Options::ENABLE_TABLES
+      | Options::ENABLE_TASKLISTS;
+    let parser = Parser::new_ext(&markdown, options);
+    let mut html = String::new();
+    html::push_html(&mut html, parser);
+    Ok(Some(maud::PreEscaped(html)))
+  }
+
+  async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+    let body = html! {
+      ul class="listing" {
+        @for (file_name, file_type) in self.read_dir(dir).await? {
+          @let file_name = {
+            let mut file_name = file_name.to_string_lossy().into_owned();
+            if file_type.is_dir() {
+              file_name.push('/');
+            }
+            file_name
+          };
+          @let encoded = percent_encoding::utf8_percent_encode(&file_name, &Self::ENCODE_CHARACTERS);
+          li {
+            a href=(encoded) class="view" {
+              (file_name)
+            }
+            @if file_type.is_file() {
+              a download href=(encoded) {
+                (Files::download_icon())
+              }
             }
           }
         }
       }
+      @if let Some(index) = Self::render_index(dir)? {
+        div {
+          (index)
+        }
+      }
     };
-    Ok(Files::serve_html(contents))
+    Ok(Files::serve_html(body))
   }
 
   fn download_icon() -> Markup {
@@ -201,13 +228,14 @@ impl Files {
 
   async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
     let config = Config::for_dir(
+      self.base_directory.as_ref(),
       path
         .as_ref()
         .parent()
         .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
     )?;
 
-    if !config.paid {
+    if !config.paid() {
       return Self::serve_file(path).await;
     }
 
@@ -219,8 +247,14 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
+    let base_price = config.base_price.ok_or_else(|| {
+      error::ConfigMissingBasePrice {
+        path: path.display_path(),
+      }
+      .build()
+    })?;
     let invoice = lnd_client
-      .add_invoice(&file_path, 1000)
+      .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
@@ -256,6 +290,7 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
+    let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
         let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
@@ -267,7 +302,7 @@ impl Files {
         Ok(Files::serve_html(html! {
           div class="invoice" {
             div class="label" {
-              "Lightning Payment Request to access "
+              (format!("Lightning Payment Request for {} to access ", value))
               span class="filename" {
                   (invoice.memo)
               }

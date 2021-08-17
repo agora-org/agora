@@ -6,14 +6,32 @@ use lnrpc::{
   lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
 };
 use openssl::x509::X509;
+use std::convert::TryInto;
 #[cfg(test)]
-use std::{convert::TryInto, sync::Arc};
+use std::sync::Arc;
 use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
 
+pub use millisatoshi::Millisatoshi;
+
 mod grpc_service;
+mod millisatoshi;
 
 pub mod lnrpc {
+  use crate::millisatoshi::Millisatoshi;
+  use std::convert::TryInto;
+
   tonic::include_proto!("lnrpc");
+
+  impl Invoice {
+    pub fn value_msat(&self) -> Millisatoshi {
+      Millisatoshi::new(
+        self
+          .value_msat
+          .try_into()
+          .expect("value_msat is always positive"),
+      )
+    }
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -70,11 +88,16 @@ impl Client {
   pub async fn add_invoice(
     &mut self,
     memo: &str,
-    value: i64,
+    value_msat: Millisatoshi,
   ) -> Result<AddInvoiceResponse, Status> {
     let request = tonic::Request::new(Invoice {
       memo: memo.to_owned(),
-      value,
+      value_msat: value_msat.value().try_into().map_err(|source| {
+        Status::new(
+          Code::InvalidArgument,
+          format!("invalid value for `value_msat`: {}", source),
+        )
+      })?,
       ..Invoice::default()
     });
     Ok(self.inner.add_invoice(request).await?.into_inner())
@@ -178,7 +201,10 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let response = client.add_invoice("", 1).await.unwrap();
+    let response = client
+      .add_invoice("", Millisatoshi::new(1_000))
+      .await
+      .unwrap();
     assert!(
       !response.payment_request.is_empty(),
       "Bad response: {:?}",
@@ -189,7 +215,11 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn add_invoice_memo_and_value() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let r_hash = client.add_invoice("test-memo", 42).await.unwrap().r_hash;
+    let r_hash = client
+      .add_invoice("test-memo", Millisatoshi::new(42_000))
+      .await
+      .unwrap()
+      .r_hash;
     let invoice = client
       .lookup_invoice(r_hash.try_into().unwrap())
       .await
@@ -202,9 +232,18 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn lookup_invoice() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
-    let created = client.add_invoice("bar", 2).await.unwrap();
-    let _ignored2 = client.add_invoice("baz", 3).await.unwrap();
+    let _ignored1 = client
+      .add_invoice("foo", Millisatoshi::new(1_000))
+      .await
+      .unwrap();
+    let created = client
+      .add_invoice("bar", Millisatoshi::new(2_000))
+      .await
+      .unwrap();
+    let _ignored2 = client
+      .add_invoice("baz", Millisatoshi::new(3_000))
+      .await
+      .unwrap();
     let retrieved = client
       .lookup_invoice(created.r_hash.as_slice().try_into().unwrap())
       .await
@@ -237,7 +276,10 @@ jlZBq5hr8Nv2qStFfw9qzw==
   #[tokio::test]
   async fn lookup_invoice_not_found_some_invoices() {
     let mut client = Client::with_test_context(LndTestContext::new().await).await;
-    let _ignored1 = client.add_invoice("foo", 1).await.unwrap();
+    let _ignored1 = client
+      .add_invoice("foo", Millisatoshi::new(1_000))
+      .await
+      .unwrap();
     assert_eq!(client.lookup_invoice([0; 32]).await.unwrap(), None);
   }
 }
