@@ -19,6 +19,9 @@ use tokio::{
   net::TcpStream,
 };
 
+#[cfg(feature = "slow-tests")]
+mod slow_tests;
+
 async fn get(url: &Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
   assert_eq!(response.status(), StatusCode::OK);
@@ -880,5 +883,18 @@ fn ignores_access_config_outside_of_base_directory() {
   });
 }
 
-#[cfg(feature = "slow-tests")]
-mod slow_tests;
+#[test]
+fn paid_files_dont_have_download_button() {
+  test(|context| async move {
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    fs::write(context.files_directory().join("foo"), "foo").unwrap();
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[] = css_select(&html, "a[download]").as_slice());
+    guard_unwrap!(let &[link] = css_select(&html, "a:not([download])").as_slice());
+    assert_eq!(link.inner_html(), "foo");
+  });
+}

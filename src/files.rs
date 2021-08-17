@@ -186,6 +186,7 @@ impl Files {
   }
 
   async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+    let config = Config::for_dir(self.base_directory.as_ref(), dir.as_ref())?;
     let body = html! {
       ul class="listing" {
         @for (file_name, file_type) in self.read_dir(dir).await? {
@@ -201,7 +202,7 @@ impl Files {
             a href=(encoded) class="view" {
               (file_name)
             }
-            @if file_type.is_file() {
+            @if file_type.is_file() && !config.paid() {
               a download href=(encoded) {
                 (Files::download_icon())
               }
