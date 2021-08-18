@@ -13,8 +13,8 @@ fn server_listens_on_all_ip_addresses() {
   fs::create_dir(tempdir.path().join("www")).unwrap();
 
   let mut child = Command::new(executable_path("agora"))
-    .arg("--port")
-    .arg("8080")
+    .arg("--port=8080")
+    .arg("--directory=www")
     .current_dir(&tempdir)
     .stderr(Stdio::piped())
     .spawn()
