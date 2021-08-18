@@ -67,5 +67,5 @@ body {
 .invoice > .qr-code {
   display: block;
   margin: auto;
-  width: 400px;
+  max-width: 400px;
 }
