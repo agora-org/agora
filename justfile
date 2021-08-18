@@ -53,7 +53,7 @@ clean-binaries:
 run domain='test.agora.download' network='testnet':
   scp root@{{domain}}:/var/lib/lnd/tls.cert target/tls.cert
   scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/{{network}}/invoice.macaroon target/invoice.macaroon
-  cargo run -- \
+  cargo lrun -- \
     --address localhost \
     --port 8080 \
     --directory example-files \
