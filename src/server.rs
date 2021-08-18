@@ -172,6 +172,7 @@ mod tests {
       "agora".into(),
       "--address=host.invalid".into(),
       "--port=0".into(),
+      "--directory=www".into(),
     ];
 
     let www = environment.working_directory.join("www");

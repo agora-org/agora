@@ -70,6 +70,7 @@ fn configure_port() {
   environment.arguments = vec![
     "agora".into(),
     "--address=localhost".into(),
+    "--directory=www".into(),
     "--port".into(),
     free_port.to_string().into(),
   ];
@@ -354,7 +355,12 @@ fn serves_error_pages() {
 #[test]
 fn configure_source_directory() {
   let mut environment = Environment::test();
-  environment.arguments.push("--directory=src".into());
+  environment.arguments = vec![
+    "agora".into(),
+    "--address=localhost".into(),
+    "--port=0".into(),
+    "--directory=src".into(),
+  ];
 
   let src = environment.working_directory.join("src");
   fs::create_dir(&src).unwrap();

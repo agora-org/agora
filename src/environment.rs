@@ -41,6 +41,7 @@ impl Environment {
         "agora".into(),
         "--address=localhost".into(),
         "--port=0".into(),
+        "--directory=www".into(),
       ],
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
