@@ -11,7 +11,8 @@
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
 If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
-Agora is free software developed by @casey and @soenkehahn.
+Agora is free software developed by [@casey](https://github.com/casey/)
+and [@soenkehahn](https://github.com/soenkehahn/).
 Donations are greatly appreciated,
 our Bitcoin donation address is:
 
