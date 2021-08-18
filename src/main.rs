@@ -11,6 +11,7 @@ mod environment;
 mod error;
 mod file_stream;
 mod files;
+mod html;
 mod input_path;
 mod redirect;
 mod request_handler;

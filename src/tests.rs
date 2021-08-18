@@ -337,6 +337,16 @@ fn return_404_for_missing_files() {
 }
 
 #[test]
+fn serves_error_pages_for_404s() {
+  test(|context| async move {
+    let response = reqwest::get(context.files_url().join("foo.txt").unwrap())
+      .await
+      .unwrap();
+    assert_contains(&response.text().await.unwrap(), "404 Not Found");
+  });
+}
+
+#[test]
 fn configure_source_directory() {
   let mut environment = Environment::test(&["--directory", "src"]);
 
