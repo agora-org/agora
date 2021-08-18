@@ -84,6 +84,10 @@ impl Files {
     Ok(())
   }
 
+  fn config_for_dir(&self, dir: &Path) -> Result<Config> {
+    Config::for_dir(self.base_directory.as_ref(), dir)
+  }
+
   pub(crate) async fn serve(
     &mut self,
     request: &Request<Body>,
@@ -186,6 +190,7 @@ impl Files {
   }
 
   async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+    let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
         @for (file_name, file_type) in self.read_dir(dir).await? {
@@ -201,7 +206,7 @@ impl Files {
             a href=(encoded) class="view" {
               (file_name)
             }
-            @if file_type.is_file() {
+            @if file_type.is_file() && !config.paid() {
               a download href=(encoded) {
                 (Files::download_icon())
               }
@@ -227,8 +232,7 @@ impl Files {
   }
 
   async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
-    let config = Config::for_dir(
-      self.base_directory.as_ref(),
+    let config = self.config_for_dir(
       path
         .as_ref()
         .parent()
