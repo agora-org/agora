@@ -144,7 +144,7 @@ mod tests {
 
   #[test]
   fn listen_on_localhost_by_default_in_tests() {
-    let mut environment = Environment::test(&[]);
+    let mut environment = Environment::test();
 
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();
@@ -167,8 +167,12 @@ mod tests {
 
   #[test]
   fn address_resolution_failure_error() {
-    let mut environment = Environment::test(&[]);
-    environment.arguments = vec!["agora".into(), "--address".into(), "host.invalid".into()];
+    let mut environment = Environment::test();
+    environment.arguments = vec![
+      "agora".into(),
+      "--address=host.invalid".into(),
+      "--port=0".into(),
+    ];
 
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();

@@ -111,7 +111,7 @@ mod tests {
 
   #[test]
   fn new_removes_trailing_slashes() {
-    let environment = Environment::test(&[]);
+    let environment = Environment::test();
     let input_path = InputPath::new(&environment, Path::new("foo/"));
     assert_eq!(
       input_path,
@@ -124,7 +124,7 @@ mod tests {
 
   #[test]
   fn join_relative_removes_trailing_slashes() {
-    let environment = Environment::test(&[]);
+    let environment = Environment::test();
     let base = InputPath::new(&environment, Path::new("foo"));
     let input_path = base.join_relative(Path::new("bar/")).unwrap();
     assert_eq!(
@@ -138,7 +138,7 @@ mod tests {
 
   #[test]
   fn join_file_path_removes_trailing_slashes() {
-    let environment = Environment::test(&[]);
+    let environment = Environment::test();
     let base = InputPath::new(&environment, Path::new("foo"));
     let input_path = base.join_file_path("bar/").unwrap();
     assert_eq!(
@@ -152,7 +152,7 @@ mod tests {
 
   #[test]
   fn iter_prefixes_iterates_from_base_dir_to_file() {
-    let environment = Environment::test(&[]);
+    let environment = Environment::test();
     let base = InputPath::new(&environment, Path::new("www"));
     let dirs: Result<Vec<InputPath>> = base.iter_prefixes(&["foo/", "bar/", "baz"]).collect();
     assert_eq!(
@@ -166,7 +166,7 @@ mod tests {
 
   #[test]
   fn iter_prefixes_for_empty_inputs() {
-    let environment = Environment::test(&[]);
+    let environment = Environment::test();
     let base = InputPath::new(&environment, Path::new("www"));
     let mut dirs = base.iter_prefixes(&[]);
     assert!(dirs.next().is_none());

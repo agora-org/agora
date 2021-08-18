@@ -2,15 +2,13 @@ use http::uri::Authority;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
-const DEFAULT_PORT: &str = if cfg!(test) { "0" } else { "8080" };
-
 #[derive(StructOpt)]
 pub(crate) struct Arguments {
   #[structopt(long, default_value = "0.0.0.0", help = "Address to listen on")]
   pub(crate) address: String,
   #[structopt(long, default_value = "www", help = "Directory of files to serve")]
   pub(crate) directory: PathBuf,
-  #[structopt(long, default_value = DEFAULT_PORT, help = "Port to listen on")]
+  #[structopt(long, help = "Port to listen on for incoming HTTP requests")]
   pub(crate) port: u16,
   #[structopt(
     long,
