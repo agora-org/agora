@@ -2,10 +2,7 @@ use crate::{
   environment::Environment,
   error::Error,
   server::Server,
-  test_utils::{
-    assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
-    TestContext,
-  },
+  test_utils::{assert_contains, assert_not_contains, test, test_with_environment, TestContext},
 };
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
@@ -69,9 +66,17 @@ fn configure_port() {
       .port()
   };
 
-  let args = &["--port", &free_port.to_string()];
+  let mut environment = Environment::test();
+  environment.arguments = vec![
+    "agora".into(),
+    "--address=localhost".into(),
+    "--port".into(),
+    free_port.to_string().into(),
+  ];
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
 
-  test_with_arguments(args, |_| async move {
+  test_with_environment(&mut environment, |_| async move {
     assert_eq!(
       reqwest::get(format!("http://localhost:{}", free_port))
         .await
@@ -135,7 +140,7 @@ fn index_route_contains_title() {
 
 #[test]
 fn server_aborts_when_directory_does_not_exist() {
-  let mut environment = Environment::test(&[]);
+  let mut environment = Environment::test();
 
   tokio::runtime::Builder::new_current_thread()
     .enable_all()
@@ -338,7 +343,8 @@ fn return_404_for_missing_files() {
 
 #[test]
 fn configure_source_directory() {
-  let mut environment = Environment::test(&["--directory", "src"]);
+  let mut environment = Environment::test();
+  environment.arguments.push("--directory=src".into());
 
   let src = environment.working_directory.join("src");
   fs::create_dir(&src).unwrap();
