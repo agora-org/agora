@@ -8,7 +8,7 @@
     <img src="https://github.com/agora-org/agora/workflows/Build/badge.svg" alt="build" />
   </a>
   <a href="https://t.me/agorific">
-    <img src="https://img.shields.io/static/v1?label=chat&message=Telegram&color=blue&logo=telegram" alt="chat on telegram" >
+    <img src="https://img.shields.io/static/v1?label=Telegram&message=chat&color=blue&logo=telegram" alt="chat on telegram" >
   </a>
 </div>
 
