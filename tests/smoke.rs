@@ -7,12 +7,14 @@ use std::{
 };
 
 #[test]
-fn server_listens_on_all_ip_addresses_on_port_8080() {
+fn server_listens_on_all_ip_addresses() {
   let tempdir = tempfile::tempdir().unwrap();
 
   fs::create_dir(tempdir.path().join("www")).unwrap();
 
   let mut child = Command::new(executable_path("agora"))
+    .arg("--port=8080")
+    .arg("--directory=www")
     .current_dir(&tempdir)
     .stderr(Stdio::piped())
     .spawn()
@@ -23,6 +25,7 @@ fn server_listens_on_all_ip_addresses_on_port_8080() {
     let mut line = String::new();
 
     BufReader::new(child_stderr).read_line(&mut line).unwrap();
+    eprintln!("stderr: {}", line);
 
     assert!(line.contains("0.0.0.0:8080"));
 

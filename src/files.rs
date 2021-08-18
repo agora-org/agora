@@ -2,13 +2,14 @@ use crate::{
   config::Config,
   error::{self, Error, Result},
   file_stream::FileStream,
+  html,
   input_path::InputPath,
   redirect::redirect,
 };
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use hyper::{header, Body, Request, Response, StatusCode};
 use lexiclean::Lexiclean;
-use maud::{html, Markup, DOCTYPE};
+use maud::{html, Markup};
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 use snafu::{IntoError, ResultExt};
 use std::{
@@ -147,25 +148,6 @@ impl Files {
     Ok(entries)
   }
 
-  fn serve_html(body: Markup) -> Response<Body> {
-    let html = html! {
-      (DOCTYPE)
-      html lang="en" {
-        head {
-          meta charset="utf-8";
-          title {
-            "agora"
-          }
-          link rel="stylesheet" href="/static/index.css";
-        }
-        body {
-          (body)
-        }
-      }
-    };
-    Response::new(Body::from(html.into_string()))
-  }
-
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
 
   fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
@@ -220,7 +202,7 @@ impl Files {
         }
       }
     };
-    Ok(Files::serve_html(body))
+    Ok(html::wrap_body(body))
   }
 
   fn download_icon() -> Markup {
@@ -303,7 +285,7 @@ impl Files {
       }
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
-        Ok(Files::serve_html(html! {
+        Ok(html::wrap_body(html! {
           div class="invoice" {
             div class="label" {
               (format!("Lightning Payment Request for {} to access ", value))

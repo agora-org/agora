@@ -75,7 +75,7 @@ where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
 {
-  let mut environment = Environment::test(&[]);
+  let mut environment = Environment::test();
   environment
     .arguments
     .extend(args.iter().cloned().map(OsString::from));
