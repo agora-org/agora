@@ -1,17 +1,9 @@
 # `agora`
 
 <div align="center">
-  <a href="https://github.com/agora-org/agora/actions">
-    <img src="https://github.com/agora-org/agora/workflows/Build/badge.svg" alt="build" />
-  </a>
-
-  <a href="https://t.me/agorific">
-    <img src="https://img.shields.io/static/v1?label=chat&message=Telegram&color=blue&logo=telegram" alt="chat on telegram" >
-  </a>
-
-  <a href="https://crates.io/crates/agora">
-    <img src="https://img.shields.io/crates/v/agora.svg?logo=rust" alt="crate"/>
-  </a>
+  <a href="https://github.com/agora-org/agora/actions"><img src="https://github.com/agora-org/agora/workflows/Build/badge.svg" alt="build" /></a>
+  <a href="https://t.me/agorific"><img src="https://img.shields.io/static/v1?label=chat&message=Telegram&color=blue&logo=telegram" alt="chat on telegram" ></a>
+  <a href="https://crates.io/crates/agora"><img src="https://img.shields.io/crates/v/agora.svg?logo=rust" alt="crate"/></a>
 </div>
 
 `agora` serves the contents of a local directory, providing file listings and downloads over HTTP.
