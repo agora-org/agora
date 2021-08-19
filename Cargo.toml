@@ -16,6 +16,7 @@ members = [".", "agora-lnd-client", "bin/prerelease", "bin/publish", "lnd-test-c
 backtrace = "0.3.61"
 bytes = "1.0.1"
 color-backtrace = "0.5.1"
+form_urlencoded = "1.0.1"
 futures = "0.3.14"
 hex = "0.4.3"
 http = "0.2.4"

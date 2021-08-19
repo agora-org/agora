@@ -318,3 +318,47 @@ fn inherits_access_configuration() {
     );
   });
 }
+
+#[test]
+fn relative_links() {
+  let receiver = LndTestContext::new_blocking();
+  test_with_lnd(&receiver.clone(), |context| async move {
+    fs::write(context.files_directory().join("free.txt"), "content").unwrap();
+    fs::create_dir(context.files_directory().join("paid")).unwrap();
+    fs::write(
+      context.files_directory().join("paid/.agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    fs::write(
+      context.files_directory().join("paid/file.html"),
+      r#"<a href="../free.txt">link</a>"#,
+    )
+    .unwrap();
+
+    let response = get(&context.files_url().join("paid/file.html").unwrap()).await;
+    let invoice_url = response.url().clone();
+    let html = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    let sender = LndTestContext::new().await;
+    sender.connect(&receiver).await;
+    sender.generate_lnd_btc().await;
+    sender.open_channel_to(&receiver, 1_000_000).await;
+    let StdoutUntrimmed(_) =
+      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+
+    let response = get(&invoice_url).await;
+    let response_url = response.url().clone();
+    let paid_file = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[a] = css_select(&paid_file, "a").as_slice());
+    let path = a.value().attr("href").unwrap();
+
+    let joined = response_url.join(path).unwrap();
+
+    dbg!(&response_url);
+    dbg!(&joined);
+
+    assert_eq!(text(&joined).await, "content",);
+  });
+}
