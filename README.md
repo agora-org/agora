@@ -11,6 +11,12 @@
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
 If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
+Public Agora instances:
+
+- [agora.download](https://agora.download): Development instance on mainnet
+- [test.agora.download](https://test.agora.download): Development instances on testnet
+- Open an issue or submit a PR if you run an Agora instance and would like to add it to list!
+
 Agora is free software developed by [@casey](https://github.com/casey/)
 and [@soenkehahn](https://github.com/soenkehahn/).
 Donations are greatly appreciated,
