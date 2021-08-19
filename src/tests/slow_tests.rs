@@ -31,11 +31,16 @@ fn redirects_to_invoice_url() {
     let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
       .await
       .unwrap();
-    let regex = Regex::new("^/invoice/[a-f0-9]{64}/foo/bar$").unwrap();
-    assert!(
-      regex.is_match(response.url().path()),
-      "Response URL path was not invoice path: {}",
+    let regex = Regex::new(r"^/files/foo/bar\?invoice=[a-f0-9]{64}$").unwrap();
+    let path_and_query = format!(
+      "{}?{}",
       response.url().path(),
+      response.url().query().unwrap()
+    );
+    assert!(
+      regex.is_match(&path_and_query),
+      "Response URL path was not invoice path: {}",
+      path_and_query,
     );
   });
 }
@@ -240,7 +245,7 @@ fn returns_404_for_made_up_invoice() {
       reqwest::get(
         context
           .base_url()
-          .join(&format!("invoice/{}/test-filename", "a".repeat(64)))
+          .join(&format!("files/test-filename?invoice={}", "a".repeat(64)))
           .unwrap()
       )
       .await
@@ -310,11 +315,16 @@ fn inherits_access_configuration() {
     )
     .unwrap();
     let response = get(&context.files_url().join("dir/foo").unwrap()).await;
-    let regex = Regex::new("^/invoice/[a-f0-9]{64}/dir/foo$").unwrap();
-    assert!(
-      regex.is_match(response.url().path()),
-      "Response URL path was not invoice path: {}",
+    let regex = Regex::new(r"^/files/dir/foo\?invoice=[a-f0-9]{64}$").unwrap();
+    let path_and_query = format!(
+      "{}?{}",
       response.url().path(),
+      response.url().query().unwrap()
+    );
+    assert!(
+      regex.is_match(&path_and_query),
+      "Response URL path was not invoice path: {}",
+      path_and_query,
     );
   });
 }
@@ -335,9 +345,9 @@ fn relative_links() {
       r#"<a href="../free.txt">link</a>"#,
     )
     .unwrap();
-
     let response = get(&context.files_url().join("paid/file.html").unwrap()).await;
     let invoice_url = response.url().clone();
+
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
@@ -360,5 +370,51 @@ fn relative_links() {
     dbg!(&joined);
 
     assert_eq!(text(&joined).await, "content",);
+  });
+}
+
+#[test]
+fn request_path_must_match_invoice_path() {
+  let receiver = LndTestContext::new_blocking();
+  test_with_lnd(&receiver.clone(), |context| async move {
+    fs::write(
+      context.files_directory().join("paid.txt"),
+      "precious content",
+    )
+    .unwrap();
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    let bad_path = format!("{}/bar", response.url().path());
+    bad_url.set_path(&bad_path);
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    // let html = Html::parse_document(&response.text().await.unwrap());
+    // guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    // let payment_request = payment_request.inner_html();
+    // let sender = LndTestContext::new().await;
+    // sender.connect(&receiver).await;
+    // sender.generate_lnd_btc().await;
+    // sender.open_channel_to(&receiver, 1_000_000).await;
+    // let StdoutUntrimmed(_) =
+    //   run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+
+    // let response = get(&invoice_url).await;
+    // let response_url = response.url().clone();
+    // let paid_file = Html::parse_document(&response.text().await.unwrap());
+    // guard_unwrap!(let &[a] = css_select(&paid_file, "a").as_slice());
+    // let path = a.value().attr("href").unwrap();
+
+    // let joined = response_url.join(path).unwrap();
+
+    // dbg!(&response_url);
+    // dbg!(&joined);
+
+    // assert_eq!(text(&joined).await, "content",);
   });
 }

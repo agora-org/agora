@@ -77,6 +77,18 @@ pub(crate) enum Error {
     r_hash: [u8; 32],
     backtrace: Backtrace,
   },
+  #[snafu(display(
+    "Request path `{}` did not match invoice path `{}` for invoice: {}",
+    request_tail,
+    invoice_tail,
+    hex::encode(r_hash),
+  ))]
+  InvoicePathMismatch {
+    invoice_tail: String,
+    r_hash: [u8; 32],
+    request_tail: String,
+    backtrace: Backtrace,
+  },
   #[snafu(display("Invoice request requires LND client configuration: {}", uri_path))]
   LndNotConfiguredInvoiceRequest {
     uri_path: String,
@@ -141,7 +153,9 @@ impl Error {
       FilesystemIo { source, .. } if source.kind() == io::ErrorKind::NotFound => {
         StatusCode::NOT_FOUND
       }
-      InvalidFilePath { .. } | InvoiceId { .. } => StatusCode::BAD_REQUEST,
+      InvalidFilePath { .. } | InvoiceId { .. } | InvoicePathMismatch { .. } => {
+        StatusCode::BAD_REQUEST
+      }
       HiddenFileAccess { .. }
       | InvoiceNotFound { .. }
       | LndNotConfiguredInvoiceRequest { .. }

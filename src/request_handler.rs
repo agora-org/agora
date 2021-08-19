@@ -101,7 +101,7 @@ impl RequestHandler {
       ["/", "files/", tail @ ..] if query.contains_key("invoice") => {
         let invoice_id = &query["invoice"];
         let invoice_id = Self::decode_invoice_id(invoice_id)?;
-        self.files.serve_invoice(&request, invoice_id).await
+        self.files.serve_invoice(&request, tail, invoice_id).await
       }
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
