@@ -70,8 +70,11 @@ fn invoice_url_serves_bech32_encoded_invoice() {
     )
     .unwrap();
     let html = html(&context.files_url().join("foo").unwrap()).await;
-    guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     assert_contains(&payment_request.inner_html(), "lnbcrt1");
+    guard_unwrap!(let &[payment_link] = css_select(&html, "a.payment-link").as_slice());
+    let href = payment_link.value().attr("href").unwrap();
+    assert!(href.starts_with("lightning:lnbcrt1"), "href: {}", href);
   });
 }
 

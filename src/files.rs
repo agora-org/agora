@@ -297,6 +297,9 @@ impl Files {
             div class="payment-request" {
               (invoice.payment_request)
             }
+            a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+              "Open in wallet"
+            }
             img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
         }))
