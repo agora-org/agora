@@ -17,7 +17,6 @@ use hyper::{
 use maud::html;
 use snafu::ResultExt;
 use std::{
-  collections::BTreeMap,
   convert::Infallible,
   io::Write,
   path::Path,
@@ -88,19 +87,20 @@ impl RequestHandler {
       .split_inclusive('/')
       .collect::<Vec<&str>>();
 
-    let query = if let Some(query) = request.uri().query() {
-      form_urlencoded::parse(query.as_bytes()).collect::<BTreeMap<_, _>>()
-    } else {
-      BTreeMap::new()
-    };
+    let invoice = request.uri().query().and_then(|query| {
+      form_urlencoded::parse(query.as_bytes())
+        .filter(|(key, _value)| key == "invoice")
+        .last()
+        .map(|(_key, value)| value.into_owned())
+    });
 
     match components.as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
-      ["/", "files/", tail @ ..] if query.contains_key("invoice") => {
-        let invoice_id = &query["invoice"];
-        let invoice_id = Self::decode_invoice_id(invoice_id)?;
+      ["/", "files/", tail @ ..] if invoice.is_some() => {
+        let invoice_id = invoice.expect("invoice is some");
+        let invoice_id = Self::decode_invoice_id(&invoice_id)?;
         self.files.serve_invoice(&request, tail, invoice_id).await
       }
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
