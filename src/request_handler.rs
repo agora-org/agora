@@ -2,6 +2,7 @@ use crate::{
   environment::Environment,
   error::{self, Error, Result},
   files::Files,
+  html,
   input_path::InputPath,
   redirect::redirect,
   static_assets::StaticAssets,
@@ -13,6 +14,7 @@ use hyper::{
   service::Service,
   Body, Request, Response,
 };
+use maud::html;
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
@@ -47,10 +49,13 @@ impl RequestHandler {
       Err(error) => {
         error.print_backtrace(&mut stderr);
         writeln!(stderr, "{}", error).ok();
-        Response::builder()
-          .status(error.status())
-          .body(Body::empty())
-          .unwrap()
+        let mut response = html::wrap_body(html! {
+          h1 {
+            (error.status())
+          }
+        });
+        *response.status_mut() = error.status();
+        response
       }
     }
   }

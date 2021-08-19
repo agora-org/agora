@@ -30,18 +30,19 @@ impl Environment {
   }
 
   #[cfg(test)]
-  pub(crate) fn test(arguments: &[&str]) -> Self {
+  pub(crate) fn test() -> Self {
     let tempdir = tempfile::Builder::new()
       .prefix("agora-test")
       .tempdir()
       .unwrap();
 
     Environment {
-      arguments: ["agora", "--address", "localhost"]
-        .iter()
-        .chain(arguments)
-        .map(OsString::from)
-        .collect(),
+      arguments: vec![
+        "agora".into(),
+        "--address=localhost".into(),
+        "--port=0".into(),
+        "--directory=www".into(),
+      ],
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
       working_directory_tempdir: tempdir,

@@ -2,10 +2,7 @@ use crate::{
   environment::Environment,
   error::Error,
   server::Server,
-  test_utils::{
-    assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
-    TestContext,
-  },
+  test_utils::{assert_contains, assert_not_contains, test, test_with_environment, TestContext},
 };
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
@@ -18,6 +15,9 @@ use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::TcpStream,
 };
+
+#[cfg(feature = "slow-tests")]
+mod slow_tests;
 
 async fn get(url: &Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
@@ -66,9 +66,18 @@ fn configure_port() {
       .port()
   };
 
-  let args = &["--port", &free_port.to_string()];
+  let mut environment = Environment::test();
+  environment.arguments = vec![
+    "agora".into(),
+    "--address=localhost".into(),
+    "--directory=www".into(),
+    "--port".into(),
+    free_port.to_string().into(),
+  ];
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
 
-  test_with_arguments(args, |_| async move {
+  test_with_environment(&mut environment, |_| async move {
     assert_eq!(
       reqwest::get(format!("http://localhost:{}", free_port))
         .await
@@ -132,7 +141,7 @@ fn index_route_contains_title() {
 
 #[test]
 fn server_aborts_when_directory_does_not_exist() {
-  let mut environment = Environment::test(&[]);
+  let mut environment = Environment::test();
 
   tokio::runtime::Builder::new_current_thread()
     .enable_all()
@@ -334,8 +343,24 @@ fn return_404_for_missing_files() {
 }
 
 #[test]
+fn serves_error_pages() {
+  test(|context| async move {
+    let response = reqwest::get(context.files_url().join("foo.txt").unwrap())
+      .await
+      .unwrap();
+    assert_contains(&response.text().await.unwrap(), "404 Not Found");
+  });
+}
+
+#[test]
 fn configure_source_directory() {
-  let mut environment = Environment::test(&["--directory", "src"]);
+  let mut environment = Environment::test();
+  environment.arguments = vec![
+    "agora".into(),
+    "--address=localhost".into(),
+    "--port=0".into(),
+    "--directory=src".into(),
+  ];
 
   let src = environment.working_directory.join("src");
   fs::create_dir(&src).unwrap();
@@ -880,5 +905,19 @@ fn ignores_access_config_outside_of_base_directory() {
   });
 }
 
-#[cfg(feature = "slow-tests")]
-mod slow_tests;
+#[test]
+fn paid_files_dont_have_download_button() {
+  #![allow(clippy::unused_unit)]
+  test(|context| async move {
+    fs::write(
+      context.files_directory().join(".agora.yaml"),
+      "{paid: true, base-price: 1000 sat}",
+    )
+    .unwrap();
+    fs::write(context.files_directory().join("foo"), "foo").unwrap();
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[] = css_select(&html, "a[download]").as_slice());
+    guard_unwrap!(let &[link] = css_select(&html, "a:not([download])").as_slice());
+    assert_eq!(link.inner_html(), "foo");
+  });
+}
