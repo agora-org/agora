@@ -284,8 +284,8 @@ impl Files {
     if request_tail != invoice_tail {
       return Err(
         error::InvoicePathMismatch {
-          invoice_tail: invoice_tail.join("/"),
-          request_tail: request_tail.join("/"),
+          invoice_tail: invoice_tail.join(""),
+          request_tail: request_tail.join(""),
           r_hash,
         }
         .build(),

@@ -376,9 +376,14 @@ fn relative_links() {
 #[test]
 fn request_path_must_match_invoice_path() {
   let receiver = LndTestContext::new_blocking();
-  test_with_lnd(&receiver.clone(), |context| async move {
+  let stderr = test_with_lnd(&receiver.clone(), |context| async move {
     fs::write(
       context.files_directory().join("paid.txt"),
+      "precious content",
+    )
+    .unwrap();
+    fs::write(
+      context.files_directory().join("also-paid.txt"),
       "precious content",
     )
     .unwrap();
@@ -394,27 +399,41 @@ fn request_path_must_match_invoice_path() {
     let response = reqwest::get(bad_url).await.unwrap();
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    // let html = Html::parse_document(&response.text().await.unwrap());
-    // guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    // let payment_request = payment_request.inner_html();
-    // let sender = LndTestContext::new().await;
-    // sender.connect(&receiver).await;
-    // sender.generate_lnd_btc().await;
-    // sender.open_channel_to(&receiver, 1_000_000).await;
-    // let StdoutUntrimmed(_) =
-    //   run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    bad_url.set_path("/files/also-paid.txt");
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    // let response = get(&invoice_url).await;
-    // let response_url = response.url().clone();
-    // let paid_file = Html::parse_document(&response.text().await.unwrap());
-    // guard_unwrap!(let &[a] = css_select(&paid_file, "a").as_slice());
-    // let path = a.value().attr("href").unwrap();
+    let html = html(&context.files_url().join("paid.txt").unwrap()).await;
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    let sender = LndTestContext::new().await;
+    sender.connect(&receiver).await;
+    sender.generate_lnd_btc().await;
+    sender.open_channel_to(&receiver, 1_000_000).await;
+    let StdoutUntrimmed(_) =
+      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
 
-    // let joined = response_url.join(path).unwrap();
+    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    let bad_path = format!("{}/bar", response.url().path());
+    bad_url.set_path(&bad_path);
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    // dbg!(&response_url);
-    // dbg!(&joined);
-
-    // assert_eq!(text(&joined).await, "content",);
+    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    bad_url.set_path("/files/also-paid.txt");
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
   });
+  assert_contains(
+    &stderr,
+    "Request path `also-paid.txt` did not match invoice path `paid.txt`",
+  );
+  assert_contains(
+    &stderr,
+    "Request path `paid.txt/bar` did not match invoice path `paid.txt`",
+  );
 }
