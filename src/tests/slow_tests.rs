@@ -375,6 +375,14 @@ fn relative_links() {
 
 #[test]
 fn request_path_must_match_invoice_path() {
+  async fn assert_bad_request(context: &TestContext, url_path: &str) {
+    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    bad_url.set_path(url_path);
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+  }
+
   let receiver = LndTestContext::new_blocking();
   let stderr = test_with_lnd(&receiver.clone(), |context| async move {
     fs::write(
@@ -392,18 +400,9 @@ fn request_path_must_match_invoice_path() {
       "{paid: true, base-price: 1000 sat}",
     )
     .unwrap();
-    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
-    let mut bad_url = response.url().clone();
-    let bad_path = format!("{}/bar", response.url().path());
-    bad_url.set_path(&bad_path);
-    let response = reqwest::get(bad_url).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
-    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
-    let mut bad_url = response.url().clone();
-    bad_url.set_path("/files/also-paid.txt");
-    let response = reqwest::get(bad_url).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_bad_request(&context, "/files/bar").await;
+    assert_bad_request(&context, "/files/also-paid.txt").await;
 
     let html = html(&context.files_url().join("paid.txt").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
@@ -415,18 +414,8 @@ fn request_path_must_match_invoice_path() {
     let StdoutUntrimmed(_) =
       run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
 
-    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
-    let mut bad_url = response.url().clone();
-    let bad_path = format!("{}/bar", response.url().path());
-    bad_url.set_path(&bad_path);
-    let response = reqwest::get(bad_url).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-
-    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
-    let mut bad_url = response.url().clone();
-    bad_url.set_path("/files/also-paid.txt");
-    let response = reqwest::get(bad_url).await.unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_bad_request(&context, "/files/bar").await;
+    assert_bad_request(&context, "/files/also-paid.txt").await;
   });
   assert_contains(
     &stderr,
@@ -434,6 +423,6 @@ fn request_path_must_match_invoice_path() {
   );
   assert_contains(
     &stderr,
-    "Request path `paid.txt/bar` did not match invoice path `paid.txt`",
+    "Request path `bar` did not match invoice path `paid.txt`",
   );
 }
