@@ -94,7 +94,7 @@ impl Files {
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = dbg!(self.tail_to_path(dbg!(tail))?);
+    let file_path = self.tail_to_path(tail)?;
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
@@ -248,11 +248,11 @@ impl Files {
       .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
-    redirect(dbg!(format!(
+    redirect(format!(
       "{}?invoice={}",
       request.uri().path(),
       hex::encode(invoice.r_hash),
-    )))
+    ))
   }
 
   async fn serve_file(path: &InputPath) -> Result<Response<Body>> {

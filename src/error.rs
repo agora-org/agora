@@ -6,6 +6,7 @@ use std::{
   fmt::Debug,
   io,
   path::{PathBuf, MAIN_SEPARATOR},
+  str::Utf8Error,
 };
 use structopt::clap;
 use termcolor::WriteColor;
@@ -64,6 +65,12 @@ pub(crate) enum Error {
   },
   #[snafu(display("Invalid URI file path: {}", uri_path))]
   InvalidFilePath {
+    uri_path: String,
+    backtrace: Backtrace,
+  },
+  #[snafu(display("Invalid URI path: {}", uri_path))]
+  InvalidUriPath {
+    source: Utf8Error,
     uri_path: String,
     backtrace: Backtrace,
   },
@@ -153,9 +160,10 @@ impl Error {
       FilesystemIo { source, .. } if source.kind() == io::ErrorKind::NotFound => {
         StatusCode::NOT_FOUND
       }
-      InvalidFilePath { .. } | InvoiceId { .. } | InvoicePathMismatch { .. } => {
-        StatusCode::BAD_REQUEST
-      }
+      InvalidFilePath { .. }
+      | InvalidUriPath { .. }
+      | InvoiceId { .. }
+      | InvoicePathMismatch { .. } => StatusCode::BAD_REQUEST,
       HiddenFileAccess { .. }
       | InvoiceNotFound { .. }
       | LndNotConfiguredInvoiceRequest { .. }

@@ -349,7 +349,6 @@ fn payment_request_memo_decodes_percent() {
     let html = html(&context.files_url().join("file%2Ewith%2Edots").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
-    dbg!(&payment_request);
     let invoice = payment_request.parse::<Invoice>().unwrap();
     assert_eq!(
       invoice.description(),
