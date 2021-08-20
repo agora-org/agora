@@ -889,3 +889,21 @@ fn paid_files_dont_have_download_button() {
     assert_eq!(link.inner_html(), "foo");
   });
 }
+
+#[test]
+fn filenames_with_percent_encoding() {
+  test(|context| async move {
+    context.write("foo%20bar", "contents");
+    let contents = text(&context.files_url().join("foo%2520bar").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}
+
+#[test]
+fn filenames_with_invalid_percent_encoding() {
+  test(|context| async move {
+    context.write("%80", "contents");
+    let contents = text(&context.files_url().join("%2580").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}

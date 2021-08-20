@@ -81,11 +81,11 @@ impl RequestHandler {
   }
 
   async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
-    let components = request
-      .uri()
-      .path()
-      .split_inclusive('/')
-      .collect::<Vec<&str>>();
+    dbg!(request.uri());
+    let path = percent_encoding::percent_decode_str(request.uri().path())
+      .decode_utf8()
+      .expect("fixme");
+    let components = path.split_inclusive('/').collect::<Vec<&str>>();
 
     let invoice_parameter = request.uri().query().and_then(|query| {
       form_urlencoded::parse(query.as_bytes())
@@ -94,7 +94,7 @@ impl RequestHandler {
         .map(|(_key, value)| value.into_owned())
     });
 
-    match components.as_slice() {
+    match dbg!(components).as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
