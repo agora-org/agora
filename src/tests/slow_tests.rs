@@ -1,6 +1,5 @@
 use super::*;
 use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd};
-use cradle::prelude::*;
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
 use lnd_test_context::LndTestContext;
@@ -156,13 +155,7 @@ fn invoice_url_links_to_qr_code() {
     );
     let qr_code_svg = response.text().await.unwrap();
     let payment_request = decode_qr_code_from_svg(&qr_code_svg);
-
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
     assert_eq!(text(&invoice_url).await, "precious content");
   });
 }
@@ -182,12 +175,7 @@ fn paying_invoice_allows_downloading_file() {
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
     assert_eq!(text(&invoice_url).await, "precious content");
   });
 }
@@ -351,12 +339,7 @@ fn relative_links() {
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
 
     let response = get(&invoice_url).await;
     let response_url = response.url().clone();
@@ -407,12 +390,7 @@ fn request_path_must_match_invoice_path() {
     let html = html(&context.files_url().join("paid.txt").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
 
     assert_bad_request(&context, "/files/bar").await;
     assert_bad_request(&context, "/files/also-paid.txt").await;

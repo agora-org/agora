@@ -63,7 +63,6 @@ features = ["make"]
 
 [dev-dependencies]
 bardecoder = "0.2.2"
-cradle = "0.0.21"
 executable-path = "1.0.0"
 guard = "0.5.1"
 image = "0.22.0"
