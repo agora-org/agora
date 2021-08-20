@@ -15,7 +15,7 @@ pub(crate) struct Environment {
   pub(crate) working_directory: PathBuf,
   pub(crate) stderr: Stderr,
   #[cfg(test)]
-  pub(crate) working_directory_tempdir: TempDir,
+  _working_directory_tempdir: TempDir,
 }
 
 impl Environment {
@@ -25,7 +25,7 @@ impl Environment {
       stderr: Stderr::production(),
       working_directory: env::current_dir().context(error::CurrentDir)?,
       #[cfg(test)]
-      working_directory_tempdir: TempDir::new().unwrap(),
+      _working_directory_tempdir: TempDir::new().unwrap(),
     })
   }
 
@@ -45,7 +45,7 @@ impl Environment {
       ],
       stderr: Stderr::test(),
       working_directory: tempdir.path().to_owned(),
-      working_directory_tempdir: tempdir,
+      _working_directory_tempdir: tempdir,
     }
   }
 
