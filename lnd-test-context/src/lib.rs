@@ -355,6 +355,15 @@ impl LndTestContext {
       wait().await;
     }
   }
+
+  pub async fn fulfill_own_payment_request(&self, payment_request: &str) {
+    let sender = LndTestContext::new().await;
+    sender.connect(self).await;
+    sender.generate_lnd_btc().await;
+    sender.open_channel_to(self, 1_000_000).await;
+    let StdoutUntrimmed(_) =
+      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+  }
 }
 
 #[cfg(test)]

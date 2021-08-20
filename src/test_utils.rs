@@ -4,6 +4,7 @@ use lnd_test_context::LndTestContext;
 use reqwest::Url;
 use std::{
   ffi::OsString,
+  fs,
   future::Future,
   panic,
   path::{Path, PathBuf},
@@ -104,14 +105,12 @@ where
       let port = server.port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-      let temp_directory = environment.working_directory_tempdir.path().to_owned();
       let test_result = task::LocalSet::new()
         .run_until(async move {
           task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
             files_directory,
-            temp_directory,
           }))
           .await
         })
@@ -140,14 +139,9 @@ pub(crate) struct TestContext {
   base_url: Url,
   files_directory: PathBuf,
   files_url: Url,
-  temp_directory: PathBuf,
 }
 
 impl TestContext {
-  pub(crate) fn temp_directory(&self) -> &Path {
-    &self.temp_directory
-  }
-
   pub(crate) fn files_url(&self) -> &Url {
     &self.files_url
   }
@@ -158,5 +152,12 @@ impl TestContext {
 
   pub(crate) fn base_url(&self) -> &Url {
     &self.base_url
+  }
+
+  pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
+    let path = self.files_directory.join(path);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, content).unwrap();
+    path
   }
 }

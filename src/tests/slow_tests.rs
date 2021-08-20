@@ -1,18 +1,17 @@
 use super::*;
 use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd};
-use cradle::prelude::*;
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
 use regex::Regex;
 use scraper::Html;
-use std::{fs, path::MAIN_SEPARATOR};
+use std::path::MAIN_SEPARATOR;
 
 #[test]
 fn serves_files_for_free_by_default() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join("foo"), "contents").unwrap();
+    context.write("foo", "contents");
     let body = text(&context.files_url().join("foo").unwrap()).await;
     assert_eq!(body, "contents",);
   });
@@ -21,21 +20,21 @@ fn serves_files_for_free_by_default() {
 #[test]
 fn redirects_to_invoice_url() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::create_dir(context.files_directory().join("foo")).unwrap();
-    fs::write(
-      context.files_directory().join("foo/.agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("foo/bar"), "").unwrap();
+    context.write("foo/.agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo/bar", "");
     let response = reqwest::get(context.files_url().join("foo/bar").unwrap())
       .await
       .unwrap();
-    let regex = Regex::new("^/invoice/[a-f0-9]{64}/foo/bar$").unwrap();
-    assert!(
-      regex.is_match(response.url().path()),
-      "Response URL path was not invoice path: {}",
+    let regex = Regex::new(r"^/files/foo/bar\?invoice=[a-f0-9]{64}$").unwrap();
+    let path_and_query = format!(
+      "{}?{}",
       response.url().path(),
+      response.url().query().unwrap()
+    );
+    assert!(
+      regex.is_match(&path_and_query),
+      "Response URL was not invoice URL: {}",
+      path_and_query,
     );
   });
 }
@@ -63,12 +62,8 @@ fn non_existant_files_dont_redirect_to_invoice() {
 #[test]
 fn invoice_url_serves_bech32_encoded_invoice() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join("foo"), "").unwrap();
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
+    context.write("foo", "");
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     let html = html(&context.files_url().join("foo").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     assert_contains(&payment_request.inner_html(), "lnbcrt1");
@@ -81,12 +76,8 @@ fn invoice_url_serves_bech32_encoded_invoice() {
 #[test]
 fn invoice_url_contains_filename() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("test-filename"), "").unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("test-filename", "");
     let html = html(&context.files_url().join("test-filename").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
     assert_contains(&payment_request.inner_html(), "test-filename");
@@ -121,16 +112,8 @@ fn decode_qr_code_from_svg(svg: &str) -> String {
 fn invoice_url_links_to_qr_code() {
   let receiver = LndTestContext::new_blocking();
   test_with_lnd(&receiver.clone(), |context| async move {
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(
-      context.files_directory().join("test-filename"),
-      "precious content",
-    )
-    .unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("test-filename", "precious content");
     let response = get(&context.files_url().join("test-filename").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
@@ -151,13 +134,7 @@ fn invoice_url_links_to_qr_code() {
     );
     let qr_code_svg = response.text().await.unwrap();
     let payment_request = decode_qr_code_from_svg(&qr_code_svg);
-
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
     assert_eq!(text(&invoice_url).await, "precious content");
   });
 }
@@ -166,23 +143,14 @@ fn invoice_url_links_to_qr_code() {
 fn paying_invoice_allows_downloading_file() {
   let receiver = LndTestContext::new_blocking();
   test_with_lnd(&receiver.clone(), |context| async move {
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo", "precious content");
     let response = get(&context.files_url().join("foo").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
-    let sender = LndTestContext::new().await;
-    sender.connect(&receiver).await;
-    sender.generate_lnd_btc().await;
-    sender.open_channel_to(&receiver, 1_000_000).await;
-    let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+    receiver.fulfill_own_payment_request(&payment_request).await;
     assert_eq!(text(&invoice_url).await, "precious content");
   });
 }
@@ -191,12 +159,8 @@ fn paying_invoice_allows_downloading_file() {
 fn allows_configuring_invoice_amount() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     use lightning_invoice::Invoice;
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1234 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1234 sat}");
+    context.write("foo", "precious content");
     let response = get(&context.files_url().join("foo").unwrap()).await;
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[invoice_element] = css_select(&html, ".invoice").as_slice());
@@ -211,8 +175,8 @@ fn allows_configuring_invoice_amount() {
 #[test]
 fn configuring_paid_without_base_price_returns_error() {
   let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(context.files_directory().join(".agora.yaml"), "paid: true").unwrap();
-    fs::write(context.files_directory().join("foo"), "precious content").unwrap();
+    context.write(".agora.yaml", "paid: true");
+    context.write("foo", "precious content");
     let response = reqwest::get(context.files_url().join("foo").unwrap())
       .await
       .unwrap();
@@ -230,17 +194,13 @@ fn configuring_paid_without_base_price_returns_error() {
 #[test]
 fn returns_404_for_made_up_invoice() {
   let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("test-filename"), "").unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("test-filename", "");
     assert_eq!(
       reqwest::get(
         context
           .base_url()
-          .join(&format!("invoice/{}/test-filename", "a".repeat(64)))
+          .join(&format!("files/test-filename?invoice={}", "a".repeat(64)))
           .unwrap()
       )
       .await
@@ -256,12 +216,8 @@ fn returns_404_for_made_up_invoice() {
 #[test]
 fn returns_404_for_made_up_invoice_qr_code() {
   let stderr = test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
-    fs::write(context.files_directory().join("test-filename"), "").unwrap();
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("test-filename", "");
     assert_eq!(
       reqwest::get(
         context
@@ -302,19 +258,83 @@ fn warns_when_lnd_is_unreachable_at_startup() {
 #[test]
 fn inherits_access_configuration() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    fs::create_dir(context.files_directory().join("dir")).unwrap();
-    fs::write(context.files_directory().join("dir/foo"), "").unwrap();
-    fs::write(
-      context.files_directory().join(".agora.yaml"),
-      "{paid: true, base-price: 1000 sat}",
-    )
-    .unwrap();
+    context.write("dir/foo", "");
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     let response = get(&context.files_url().join("dir/foo").unwrap()).await;
-    let regex = Regex::new("^/invoice/[a-f0-9]{64}/dir/foo$").unwrap();
-    assert!(
-      regex.is_match(response.url().path()),
-      "Response URL path was not invoice path: {}",
+    let regex = Regex::new(r"^/files/dir/foo\?invoice=[a-f0-9]{64}$").unwrap();
+    let path_and_query = format!(
+      "{}?{}",
       response.url().path(),
+      response.url().query().unwrap()
+    );
+    assert!(
+      regex.is_match(&path_and_query),
+      "Response URL was not invoice URL: {}",
+      path_and_query,
     );
   });
+}
+
+#[test]
+fn relative_links_in_paid_files() {
+  let receiver = LndTestContext::new_blocking();
+  test_with_lnd(&receiver.clone(), |context| async move {
+    context.write("free.txt", "content");
+    context.write("paid/.agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("paid/file.html", r#"<a href="../free.txt">link</a>"#);
+    let response = get(&context.files_url().join("paid/file.html").unwrap()).await;
+    let invoice_url = response.url().clone();
+
+    let html = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    receiver.fulfill_own_payment_request(&payment_request).await;
+
+    let response = get(&invoice_url).await;
+    let response_url = response.url().clone();
+    let paid_file = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[a] = css_select(&paid_file, "a").as_slice());
+    let path = a.value().attr("href").unwrap();
+
+    let joined = response_url.join(path).unwrap();
+
+    assert_eq!(text(&joined).await, "content",);
+  });
+}
+
+#[test]
+fn request_path_must_match_invoice_path() {
+  async fn assert_bad_request(context: &TestContext, url_path: &str) {
+    let response = get(&context.files_url().join("exists").unwrap()).await;
+    let mut bad_url = response.url().clone();
+    bad_url.set_path(url_path);
+    let response = reqwest::get(bad_url).await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+  }
+
+  let receiver = LndTestContext::new_blocking();
+  let stderr = test_with_lnd(&receiver.clone(), |context| async move {
+    context.write("exists", "precious content");
+    context.write("also-exists", "precious content");
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+
+    assert_bad_request(&context, "/files/does-not-exist").await;
+    assert_bad_request(&context, "/files/also-exists").await;
+
+    let html = html(&context.files_url().join("exists").unwrap()).await;
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    receiver.fulfill_own_payment_request(&payment_request).await;
+
+    assert_bad_request(&context, "/files/does-not-exist").await;
+    assert_bad_request(&context, "/files/also-exists").await;
+  });
+  assert_contains(
+    &stderr,
+    "Request path `also-exists` did not match invoice path `exists`",
+  );
+  assert_contains(
+    &stderr,
+    "Request path `does-not-exist` did not match invoice path `exists`",
+  );
 }

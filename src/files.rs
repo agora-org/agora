@@ -244,9 +244,9 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
-      "/invoice/{}/{}",
-      hex::encode(invoice.r_hash),
+      "/files/{}?invoice={}",
       file_path,
+      hex::encode(invoice.r_hash),
     ))
   }
 
@@ -263,6 +263,7 @@ impl Files {
   pub(crate) async fn serve_invoice(
     &mut self,
     request: &Request<Body>,
+    request_tail: &[&str],
     r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
     let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
@@ -276,11 +277,24 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
+
+    let invoice_tail = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
+
+    if request_tail != invoice_tail {
+      return Err(
+        error::InvoicePathMismatch {
+          invoice_tail: invoice_tail.join(""),
+          request_tail: request_tail.join(""),
+          r_hash,
+        }
+        .build(),
+      );
+    }
+
     let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
-        let tail_from_invoice = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
-        let path = self.tail_to_path(&tail_from_invoice)?;
+        let path = self.tail_to_path(&invoice_tail)?;
         Self::serve_file(&path).await
       }
       _ => {

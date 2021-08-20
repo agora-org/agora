@@ -86,10 +86,23 @@ impl RequestHandler {
       .path()
       .split_inclusive('/')
       .collect::<Vec<&str>>();
+
+    let invoice_parameter = request.uri().query().and_then(|query| {
+      form_urlencoded::parse(query.as_bytes())
+        .filter(|(key, _value)| key == "invoice")
+        .last()
+        .map(|(_key, value)| value.into_owned())
+    });
+
     match components.as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
+      ["/", "files/", tail @ ..] if invoice_parameter.is_some() => {
+        let invoice_id = invoice_parameter.expect("invoice_parameter is some");
+        let invoice_id = Self::decode_invoice_id(&invoice_id)?;
+        self.files.serve_invoice(&request, tail, invoice_id).await
+      }
       ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
         let invoice_id = Self::decode_invoice_id(
@@ -98,11 +111,6 @@ impl RequestHandler {
             .expect("file_name ends with `.svg`"),
         )?;
         self.files.serve_invoice_qr_code(&request, invoice_id).await
-      }
-      ["/", "invoice/", invoice_id, ..] => {
-        let invoice_id =
-          Self::decode_invoice_id(invoice_id.strip_suffix('/').unwrap_or(invoice_id))?;
-        self.files.serve_invoice(&request, invoice_id).await
       }
       _ => Err(Error::RouteNotFound {
         uri_path: request.uri().path().to_owned(),
