@@ -318,7 +318,7 @@ fn inherits_access_configuration() {
 }
 
 #[test]
-fn relative_links() {
+fn relative_links_in_paid_files() {
   let receiver = LndTestContext::new_blocking();
   test_with_lnd(&receiver.clone(), |context| async move {
     fs::write(context.files_directory().join("free.txt"), "content").unwrap();
@@ -348,9 +348,6 @@ fn relative_links() {
     let path = a.value().attr("href").unwrap();
 
     let joined = response_url.join(path).unwrap();
-
-    dbg!(&response_url);
-    dbg!(&joined);
 
     assert_eq!(text(&joined).await, "content",);
   });
