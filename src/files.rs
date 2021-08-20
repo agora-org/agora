@@ -243,7 +243,6 @@ impl Files {
       .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
-
     redirect(format!(
       "/files/{}?invoice={}",
       file_path,
