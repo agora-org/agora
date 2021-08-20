@@ -87,7 +87,7 @@ impl RequestHandler {
       .split_inclusive('/')
       .collect::<Vec<&str>>();
 
-    let invoice = request.uri().query().and_then(|query| {
+    let invoice_parameter = request.uri().query().and_then(|query| {
       form_urlencoded::parse(query.as_bytes())
         .filter(|(key, _value)| key == "invoice")
         .last()
@@ -98,8 +98,8 @@ impl RequestHandler {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
-      ["/", "files/", tail @ ..] if invoice.is_some() => {
-        let invoice_id = invoice.expect("invoice is some");
+      ["/", "files/", tail @ ..] if invoice_parameter.is_some() => {
+        let invoice_id = invoice_parameter.expect("invoice_parameter is some");
         let invoice_id = Self::decode_invoice_id(&invoice_id)?;
         self.files.serve_invoice(&request, tail, invoice_id).await
       }
