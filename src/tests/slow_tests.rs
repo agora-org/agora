@@ -33,7 +33,7 @@ fn redirects_to_invoice_url() {
     );
     assert!(
       regex.is_match(&path_and_query),
-      "Response URL path was not invoice path: {}",
+      "Response URL was not invoice URL: {}",
       path_and_query,
     );
   });
@@ -269,7 +269,7 @@ fn inherits_access_configuration() {
     );
     assert!(
       regex.is_match(&path_and_query),
-      "Response URL path was not invoice path: {}",
+      "Response URL was not invoice URL: {}",
       path_and_query,
     );
   });
@@ -305,7 +305,7 @@ fn relative_links_in_paid_files() {
 #[test]
 fn request_path_must_match_invoice_path() {
   async fn assert_bad_request(context: &TestContext, url_path: &str) {
-    let response = get(&context.files_url().join("paid.txt").unwrap()).await;
+    let response = get(&context.files_url().join("exists").unwrap()).await;
     let mut bad_url = response.url().clone();
     bad_url.set_path(url_path);
     let response = reqwest::get(bad_url).await.unwrap();
@@ -314,27 +314,27 @@ fn request_path_must_match_invoice_path() {
 
   let receiver = LndTestContext::new_blocking();
   let stderr = test_with_lnd(&receiver.clone(), |context| async move {
-    context.write("paid.txt", "precious content");
-    context.write("also-paid.txt", "precious content");
+    context.write("exists", "precious content");
+    context.write("also-exists", "precious content");
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
 
-    assert_bad_request(&context, "/files/bar").await;
-    assert_bad_request(&context, "/files/also-paid.txt").await;
+    assert_bad_request(&context, "/files/does-not-exist").await;
+    assert_bad_request(&context, "/files/also-exists").await;
 
-    let html = html(&context.files_url().join("paid.txt").unwrap()).await;
+    let html = html(&context.files_url().join("exists").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
     receiver.fulfill_own_payment_request(&payment_request).await;
 
-    assert_bad_request(&context, "/files/bar").await;
-    assert_bad_request(&context, "/files/also-paid.txt").await;
+    assert_bad_request(&context, "/files/does-not-exist").await;
+    assert_bad_request(&context, "/files/also-exists").await;
   });
   assert_contains(
     &stderr,
-    "Request path `also-paid.txt` did not match invoice path `paid.txt`",
+    "Request path `also-exists` did not match invoice path `exists`",
   );
   assert_contains(
     &stderr,
-    "Request path `bar` did not match invoice path `paid.txt`",
+    "Request path `does-not-exist` did not match invoice path `exists`",
   );
 }
