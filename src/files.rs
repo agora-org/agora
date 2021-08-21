@@ -37,8 +37,8 @@ impl Files {
     }
   }
 
-  fn tail_to_path(&self, tail: &[&str]) -> Result<InputPath> {
-    self.base_directory.join_file_path(&tail.join(""))
+  fn file_path(&self, path: &str) -> Result<InputPath> {
+    self.base_directory.join_file_path(path)
   }
 
   fn check_path(&self, path: &InputPath) -> Result<()> {
@@ -94,7 +94,7 @@ impl Files {
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = self.tail_to_path(tail)?;
+    let file_path = self.file_path(&tail.join(""))?;
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
@@ -298,8 +298,7 @@ impl Files {
     let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
-        let invoice_tail = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
-        let path = self.tail_to_path(&invoice_tail)?;
+        let path = self.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
       }
       _ => {
