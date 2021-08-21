@@ -356,13 +356,25 @@ impl LndTestContext {
     }
   }
 
-  pub async fn fulfill_own_payment_request(&self, payment_request: &str) {
+  pub async fn create_sender(&self) -> LndTestContext {
     let sender = LndTestContext::new().await;
     sender.connect(self).await;
     sender.generate_lnd_btc().await;
     sender.open_channel_to(self, 1_000_000).await;
+    sender
+  }
+
+  pub async fn fulfill_payment_request(&self, payment_request: &str) {
     let StdoutUntrimmed(_) =
-      run_output!(sender.lncli_command().await, %"payinvoice --force", &payment_request);
+      run_output!(self.lncli_command().await, %"payinvoice --force", &payment_request);
+  }
+
+  pub async fn fulfill_own_payment_request(&self, payment_request: &str) {
+    self
+      .create_sender()
+      .await
+      .fulfill_payment_request(payment_request)
+      .await;
   }
 }
 
