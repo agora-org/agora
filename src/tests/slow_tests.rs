@@ -365,16 +365,14 @@ fn filenames_with_percent_encoding() {
     context.write("foo%20bar", "contents");
     context.write("%80", "contents");
 
-    {
-      let response = get(&context.files_url().join("foo%2520bar").unwrap()).await;
-      let invoice_url = response.url().clone();
-      let html = Html::parse_document(&response.text().await.unwrap());
-      guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-      let payment_request = payment_request.inner_html();
-      receiver.fulfill_own_payment_request(&payment_request).await;
-      let contents = text(&invoice_url).await;
-      assert_eq!(contents, "contents");
-    }
+    let response = get(&context.files_url().join("foo%2520bar").unwrap()).await;
+    let invoice_url = response.url().clone();
+    let html = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    receiver.fulfill_own_payment_request(&payment_request).await;
+    let contents = text(&invoice_url).await;
+    assert_eq!(contents, "contents");
 
     let response = get(&context.files_url().join("%2580").unwrap()).await;
     let invoice_url = response.url().clone();
