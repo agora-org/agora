@@ -891,6 +891,17 @@ fn paid_files_dont_have_download_button() {
 }
 
 #[test]
+fn filenames_with_percent_encoded_characters() {
+  test(|context| async move {
+    context.write("=", "contents");
+    let contents = text(&context.files_url().join("%3D").unwrap()).await;
+    assert_eq!(contents, "contents");
+    let contents = text(&context.files_url().join("=").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}
+
+#[test]
 fn filenames_with_percent_encoding() {
   test(|context| async move {
     context.write("foo%20bar", "contents");
