@@ -6,8 +6,8 @@ authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail
 license = "CC0-1.0"
 edition = "2018"
 resolver = "2"
-repository = "https://github.com/soenkehahn/agora"
-homepage = "https://github.com/soenkehahn/agora"
+repository = "https://github.com/agora-org/agora"
+homepage = "https://github.com/agora-org/agora"
 
 [workspace]
 members = [".", "agora-lnd-client", "bin/prerelease", "bin/publish", "lnd-test-context"]
