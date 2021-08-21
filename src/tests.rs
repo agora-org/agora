@@ -918,3 +918,39 @@ fn filenames_with_invalid_percent_encoding() {
     assert_eq!(contents, "contents");
   });
 }
+
+#[test]
+fn space_is_percent_encoded() {
+  test(|context| async move {
+    context.write("foo bar", "contents");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    assert_eq!(a.value().attr("href").unwrap(), "foo%20bar");
+  });
+}
+
+#[test]
+fn doesnt_percent_encode_allowed_ascii_characters() {
+  test(|context| async move {
+    context.write(
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~",
+      "contents",
+    );
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    assert_eq!(
+      a.value().attr("href").unwrap(),
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
+    );
+  });
+}
+
+#[test]
+fn percent_encodes_unicode() {
+  test(|context| async move {
+    context.write("Å", "contents");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
+  });
+}

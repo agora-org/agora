@@ -148,7 +148,26 @@ impl Files {
     Ok(entries)
   }
 
-  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC
+    .remove(b'!')
+    .remove(b'$')
+    .remove(b'&')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')')
+    .remove(b'*')
+    .remove(b'+')
+    .remove(b',')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'/')
+    .remove(b':')
+    .remove(b';')
+    .remove(b'=')
+    .remove(b'?')
+    .remove(b'@')
+    .remove(b'_')
+    .remove(b'~');
 
   fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
