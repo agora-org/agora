@@ -3,9 +3,8 @@ use crate::{
   error::{self, Error, Result},
 };
 use mime_guess::MimeGuess;
-use percent_encoding::percent_decode_str;
+use std::fmt::Debug;
 use std::path::{Component, Path, PathBuf};
-use std::{borrow::Cow, fmt::Debug};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {
@@ -47,31 +46,22 @@ impl InputPath {
   }
 
   fn join_file_path_option(&self, uri_path: &str) -> Option<Result<Self>> {
-    let relative_path = Self::percent_decode(uri_path)?;
-
-    for component in Path::new(&relative_path).components() {
+    for component in Path::new(&uri_path).components() {
       match component {
         Component::Normal(_) => {}
         _ => return None,
       }
     }
 
-    if relative_path.contains("//") {
+    if uri_path.contains("//") {
       return None;
     }
 
-    Some(self.join_relative(Path::new(&relative_path)))
+    Some(self.join_relative(Path::new(&uri_path)))
   }
 
   fn canonicalize(path: &Path) -> PathBuf {
     path.components().collect()
-  }
-
-  fn percent_decode(path: &str) -> Option<String> {
-    percent_decode_str(path)
-      .decode_utf8()
-      .ok()
-      .map(Cow::into_owned)
   }
 
   pub(crate) fn display_path(&self) -> &Path {

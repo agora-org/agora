@@ -37,8 +37,8 @@ impl Files {
     }
   }
 
-  fn tail_to_path(&self, tail: &[&str]) -> Result<InputPath> {
-    self.base_directory.join_file_path(&tail.join(""))
+  fn file_path(&self, path: &str) -> Result<InputPath> {
+    self.base_directory.join_file_path(path)
   }
 
   fn check_path(&self, path: &InputPath) -> Result<()> {
@@ -94,7 +94,7 @@ impl Files {
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = self.tail_to_path(tail)?;
+    let file_path = self.file_path(&tail.join(""))?;
 
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
@@ -120,7 +120,7 @@ impl Files {
     if file_type.is_dir() {
       self.serve_dir(&file_path).await
     } else {
-      self.access_file(tail, &file_path).await
+      self.access_file(request, tail, &file_path).await
     }
   }
 
@@ -213,7 +213,12 @@ impl Files {
     }
   }
 
-  async fn access_file(&mut self, tail: &[&str], path: &InputPath) -> Result<Response<Body>> {
+  async fn access_file(
+    &mut self,
+    request: &Request<Body>,
+    tail: &[&str],
+    path: &InputPath,
+  ) -> Result<Response<Body>> {
     let config = self.config_for_dir(
       path
         .as_ref()
@@ -244,8 +249,8 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
-      "/files/{}?invoice={}",
-      file_path,
+      "{}?invoice={}",
+      request.uri().path(),
       hex::encode(invoice.r_hash),
     ))
   }
@@ -278,13 +283,12 @@ impl Files {
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
 
-    let invoice_tail = invoice.memo.split_inclusive('/').collect::<Vec<&str>>();
-
-    if request_tail != invoice_tail {
+    let request_tail = request_tail.join("");
+    if request_tail != invoice.memo {
       return Err(
         error::InvoicePathMismatch {
-          invoice_tail: invoice_tail.join(""),
-          request_tail: request_tail.join(""),
+          invoice_tail: invoice.memo,
+          request_tail,
           r_hash,
         }
         .build(),
@@ -294,7 +298,7 @@ impl Files {
     let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
-        let path = self.tail_to_path(&invoice_tail)?;
+        let path = self.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
       }
       _ => {

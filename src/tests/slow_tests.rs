@@ -338,3 +338,51 @@ fn request_path_must_match_invoice_path() {
     "Request path `does-not-exist` did not match invoice path `exists`",
   );
 }
+
+#[test]
+fn payment_request_memo_decodes_percent() {
+  use lightning_invoice::{Description, Invoice, InvoiceDescription};
+
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("file.with.dots", "");
+    let html = html(&context.files_url().join("file%2Ewith%2Edots").unwrap()).await;
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    let invoice = payment_request.parse::<Invoice>().unwrap();
+    assert_eq!(
+      invoice.description(),
+      InvoiceDescription::Direct(&Description::new("file.with.dots".to_string()).unwrap())
+    );
+  });
+}
+
+#[test]
+fn filenames_with_percent_encoding() {
+  let receiver = LndTestContext::new_blocking();
+  test_with_lnd(&receiver.clone(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo%20bar", "contents");
+    context.write("%80", "contents");
+
+    let sender = receiver.create_sender().await;
+
+    let response = get(&context.files_url().join("foo%2520bar").unwrap()).await;
+    let invoice_url = response.url().clone();
+    let html = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    sender.fulfill_payment_request(&payment_request).await;
+    let contents = text(&invoice_url).await;
+    assert_eq!(contents, "contents");
+
+    let response = get(&context.files_url().join("%2580").unwrap()).await;
+    let invoice_url = response.url().clone();
+    let html = Html::parse_document(&response.text().await.unwrap());
+    guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
+    let payment_request = payment_request.inner_html();
+    sender.fulfill_payment_request(&payment_request).await;
+    let contents = text(&invoice_url).await;
+    assert_eq!(contents, "contents");
+  });
+}
