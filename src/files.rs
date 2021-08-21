@@ -148,6 +148,9 @@ impl Files {
     Ok(entries)
   }
 
+  // Percent encode all unicode codepoints, even though
+  // they are allowed by the spec:
+  // https://url.spec.whatwg.org/#url-code-points
   const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC
     .remove(b'!')
     .remove(b'$')
