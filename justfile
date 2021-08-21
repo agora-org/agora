@@ -51,6 +51,7 @@ clean-binaries:
   rm -rf target/bitcoin* target/ln*
 
 run domain='test.agora.download' network='testnet':
+  cargo lcheck
   scp root@{{domain}}:/var/lib/lnd/tls.cert target/tls.cert
   scp root@{{domain}}:/var/lib/lnd/data/chain/bitcoin/{{network}}/invoice.macaroon target/invoice.macaroon
   cargo lrun -- \
