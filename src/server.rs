@@ -149,7 +149,7 @@ mod tests {
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();
 
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
       .enable_all()
       .build()
       .unwrap()
@@ -178,7 +178,7 @@ mod tests {
     let www = environment.working_directory.join("www");
     std::fs::create_dir(&www).unwrap();
 
-    tokio::runtime::Builder::new_current_thread()
+    tokio::runtime::Builder::new_multi_thread()
       .enable_all()
       .build()
       .unwrap()

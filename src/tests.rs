@@ -17,6 +17,8 @@ use tokio::{
 };
 
 #[cfg(feature = "slow-tests")]
+mod browser_tests;
+#[cfg(feature = "slow-tests")]
 mod slow_tests;
 
 async fn get(url: &Url) -> reqwest::Response {
@@ -143,7 +145,7 @@ fn index_route_contains_title() {
 fn server_aborts_when_directory_does_not_exist() {
   let mut environment = Environment::test();
 
-  tokio::runtime::Builder::new_current_thread()
+  tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()

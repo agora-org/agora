@@ -95,7 +95,7 @@ where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
 {
-  tokio::runtime::Builder::new_current_thread()
+  tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()
