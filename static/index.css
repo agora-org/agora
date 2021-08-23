@@ -54,23 +54,31 @@ body {
   white-space: nowrap;
 }
 
-.invoice > .label > .filename {
-  font-family: "Courier New", Courier, monospace;
-}
-
 .invoice > .payment-request {
   font-family: "Courier New", Courier, monospace;
   overflow-wrap: anywhere;
   user-select: all;
 }
 
-.invoice > .payment-link {
+.invoice > .links {
   display: block;
   text-align: center;
+}
+
+.invoice > .links > a {
+  padding: 1em;
 }
 
 .invoice > .qr-code {
   display: block;
   margin: auto;
   max-width: 400px;
+}
+
+.instructions {
+  padding-top: 0.5em;
+}
+
+.filename {
+  font-family: "Courier New", Courier, monospace;
 }

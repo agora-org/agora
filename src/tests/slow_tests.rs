@@ -151,7 +151,12 @@ fn paying_invoice_allows_downloading_file() {
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.inner_html();
     receiver.fulfill_own_payment_request(&payment_request).await;
-    assert_eq!(text(&invoice_url).await, "precious content");
+    guard_unwrap!(let &[reload_link] = css_select(&html, ".reload-link").as_slice());
+    let reload_link = reload_link.value().attr("href").unwrap();
+    assert_eq!(
+      text(&invoice_url.join(reload_link).unwrap()).await,
+      "precious content"
+    );
   });
 }
 
