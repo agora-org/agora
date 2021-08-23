@@ -50,7 +50,9 @@ Inside the checked out repository, running `cargo build --release` will build `a
 
 From within the repository, you can also run, e.g., `cargo install --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
-## Release RSS Feed
+## Releases Notifications
+
+To receive release notifications on GitHub, you can watch this repository with [custom notification settings](https://docs.github.com/en/github/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications#configuring-your-watch-settings-for-an-individual-repository).
 
 An [RSS](https://en.wikipedia.org/wiki/RSS) feed of `agora` releases is published [here](https://github.com/agora-org/agora/releases.atom).
 
