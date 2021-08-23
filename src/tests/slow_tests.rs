@@ -152,9 +152,9 @@ fn paying_invoice_allows_downloading_file() {
     let payment_request = payment_request.inner_html();
     receiver.fulfill_own_payment_request(&payment_request).await;
     guard_unwrap!(let &[reload_link] = css_select(&html, ".reload-link").as_slice());
-    let link = reload_link.value().attr("href").unwrap();
+    let reload_link = reload_link.value().attr("href").unwrap();
     assert_eq!(
-      text(&invoice_url.join(link).unwrap()).await,
+      text(&invoice_url.join(reload_link).unwrap()).await,
       "precious content"
     );
   });
