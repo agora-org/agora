@@ -932,16 +932,15 @@ fn space_is_percent_encoded() {
 #[test]
 fn doesnt_percent_encode_allowed_ascii_characters() {
   test(|context| async move {
-    context.write(
-      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~",
-      "contents",
-    );
+    let allowed_ascii_characters = if cfg!(windows) {
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()+,-.;=@_~"
+    } else {
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
+    };
+    context.write(allowed_ascii_characters, "contents");
     let html = html(context.files_url()).await;
     guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
-    assert_eq!(
-      a.value().attr("href").unwrap(),
-      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
-    );
+    assert_eq!(a.value().attr("href").unwrap(), allowed_ascii_characters);
   });
 }
 
