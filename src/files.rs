@@ -148,7 +148,29 @@ impl Files {
     Ok(entries)
   }
 
-  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC.remove(b'/');
+  // Percent encode all unicode codepoints, even though
+  // they are allowed by the spec:
+  // https://url.spec.whatwg.org/#url-code-points
+  const ENCODE_CHARACTERS: AsciiSet = NON_ALPHANUMERIC
+    .remove(b'!')
+    .remove(b'$')
+    .remove(b'&')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')')
+    .remove(b'*')
+    .remove(b'+')
+    .remove(b',')
+    .remove(b'-')
+    .remove(b'.')
+    .remove(b'/')
+    .remove(b':')
+    .remove(b';')
+    .remove(b'=')
+    .remove(b'?')
+    .remove(b'@')
+    .remove(b'_')
+    .remove(b'~');
 
   fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
