@@ -325,22 +325,43 @@ impl Files {
       }
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
+        let filename = invoice.memo;
         Ok(html::wrap_body(html! {
           div class="invoice" {
             div class="label" {
               (format!("Lightning Payment Request for {} to access ", value))
               span class="filename" {
-                  (invoice.memo)
+                  (filename)
               }
               ":"
             }
             div class="payment-request" {
               (invoice.payment_request)
             }
-            a class="payment-link" href={"lightning:" (invoice.payment_request)} {
-              "Open in wallet"
+            div class="links" {
+              a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+                "Open invoice in wallet"
+              }
+              a class="reload-link" href=(request.uri()) {
+                "Access file"
+              }
             }
             img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
+          }
+          div class="instructions" {
+            "To access " (filename) ":"
+            ol {
+              li {
+                "Pay the invoice for " (value) " above "
+                "with your Lightning Network wallet by "
+                "scanning the QR code, "
+                "copying the payment request string, or "
+                "clicking the \"Open in wallet\" link."
+              }
+              li {
+                "Click the \"Access file\" link or reload the page."
+              }
+            }
           }
         }))
       }
