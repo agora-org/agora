@@ -360,7 +360,7 @@ impl Files {
                 "with your Lightning Network wallet by "
                 "scanning the QR code, "
                 "copying the payment request string, or "
-                "clicking the \"Open in wallet\" link."
+                "clicking the \"Open invoice in wallet\" link."
               }
               li {
                 "Click the \"Access file\" link or reload the page."
