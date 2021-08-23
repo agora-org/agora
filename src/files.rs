@@ -329,7 +329,7 @@ impl Files {
         Ok(html::wrap_body(html! {
           div class="invoice" {
             div class="label" {
-              (format!("Lightning Payment Request for {} to access ", value))
+              "Lightning Payment Request for " (value) " to access "
               span class="filename" {
                   (filename)
               }
@@ -349,7 +349,11 @@ impl Files {
             img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
           }
           div class="instructions" {
-            "To access " (filename) ":"
+            "To access "
+            span class="filename" {
+                (filename)
+            }
+            ":"
             ol {
               li {
                 "Pay the invoice for " (value) " above "

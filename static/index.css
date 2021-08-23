@@ -54,10 +54,6 @@ body {
   white-space: nowrap;
 }
 
-.invoice > .label > .filename {
-  font-family: "Courier New", Courier, monospace;
-}
-
 .invoice > .payment-request {
   font-family: "Courier New", Courier, monospace;
   overflow-wrap: anywhere;
@@ -81,4 +77,8 @@ body {
 
 .instructions {
   padding-top: 0.5em;
+}
+
+.filename {
+  font-family: "Courier New", Courier, monospace;
 }
