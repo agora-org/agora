@@ -30,6 +30,7 @@ body {
 }
 
 .icon {
+  display: flex;
   fill: none;
   height: 24px;
   stroke-linecap: round;
@@ -57,12 +58,16 @@ body {
 .invoice > .payment-request {
   font-family: "Courier New", Courier, monospace;
   overflow-wrap: anywhere;
-  user-select: all;
+  position: relative;
+  background-color: #ddd;
+  border-radius: 7px;
+  padding: 4px;
 }
 
 .invoice > .links {
   display: block;
   text-align: center;
+  margin-top: 1em;
 }
 
 .invoice > .links > a {
@@ -81,4 +86,19 @@ body {
 
 .filename {
   font-family: "Courier New", Courier, monospace;
+}
+
+.invoice .clipboard-copy {
+  border-radius: 7px;
+  border-width: 1px;
+  display: none;
+  padding: 4px;
+  margin: 4px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.invoice > .payment-request:hover > .clipboard-copy {
+  display: initial;
 }

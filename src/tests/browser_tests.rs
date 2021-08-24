@@ -60,13 +60,16 @@ fn copy_payment_request_to_clipboard() {
       .find_element(".payment-request")
       .await
       .unwrap()
+      .hover()
+      .await
+      .unwrap()
       .inner_text()
       .await
       .unwrap()
       .unwrap();
 
     page
-      .find_element(".payment-request")
+      .find_element(".clipboard-copy")
       .await
       .unwrap()
       .click()
