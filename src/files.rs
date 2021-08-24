@@ -335,7 +335,9 @@ impl Files {
               }
               ":"
             }
-            div class="payment-request" {
+            button class="payment-request" onclick=(
+              format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+            ) {
               (invoice.payment_request)
             }
             div class="links" {

@@ -7,6 +7,7 @@ use chromiumoxide::cdp::browser_protocol::browser::PermissionType;
 use chromiumoxide::cdp::browser_protocol::browser::SetPermissionParams;
 use futures::StreamExt;
 use lnd_test_context::LndTestContext;
+use pretty_assertions::assert_eq;
 use regex::Regex;
 use tokio::task;
 
@@ -19,6 +20,14 @@ fn copy_payment_request_to_clipboard() {
     let (browser, mut handler) = Browser::launch(BrowserConfig::builder().build().unwrap())
       .await
       .unwrap();
+
+    let handle = task::spawn(async move {
+      loop {
+        let _ = handler.next().await.unwrap();
+      }
+    });
+
+    dbg!("Setting permissions…");
     browser
       .execute(SetPermissionParams::new(
         PermissionDescriptor::new("clipboard-read"),
@@ -33,14 +42,27 @@ fn copy_payment_request_to_clipboard() {
       ))
       .await
       .unwrap();
-    let handle = task::spawn(async move {
-      loop {
-        let _ = handler.next().await.unwrap();
-      }
-    });
+
+    dbg!("Browsing to new page…");
     let page = browser
       .new_page(context.files_url().join("foo").unwrap().as_ref())
       .await
+      .unwrap();
+
+    dbg!("Clearing clipboard…");
+    page
+      .evaluate("navigator.clipboard.writeText('placeholder text')")
+      .await
+      .unwrap();
+
+    dbg!("Clicking payment request…");
+    let payment_request = page
+      .find_element(".payment-request")
+      .await
+      .unwrap()
+      .inner_text()
+      .await
+      .unwrap()
       .unwrap();
 
     page
@@ -51,44 +73,15 @@ fn copy_payment_request_to_clipboard() {
       .await
       .unwrap();
 
-    let clipboard_content = page.evaluate("navigator.clipboard.readText()").await;
-    dbg!(clipboard_content);
+    let clipboard_contents = page
+      .evaluate("navigator.clipboard.readText()")
+      .await
+      .unwrap()
+      .into_value::<String>()
+      .unwrap();
 
-    // let copy_button = tab
-    // .wait_for_element(".payment-request")
-    // // .wait_for_element(".payment-request > .copy-button")
-    // .unwrap();
-    // copy_button.click();
-    // let clipboard_content = copy_button.call_js_fn(
-    // "function foo() { return navigator.clipboard.readText(); }",
-    // true,
-    // );
-    // dbg!(clipboard_content);
+    assert_eq!(clipboard_contents, payment_request);
 
-    todo!();
     handle.abort();
-    // let redirect_url = redirect_url(&context, context.base_url()).await;
-    // assert_eq!(&redirect_url, context.files_url());
-
-    // /// Navigate to wikipedia
-
-    // /// Wait for network/javascript/dom to make the search-box available
-    // /// and click it.
-
-    // /// Type in a query and press `Enter`
-    // tab.type_str("WebKit")?.press_key("Enter")?;
-
-    // /// We should end up on the WebKit-page once navigated
-    // tab.wait_for_element("#firstHeading")?;
-    // assert!(tab.get_url().ends_with("WebKit"));
-
-    // /// Take a screenshot of the entire browser window
-    // let _jpeg_data = tab.capture_screenshot(ScreenshotFormat::JPEG(Some(75)), None, true)?;
-
-    // /// Take a screenshot of just the WebKit-Infobox
-    // let _png_data = tab
-    // .wait_for_element("#mw-content-text > div > table.infobox.vevent")?
-    // .capture_screenshot(ScreenshotFormat::PNG)?;
-    // Ok(())
   });
 }
