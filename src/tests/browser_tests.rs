@@ -1,14 +1,11 @@
-use super::*;
 use crate::test_utils::test_with_lnd;
-use chromiumoxide::browser::{Browser, BrowserConfig};
-use chromiumoxide::cdp::browser_protocol::browser::PermissionDescriptor;
-use chromiumoxide::cdp::browser_protocol::browser::PermissionSetting;
-use chromiumoxide::cdp::browser_protocol::browser::PermissionType;
-use chromiumoxide::cdp::browser_protocol::browser::SetPermissionParams;
+use chromiumoxide::{
+  browser::{Browser, BrowserConfig},
+  cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},
+};
 use futures::StreamExt;
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
-use regex::Regex;
 use tokio::task;
 
 #[test]
