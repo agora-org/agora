@@ -1,6 +1,6 @@
 use crate::test_utils::test_with_lnd;
 use chromiumoxide::{
-  browser::{Browser, BrowserConfig},
+  browser::BrowserConfig,
   cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},
 };
 use futures::StreamExt;
@@ -8,15 +8,17 @@ use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
 use tokio::task;
 
-#[test]
-fn copy_payment_request_to_clipboard() {
-  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
-    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
-    context.write("foo", "precious content");
+struct Browser {
+  inner: chromiumoxide::Browser,
+  handle: task::JoinHandle<()>,
+}
 
-    let (browser, mut handler) = Browser::launch(BrowserConfig::builder().build().unwrap())
-      .await
-      .unwrap();
+impl Browser {
+  async fn new() -> Self {
+    let (inner, mut handler) =
+      chromiumoxide::Browser::launch(BrowserConfig::builder().build().unwrap())
+        .await
+        .unwrap();
 
     let handle = task::spawn(async move {
       loop {
@@ -24,15 +26,14 @@ fn copy_payment_request_to_clipboard() {
       }
     });
 
-    dbg!("Setting permissions…");
-    browser
+    inner
       .execute(SetPermissionParams::new(
         PermissionDescriptor::new("clipboard-read"),
         PermissionSetting::Granted,
       ))
       .await
       .unwrap();
-    browser
+    inner
       .execute(SetPermissionParams::new(
         PermissionDescriptor::new("clipboard-write"),
         PermissionSetting::Granted,
@@ -40,8 +41,27 @@ fn copy_payment_request_to_clipboard() {
       .await
       .unwrap();
 
+    Browser { inner, handle }
+  }
+}
+
+impl Drop for Browser {
+  fn drop(&mut self) {
+    self.handle.abort();
+  }
+}
+
+#[test]
+fn copy_payment_request_to_clipboard() {
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo", "precious content");
+
+    let browser = Browser::new().await;
+
     dbg!("Browsing to new page…");
     let page = browser
+      .inner
       .new_page(context.files_url().join("foo").unwrap().as_ref())
       .await
       .unwrap();
@@ -81,7 +101,5 @@ fn copy_payment_request_to_clipboard() {
       .unwrap();
 
     assert_eq!(clipboard_contents, payment_request);
-
-    handle.abort();
   });
 }
