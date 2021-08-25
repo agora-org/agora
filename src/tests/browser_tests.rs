@@ -26,6 +26,7 @@ impl Browser {
       }
     });
 
+    eprintln!("Setting permissions…");
     inner
       .execute(SetPermissionParams::new(
         PermissionDescriptor::new("clipboard-read"),
@@ -59,20 +60,20 @@ fn copy_payment_request_to_clipboard() {
 
     let browser = Browser::new().await;
 
-    dbg!("Browsing to new page…");
+    eprintln!("Browsing to new page…");
     let page = browser
       .inner
       .new_page(context.files_url().join("foo").unwrap().as_ref())
       .await
       .unwrap();
 
-    dbg!("Clearing clipboard…");
+    eprintln!("Clearing clipboard…");
     page
       .evaluate("navigator.clipboard.writeText('placeholder text')")
       .await
       .unwrap();
 
-    dbg!("Clicking payment request…");
+    eprintln!("Clicking payment request…");
     let payment_request = page
       .find_element(".payment-request")
       .await
