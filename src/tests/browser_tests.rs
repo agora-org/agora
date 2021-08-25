@@ -73,17 +73,13 @@ fn copy_payment_request_to_clipboard() {
       .await
       .unwrap();
 
-    eprintln!("Clicking payment request…");
-    let payment_request = page
+    eprintln!("Clicking clipboard copy button…");
+    page
       .find_element(".payment-request")
       .await
       .unwrap()
       .hover()
       .await
-      .unwrap()
-      .inner_text()
-      .await
-      .unwrap()
       .unwrap();
 
     page
@@ -99,6 +95,15 @@ fn copy_payment_request_to_clipboard() {
       .await
       .unwrap()
       .into_value::<String>()
+      .unwrap();
+
+    let payment_request = page
+      .find_element(".payment-request")
+      .await
+      .unwrap()
+      .inner_text()
+      .await
+      .unwrap()
       .unwrap();
 
     assert_eq!(clipboard_contents, payment_request);
