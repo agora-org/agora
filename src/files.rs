@@ -212,7 +212,7 @@ impl Files {
             }
             @if file_type.is_file() && !config.paid() {
               a download href=(encoded) {
-                (Files::download_icon())
+                (Files::icon("download"))
               }
             }
           }
@@ -227,10 +227,10 @@ impl Files {
     Ok(html::wrap_body(body))
   }
 
-  fn download_icon() -> Markup {
+  fn icon(name: &str) -> Markup {
     html! {
       svg class="icon" {
-        use href="/static/feather-sprite.svg#download" {}
+        use href=(format!("/static/feather-sprite.svg#{}",name)) {}
       }
     }
   }
@@ -335,9 +335,15 @@ impl Files {
               }
               ":"
             }
-            div class="payment-request" {
+            div class="payment-request"{
+              button class="clipboard-copy" onclick=(
+                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+              ) {
+                (Files::icon("clipboard"))
+              }
               (invoice.payment_request)
             }
+
             div class="links" {
               a class="payment-link" href={"lightning:" (invoice.payment_request)} {
                 "Open invoice in wallet"

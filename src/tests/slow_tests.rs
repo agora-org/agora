@@ -66,7 +66,8 @@ fn invoice_url_serves_bech32_encoded_invoice() {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     let html = html(&context.files_url().join("foo").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    assert_contains(&payment_request.inner_html(), "lnbcrt1");
+    let payment_request = payment_request.text().collect::<String>();
+    assert_contains(&payment_request, "lnbcrt1");
     guard_unwrap!(let &[payment_link] = css_select(&html, "a.payment-link").as_slice());
     let href = payment_link.value().attr("href").unwrap();
     assert!(href.starts_with("lightning:lnbcrt1"), "href: {}", href);
@@ -149,7 +150,7 @@ fn paying_invoice_allows_downloading_file() {
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     receiver.fulfill_own_payment_request(&payment_request).await;
     guard_unwrap!(let &[reload_link] = css_select(&html, ".reload-link").as_slice());
     let reload_link = reload_link.value().attr("href").unwrap();
@@ -171,7 +172,7 @@ fn allows_configuring_invoice_amount() {
     guard_unwrap!(let &[invoice_element] = css_select(&html, ".invoice").as_slice());
     assert_contains(&invoice_element.inner_html(), "1,234 satoshis");
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     let invoice = payment_request.parse::<Invoice>().unwrap();
     assert_eq!(invoice.amount_pico_btc().unwrap(), 1234 * 1000 * 10);
   });
@@ -292,7 +293,7 @@ fn relative_links_in_paid_files() {
 
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     receiver.fulfill_own_payment_request(&payment_request).await;
 
     let response = get(&invoice_url).await;
@@ -328,7 +329,7 @@ fn request_path_must_match_invoice_path() {
 
     let html = html(&context.files_url().join("exists").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     receiver.fulfill_own_payment_request(&payment_request).await;
 
     assert_bad_request(&context, "/files/does-not-exist").await;
@@ -353,7 +354,7 @@ fn payment_request_memo_decodes_percent() {
     context.write("file.with.dots", "");
     let html = html(&context.files_url().join("file%2Ewith%2Edots").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     let invoice = payment_request.parse::<Invoice>().unwrap();
     assert_eq!(
       invoice.description(),
@@ -376,7 +377,7 @@ fn filenames_with_percent_encoding() {
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     sender.fulfill_payment_request(&payment_request).await;
     let contents = text(&invoice_url).await;
     assert_eq!(contents, "contents");
@@ -385,7 +386,7 @@ fn filenames_with_percent_encoding() {
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
-    let payment_request = payment_request.inner_html();
+    let payment_request = payment_request.text().collect::<String>();
     sender.fulfill_payment_request(&payment_request).await;
     let contents = text(&invoice_url).await;
     assert_eq!(contents, "contents");
