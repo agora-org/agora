@@ -105,11 +105,13 @@ where
       let port = server.port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+      let working_directory = environment.working_directory.clone();
       let test_result = task::LocalSet::new()
         .run_until(async move {
           task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
+            working_directory,
             files_directory,
           }))
           .await
@@ -139,6 +141,7 @@ pub(crate) struct TestContext {
   base_url: Url,
   files_directory: PathBuf,
   files_url: Url,
+  working_directory: PathBuf,
 }
 
 impl TestContext {
@@ -146,12 +149,21 @@ impl TestContext {
     &self.files_url
   }
 
+  // pub(crate) fn tls_files_url(&self) -> Url {
+  //   let mut url = self.files_url();
+  //   url.set_scheme("https").unwrap();
+  // }
+
   pub(crate) fn files_directory(&self) -> &Path {
     &self.files_directory
   }
 
   pub(crate) fn base_url(&self) -> &Url {
     &self.base_url
+  }
+
+  pub(crate) fn working_directory(&self) -> &Path {
+    &self.working_directory
   }
 
   pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {

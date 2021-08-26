@@ -31,7 +31,7 @@ bc1qpyg4schsrglnunrcc74rkd7xam22xvf9v0yk0y
 ```bash
 $ mkdir files
 $ echo 'amazing content' > files/file.txt
-$ agora --directory files --port 1234
+$ agora --directory files --http-port 1234
 $ curl http://localhost:1234/files/file.txt
 ```
 

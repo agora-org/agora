@@ -7,7 +7,7 @@ use crate::{
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use snafu::ResultExt;
-use std::{io::Write, net::ToSocketAddrs};
+use std::{fs, io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {
@@ -27,6 +27,10 @@ impl Server {
 
     let request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
+    if let Some(acme_cache_directory) = arguments.acme_cache_directory {
+      fs::create_dir_all(environment.working_directory.join(acme_cache_directory)).unwrap();
+    }
+
     Ok(Self {
       request_handler,
       #[cfg(test)]
@@ -40,7 +44,7 @@ impl Server {
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
 
-    let socket_addr = (arguments.address.as_str(), arguments.port)
+    let socket_addr = (arguments.address.as_str(), arguments.http_port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
         input: &arguments.address,
@@ -171,7 +175,7 @@ mod tests {
     environment.arguments = vec![
       "agora".into(),
       "--address=host.invalid".into(),
-      "--port=0".into(),
+      "--http-port=0".into(),
       "--directory=www".into(),
     ];
 

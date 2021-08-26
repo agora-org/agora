@@ -4,12 +4,20 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 pub(crate) struct Arguments {
+  #[structopt(
+    long,
+    help = "Cache directory for TLS certificates fetched via ACME protocol. Let's Encrypt is the only supported ACME provider."
+  )]
+  pub(crate) acme_cache_directory: Option<PathBuf>,
   #[structopt(long, default_value = "0.0.0.0", help = "Address to listen on")]
   pub(crate) address: String,
   #[structopt(long, help = "Directory of files to serve")]
   pub(crate) directory: PathBuf,
+  // fixme: make this optional
   #[structopt(long, help = "Port to listen on for incoming HTTP requests")]
-  pub(crate) port: u16,
+  pub(crate) http_port: u16,
+  #[structopt(long, help = "Port to listen on for incoming HTTPS requests")]
+  pub(crate) https_port: Option<u16>,
   #[structopt(
     long,
     help = "Host and port of the LND gRPC server. By default a locally running LND instance will expose its gRPC API on `localhost:10009`."
