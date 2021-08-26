@@ -2,20 +2,20 @@ body {
   margin-left: auto;
   margin-right: auto;
   max-width: 100%;
-  width: 800px;
+  width: 50rem;
 }
 
 .listing {
-  border-top: 1px solid black;
+  border-top: 0.0625rem solid black;
   list-style: none;
   padding-left: 0;
 }
 
 .listing > li {
-  border-bottom: 1px solid black;
+  border-bottom: 0.0625rem solid black;
   display: flex;
   font-family: "Courier New", Courier, monospace;
-  height: 1.5em;
+  height: 1.5rem;
   justify-content: space-between;
 }
 
@@ -32,25 +32,25 @@ body {
 .icon {
   display: flex;
   fill: none;
-  height: 24px;
+  height: 1.5rem;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
   stroke: black;
-  width: 24px;
+  width: 1.5rem;
 }
 
 .invoice {
-  border-bottom: 1px solid black;
-  border-top: 1px solid black;
-  padding-bottom: 0.5em;
-  padding-top: 0.5em;
+  border-bottom: 0.0625rem solid black;
+  border-top: 0.0625rem solid black;
+  padding-bottom: 0.5rem;
+  padding-top: 0.5rem;
 }
 
 .invoice > .label {
-  height: 1.5em;
+  height: 1.5rem;
   overflow: hidden;
-  padding-bottom: 0.3em;
+  padding-bottom: 0.3rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -60,28 +60,28 @@ body {
   overflow-wrap: anywhere;
   position: relative;
   background-color: #ddd;
-  border-radius: 7px;
-  padding: 4px;
+  border-radius: 0.4375rem;
+  padding: 0.25rem;
 }
 
 .invoice > .links {
   display: block;
   text-align: center;
-  margin-top: 1em;
+  margin-top: 1rem;
 }
 
 .invoice > .links > a {
-  padding: 1em;
+  padding: 1rem;
 }
 
 .invoice > .qr-code {
   display: block;
   margin: auto;
-  max-width: 400px;
+  max-width: 25rem;
 }
 
 .instructions {
-  padding-top: 0.5em;
+  padding-top: 0.5rem;
 }
 
 .filename {
@@ -89,11 +89,11 @@ body {
 }
 
 .invoice .clipboard-copy {
-  border-radius: 7px;
-  border-width: 1px;
+  border-radius: 0.4375rem;
+  border-width: 0.0625rem;
   display: none;
-  padding: 4px;
-  margin: 4px;
+  padding: 0.25rem;
+  margin: 0.25rem;
   position: absolute;
   right: 0;
   top: 0;
