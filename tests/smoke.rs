@@ -82,6 +82,6 @@ fn errors_contain_backtraces() {
     .unwrap()
     .status();
   assert_eq!(status, StatusCode::NOT_FOUND);
-  let rest = agora.kill();
-  assert!(rest.contains("agora::files::Files::check_path"));
+  let stderr = agora.kill();
+  assert!(stderr.contains("agora::files::Files::check_path"));
 }
