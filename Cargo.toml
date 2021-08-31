@@ -87,8 +87,8 @@ features = ["blocking", "stream"]
 path = "lnd-test-context"
 
 [[test]]
-name = "smoke"
-path = "tests/smoke.rs"
+name = "integration"
+path = "tests/integration.rs"
 test = false
 
 [features]
