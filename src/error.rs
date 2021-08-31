@@ -200,26 +200,24 @@ impl Error {
   }
 
   pub(crate) fn print_backtrace(&self, write_color: &mut impl WriteColor) {
-    if cfg!(not(test)) {
-      if let Some(backtrace) = ErrorCompat::backtrace(self) {
-        BacktracePrinter::new()
-          .add_frame_filter(Box::new(|frames| {
-            frames.retain(
-              |frame| match frame.filename.as_ref().and_then(|x| x.to_str()) {
-                Some(file) => {
-                  !(file.starts_with("/rustc/")
-                    || file.contains(&format!(
-                      "{}.cargo{}registry{}",
-                      MAIN_SEPARATOR, MAIN_SEPARATOR, MAIN_SEPARATOR
-                    )))
-                }
-                None => false,
-              },
-            );
-          }))
-          .print_trace(backtrace, write_color)
-          .ok();
-      }
+    if let Some(backtrace) = ErrorCompat::backtrace(self) {
+      BacktracePrinter::new()
+        .add_frame_filter(Box::new(|frames| {
+          frames.retain(
+            |frame| match frame.filename.as_ref().and_then(|x| x.to_str()) {
+              Some(file) => {
+                !(file.starts_with("/rustc/")
+                  || file.contains(&format!(
+                    "{}.cargo{}registry{}",
+                    MAIN_SEPARATOR, MAIN_SEPARATOR, MAIN_SEPARATOR
+                  )))
+              }
+              None => false,
+            },
+          );
+        }))
+        .print_trace(backtrace, write_color)
+        .ok();
     }
   }
 }
