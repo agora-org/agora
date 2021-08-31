@@ -92,7 +92,7 @@ jobs:
     - name: Test
       run: |
         cargo test --all --all-features
-        cargo test --test smoke
+        cargo test --test integration
 
     - name: Clippy
       run: cargo clippy --all-targets --all-features

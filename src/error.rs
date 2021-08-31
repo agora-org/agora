@@ -1,7 +1,7 @@
 use crate::input_path::InputPath;
 use color_backtrace::BacktracePrinter;
 use hyper::StatusCode;
-use snafu::{Backtrace, ErrorCompat, Snafu};
+use snafu::{ErrorCompat, Snafu};
 use std::{
   fmt::Debug,
   io,
@@ -219,5 +219,26 @@ impl Error {
         .print_trace(backtrace, write_color)
         .ok();
     }
+  }
+}
+
+#[derive(Debug)]
+pub(crate) struct Backtrace {
+  inner: Option<snafu::Backtrace>,
+}
+
+impl snafu::GenerateBacktrace for Backtrace {
+  fn generate() -> Self {
+    Self {
+      inner: if cfg!(test) {
+        None
+      } else {
+        Some(snafu::Backtrace::generate())
+      },
+    }
+  }
+
+  fn as_backtrace(&self) -> Option<&snafu::Backtrace> {
+    self.inner.as_ref()
   }
 }
