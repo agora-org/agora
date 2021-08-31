@@ -352,7 +352,12 @@ impl Files {
                 "Access file"
               }
             }
-            img class="qr-code" alt="Lightning Network Invoice QR Code" src=(qr_code_url);
+            img
+              class="qr-code"
+              alt="Lightning Network Invoice QR Code"
+              src=(qr_code_url)
+              width="400"
+              height="400";
           }
           div class="instructions" {
             "To access "

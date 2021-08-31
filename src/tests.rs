@@ -831,20 +831,6 @@ fn requesting_paid_file_with_no_lnd_returns_internal_error() {
 }
 
 #[test]
-fn errors_contain_backtraces() {
-  let stderr = test(|context| async move {
-    context.write(".hidden", "");
-    let status = reqwest::get(context.files_url().join(".hidden").unwrap())
-      .await
-      .unwrap()
-      .status();
-    assert_eq!(status, StatusCode::NOT_FOUND);
-  });
-
-  assert_contains(&stderr, "agora::files::Files::check_path");
-}
-
-#[test]
 fn displays_index_markdown_files_as_html() {
   test(|context| async move {
     context.write(".index.md", "# test header");
