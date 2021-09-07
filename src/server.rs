@@ -4,14 +4,22 @@ use crate::{
   error::{self, Result},
   request_handler::RequestHandler,
 };
-use hyper::server::conn::AddrIncoming;
+use cradle::prelude::*;
+use futures::{future::BoxFuture, FutureExt};
+use hyper::server::conn::{AddrIncoming, Http};
 use openssl::x509::X509;
+use rustls_acme::{
+  acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY, TlsStream,
+};
 use snafu::ResultExt;
 use std::{fs, io::Write, net::ToSocketAddrs};
+use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
 use tower::make::Shared;
 
 pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  tls_request_handler: BoxFuture<'static, Result<()>>,
+  tls_port_: Option<u16>,
   #[cfg(test)]
   directory: std::path::PathBuf,
 }
@@ -27,15 +35,70 @@ impl Server {
 
     let request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
-    if let Some(acme_cache_directory) = arguments.acme_cache_directory {
+    let (tls_port, tls_request_handler) = Self::foo(environment, &arguments).await?;
+    // fixme
+    if let Some(acme_cache_directory) = &arguments.acme_cache_directory {
       fs::create_dir_all(environment.working_directory.join(acme_cache_directory)).unwrap();
     }
 
     Ok(Self {
       request_handler,
+      tls_request_handler,
+      tls_port_: Some(tls_port),
       #[cfg(test)]
       directory,
     })
+  }
+
+  async fn foo(
+    environment: &mut Environment,
+    arguments: &Arguments,
+  ) -> Result<(u16, BoxFuture<'static, Result<()>>)> {
+    let dir = // if cfg!(test) {
+      LETS_ENCRYPT_STAGING_DIRECTORY;
+    // } else {
+    //   LETS_ENCRYPT_PRODUCTION_DIRECTORY
+    // };
+    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
+    let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
+    let listener = async_std::net::TcpListener::bind("127.0.0.1:0")
+      .await
+      .expect("fixme");
+    simple_logger::SimpleLogger::new()
+      .with_level(log::LevelFilter::Info)
+      .init()
+      .unwrap();
+    run!(
+      LogCommand,
+      "ls",
+      &arguments.acme_cache_directory.as_ref().unwrap()
+    );
+    run!(
+      LogCommand,
+      "cat",
+      arguments
+        .acme_cache_directory
+        .as_ref()
+        .unwrap()
+        .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ")
+    );
+    Ok((
+      dbg!(listener.local_addr().expect("fixme").port()),
+      rustls_acme::bind_listen_serve(
+        listener,
+        dbg!(dir),
+        vec!["test.agora.download".to_string()],
+        dbg!(arguments.acme_cache_directory.clone()),
+        move |tls_stream: TlsStream| {
+          eprintln!("starting tls response");
+          let request_handler_clone = request_handler.clone();
+          let bar = Http::new().serve_connection(tls_stream.compat(), request_handler_clone);
+          bar.map(|x| x.expect("fixme"))
+        },
+      )
+      .map(|x| x.map_err(|err| todo!()))
+      .boxed(),
+    ))
   }
 
   async fn setup_request_handler(
@@ -126,12 +189,21 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    self.request_handler.await.context(error::ServerRun)
+    futures::try_join!(
+      self.request_handler.map(|x| x.context(error::ServerRun)),
+      self.tls_request_handler
+    )?;
+    Ok(())
   }
 
   #[cfg(test)]
   pub(crate) fn port(&self) -> u16 {
     self.request_handler.local_addr().port()
+  }
+
+  #[cfg(test)]
+  pub(crate) fn tls_port(&self) -> Option<u16> {
+    self.tls_port_
   }
 
   #[cfg(test)]

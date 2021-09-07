@@ -103,6 +103,7 @@ where
       let server = Server::setup(environment).await.unwrap();
       let files_directory = server.directory().to_owned();
       let port = server.port();
+      let tls_port = server.tls_port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       let working_directory = environment.working_directory.clone();
@@ -111,6 +112,12 @@ where
           task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
+            tls_files_url: tls_port.map(|port| {
+              let mut url = url.clone();
+              url.set_scheme("https").unwrap();
+              url.set_port(Some(port));
+              url
+            }),
             working_directory,
             files_directory,
           }))
@@ -141,6 +148,7 @@ pub(crate) struct TestContext {
   base_url: Url,
   files_directory: PathBuf,
   files_url: Url,
+  tls_files_url: Option<Url>,
   working_directory: PathBuf,
 }
 
@@ -149,10 +157,9 @@ impl TestContext {
     &self.files_url
   }
 
-  // pub(crate) fn tls_files_url(&self) -> Url {
-  //   let mut url = self.files_url();
-  //   url.set_scheme("https").unwrap();
-  // }
+  pub(crate) fn tls_files_url(&self) -> &Url {
+    self.tls_files_url.as_ref().unwrap()
+  }
 
   pub(crate) fn files_directory(&self) -> &Path {
     &self.files_directory

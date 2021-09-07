@@ -29,13 +29,21 @@ pin-project = "1.0.7"
 pulldown-cmark = "0.8.0"
 qrcodegen = "=1.6.0"
 rust-embed = "5.9.0"
+rustls-acme = { path = "../rustls-acme" }
 serde_yaml = "0.8.17"
 termcolor = "1.1.2"
 tonic = "0.4.3"
+simple_logger = "1.13.0"
+log = "0.4.14"
+cradle = "0.0.24"
 
 [dependencies.agora-lnd-client]
 path = "agora-lnd-client"
 version = "0.0.1"
+
+[dependencies.async-std]
+version = "1.10.0"
+features = ["tokio1"]
 
 [dependencies.hyper]
 version = "0.14.7"
@@ -56,6 +64,10 @@ features = ["wrap_help"]
 [dependencies.tokio]
 version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
+
+[dependencies.tokio-util]
+version = "0.6.8"
+features = ["compat"]
 
 [dependencies.tower]
 version = "0.4.6"
@@ -81,7 +93,7 @@ usvg = "0.15.0"
 
 [dev-dependencies.reqwest]
 version = "0.11.3"
-features = ["blocking", "stream"]
+features = ["blocking", "stream", "native-tls"]
 
 [dev-dependencies.lnd-test-context]
 path = "lnd-test-context"

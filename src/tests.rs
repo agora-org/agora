@@ -11,7 +11,7 @@ use guard::guard_unwrap;
 use hyper::{header, StatusCode};
 use lexiclean::Lexiclean;
 use pretty_assertions::assert_eq;
-use reqwest::{redirect::Policy, Client, Url};
+use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
 use scraper::{ElementRef, Html, Selector};
 use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str};
 use tempfile::TempDir;
@@ -949,6 +949,7 @@ fn percent_encodes_unicode() {
 
 #[test]
 fn serves_tls_requests_with_cert_from_cache_directory() {
+  // fixme: what about expiration?
   let test_agora_download_staging_cert = "
     -----BEGIN PRIVATE KEY-----
     MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg20NYzvJtBkQpiy6R
@@ -1031,6 +1032,37 @@ fn serves_tls_requests_with_cert_from_cache_directory() {
   "
   .unindent();
 
+  let lets_encrypt_staging_root_cert = "
+    -----BEGIN CERTIFICATE-----
+    MIIEmTCCAoGgAwIBAgIRAJJVIr2Em/sOzhBD2bEnEJwwDQYJKoZIhvcNAQELBQAw
+    ZjELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1
+    cml0eSBSZXNlYXJjaCBHcm91cDEiMCAGA1UEAxMZKFNUQUdJTkcpIFByZXRlbmQg
+    UGVhciBYMTAeFw0yMDA5MDQwMDAwMDBaFw0yNTA5MTUxNjAwMDBaMGgxCzAJBgNV
+    BAYTAlVTMTMwMQYDVQQKEyooU1RBR0lORykgSW50ZXJuZXQgU2VjdXJpdHkgUmVz
+    ZWFyY2ggR3JvdXAxJDAiBgNVBAMTGyhTVEFHSU5HKSBCb2d1cyBCcm9jY29saSBY
+    MjB2MBAGByqGSM49AgEGBSuBBAAiA2IABDr0vsNZAswMWDiWwNOgMNBxT9rSwSyj
+    6BUKkfQDLJJdZwtve+XkKsnEfgAr2HpQPK38BVzmzB2Fydt1ywfnQIzyVTidjnLI
+    01ajuHXA1rvq0NlSC3ZyUWMqZ1dTDE4VcaOB7TCB6jAOBgNVHQ8BAf8EBAMCAQYw
+    DwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU3tGjWWQOwZo2o0busBB2766XlWYw
+    HwYDVR0jBBgwFoAUtfNl8v6wCpIf+zx980SgrGMlwxQwNgYIKwYBBQUHAQEEKjAo
+    MCYGCCsGAQUFBzAChhpodHRwOi8vc3RnLXgxLmkubGVuY3Iub3JnLzArBgNVHR8E
+    JDAiMCCgHqAchhpodHRwOi8vc3RnLXgxLmMubGVuY3Iub3JnLzAiBgNVHSAEGzAZ
+    MAgGBmeBDAECATANBgsrBgEEAYLfEwEBATANBgkqhkiG9w0BAQsFAAOCAgEAMkp5
+    etLOxM4+a6EqX2hmAd+yNUSNCA7+MYn/VrwJnpkWe8zuC+fILYMYRuByWs/zeFmo
+    56Jc7td5N9I+QN0rYSeEbgdTAMeaBjZ3P6eJxM1Aa76Abrj5ULfq8XhOE37SYgFb
+    ZS9YPOQ4wuisCXHrrmu4ZdZJmzXIQX562xBeJxf0o4LBqS2C3SmpkPY+f8lTtmFO
+    /I6qSSl8T5XyNE385zNXaRd8rMJqNC9fIHDjPeJMIaou0TZYT0uNb9OZ7ZhT7smQ
+    SaHcGxtK0SVmJvGNagc6RldrHFbemLbwVpeI4NopRHynQqzkVtsfAlK8VD92SYbp
+    olFsJZWuHVkHgccuI1Hx0+RUp1VGj1PPV+0JmGZeG2ybLloU2rjjMbRmkNjTxub2
+    U1vzCGpBSaBfYQLjLHDwQk1AqRENlZxDqCkXFro8eqT6TFHdtw27KIT+ov1Qyofi
+    q3Uj1w7tPpcFMSDfiWNRE0XGYCjELDo19oPqQthIMQ5X+/3YpCqZceR4vMR6n9ol
+    Lp/0KmjAzqU+LqD2fmFLttKvZUxW8aECTGIcDHGCPJDklwDW3l7DUQ08Wj5Fh/KE
+    f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
+    8VhPQaU1Enn7NW+4IHnfSeP6G5rzLEtl0PreC4k=
+    -----END CERTIFICATE-----
+  "
+  .unindent();
+
   let tempdir = TempDir::new().unwrap();
 
   fs::write(
@@ -1047,7 +1079,24 @@ fn serves_tls_requests_with_cert_from_cache_directory() {
       tempdir.path().to_str().unwrap(),
       "--https-port=0",
     ],
-    |context| async move {},
+    |context| async move {
+      context.write("file", "encrypted content");
+      let client = ClientBuilder::new()
+        .danger_accept_invalid_hostnames(true)
+        .https_only(true)
+        .add_root_certificate(
+          Certificate::from_pem(lets_encrypt_staging_root_cert.as_bytes()).unwrap(),
+        )
+        .build()
+        .unwrap();
+      let response = client
+        .get(dbg!(context.tls_files_url().join("file").unwrap()))
+        .send()
+        .await
+        .unwrap();
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
   );
 }
 
@@ -1069,3 +1118,5 @@ fn redirects_requests_from_port_80_to_443() {}
 #[test]
 #[ignore]
 fn feature_is_documented_in_readme() {}
+
+// todo: error when tls cache flag is not set
