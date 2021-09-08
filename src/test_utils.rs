@@ -113,7 +113,7 @@ where
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
             tls_files_url: tls_port.map(|port| {
-              let mut url = url.clone();
+              let mut url = url.join("files/").unwrap();
               url.set_scheme("https").unwrap();
               url.set_port(Some(port));
               url
