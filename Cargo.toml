@@ -93,7 +93,8 @@ usvg = "0.15.0"
 
 [dev-dependencies.reqwest]
 version = "0.11.3"
-features = ["blocking", "stream", "native-tls"]
+features = ["blocking", "stream", "rustls-tls"]
+default-features = false
 
 [dev-dependencies.lnd-test-context]
 path = "lnd-test-context"

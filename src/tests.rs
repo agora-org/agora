@@ -13,7 +13,7 @@ use lexiclean::Lexiclean;
 use pretty_assertions::assert_eq;
 use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
 use scraper::{ElementRef, Html, Selector};
-use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str};
+use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str, time::Duration};
 use tempfile::TempDir;
 use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
@@ -1076,9 +1076,11 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
       "--https-port=0",
     ],
     |context| async move {
+      eprintln!("waiting...");
+      tokio::time::sleep(Duration::from_millis(3000)).await;
       context.write("file", "encrypted content");
       let client = ClientBuilder::new()
-        .danger_accept_invalid_hostnames(true)
+        // .danger_accept_invalid_certs(true)
         .https_only(true)
         .add_root_certificate(
           Certificate::from_pem(lets_encrypt_staging_root_cert.as_bytes()).unwrap(),
