@@ -948,6 +948,15 @@ fn percent_encodes_unicode() {
 }
 
 #[test]
+fn tls_a() {
+  serves_tls_requests_with_cert_from_cache_directory();
+}
+
+#[test]
+fn tls_b() {
+  serves_tls_requests_with_cert_from_cache_directory();
+}
+
 fn serves_tls_requests_with_cert_from_cache_directory() {
   // fixme: what about expiration?
   let test_agora_download_staging_cert = "-----BEGIN PRIVATE KEY-----\x0d
@@ -1080,7 +1089,7 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
       tokio::time::sleep(Duration::from_millis(3000)).await;
       context.write("file", "encrypted content");
       let client = ClientBuilder::new()
-        // .danger_accept_invalid_certs(true)
+        .danger_accept_invalid_certs(true)
         .https_only(true)
         .add_root_certificate(
           Certificate::from_pem(lets_encrypt_staging_root_cert.as_bytes()).unwrap(),

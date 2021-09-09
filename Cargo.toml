@@ -36,6 +36,11 @@ tonic = "0.4.3"
 simple_logger = "1.13.0"
 log = "0.4.14"
 cradle = "0.0.24"
+async-rustls = "0.2.0"
+
+[dependencies.tokio-stream]
+version = "0.1.7"
+features = ["net"]
 
 [dependencies.agora-lnd-client]
 path = "agora-lnd-client"
