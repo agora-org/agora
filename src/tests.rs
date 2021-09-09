@@ -19,7 +19,6 @@ use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::TcpStream,
 };
-use unindent::Unindent;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;
@@ -957,7 +956,7 @@ fn tls_b() {
   serves_tls_requests_with_cert_from_cache_directory();
 }
 
-fn serves_tls_requests_with_cert_from_cache_directory() {
+fn set_up_cache() -> TempDir {
   // fixme: what about expiration?
   let test_agora_download_staging_cert = "-----BEGIN PRIVATE KEY-----\x0d
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg20NYzvJtBkQpiy6R\x0d
@@ -1039,7 +1038,19 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
 -----END CERTIFICATE-----
 ";
 
-  let lets_encrypt_staging_root_cert = "-----BEGIN CERTIFICATE-----
+  let tempdir = TempDir::new().unwrap();
+
+  fs::write(
+    tempdir
+      .path()
+      .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
+    test_agora_download_staging_cert,
+  )
+  .unwrap();
+  tempdir
+}
+
+const lets_encrypt_staging_root_cert_x2: &str = "-----BEGIN CERTIFICATE-----
 MIIEmTCCAoGgAwIBAgIRAJJVIr2Em/sOzhBD2bEnEJwwDQYJKoZIhvcNAQELBQAw
 ZjELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1
 cml0eSBSZXNlYXJjaCBHcm91cDEiMCAGA1UEAxMZKFNUQUdJTkcpIFByZXRlbmQg
@@ -1068,15 +1079,8 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
 -----END CERTIFICATE-----
 ";
 
-  let tempdir = TempDir::new().unwrap();
-
-  fs::write(
-    tempdir
-      .path()
-      .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
-    test_agora_download_staging_cert,
-  )
-  .unwrap();
+fn serves_tls_requests_with_cert_from_cache_directory() {
+  let tempdir = set_up_cache();
 
   test_with_arguments(
     &[
@@ -1085,14 +1089,14 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
       "--https-port=0",
     ],
     |context| async move {
-      eprintln!("waiting...");
+      // fixme: remove sleep
       tokio::time::sleep(Duration::from_millis(1000)).await;
       context.write("file", "encrypted content");
       let client = ClientBuilder::new()
         .danger_accept_invalid_certs(true)
         .https_only(true)
         .add_root_certificate(
-          Certificate::from_pem(lets_encrypt_staging_root_cert.as_bytes()).unwrap(),
+          Certificate::from_pem(lets_encrypt_staging_root_cert_x2.as_bytes()).unwrap(),
         )
         .build()
         .unwrap();
@@ -1119,8 +1123,40 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
 }
 
 #[test]
-#[ignore]
-fn redirects_requests_from_port_80_to_443() {}
+fn redirects_requests_from_port_80_to_443() {
+  let cache = set_up_cache();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--https-redirect-port=0",
+    ],
+    |context| async move {
+      // fixme: remove sleep
+      tokio::time::sleep(Duration::from_millis(1000)).await;
+      context.write("file", "encrypted content");
+      let client = ClientBuilder::new()
+        .danger_accept_invalid_certs(true)
+        .add_root_certificate(
+          Certificate::from_pem(lets_encrypt_staging_root_cert_x2.as_bytes()).unwrap(),
+        )
+        .build()
+        .unwrap();
+      let response = client
+        .get(dbg!(format!(
+          "http://localhost:{}/files/file",
+          context.https_redirect_port()
+        )))
+        .send()
+        .await
+        .unwrap();
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
+  );
+}
 
 #[test]
 #[ignore]

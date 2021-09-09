@@ -104,6 +104,7 @@ where
       let files_directory = server.directory().to_owned();
       let port = server.port();
       let tls_port = server.tls_port();
+      let https_redirect_port = server.https_redirect_port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       let working_directory = environment.working_directory.clone();
@@ -115,9 +116,10 @@ where
             tls_files_url: tls_port.map(|port| {
               let mut url = url.join("files/").unwrap();
               url.set_scheme("https").unwrap();
-              url.set_port(Some(port));
+              url.set_port(Some(port)).unwrap();
               url
             }),
+            https_redirect_port,
             working_directory,
             files_directory,
           }))
@@ -149,6 +151,7 @@ pub(crate) struct TestContext {
   files_directory: PathBuf,
   files_url: Url,
   tls_files_url: Option<Url>,
+  https_redirect_port: Option<u16>,
   working_directory: PathBuf,
 }
 
@@ -159,6 +162,10 @@ impl TestContext {
 
   pub(crate) fn tls_files_url(&self) -> &Url {
     self.tls_files_url.as_ref().unwrap()
+  }
+
+  pub(crate) fn https_redirect_port(&self) -> u16 {
+    self.https_redirect_port.unwrap()
   }
 
   pub(crate) fn files_directory(&self) -> &Path {

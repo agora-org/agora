@@ -18,6 +18,8 @@ pub(crate) struct Arguments {
   pub(crate) http_port: u16,
   #[structopt(long, help = "Port to listen on for incoming HTTPS requests")]
   pub(crate) https_port: Option<u16>,
+  #[structopt(long, help = "Port to redirect to HTTPS through HTTP")]
+  pub(crate) https_redirect_port: Option<u16>,
   #[structopt(
     long,
     help = "Host and port of the LND gRPC server. By default a locally running LND instance will expose its gRPC API on `localhost:10009`."

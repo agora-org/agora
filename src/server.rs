@@ -9,7 +9,7 @@ use hyper::server::conn::{AddrIncoming, Http};
 use openssl::x509::X509;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
-use std::{fs, future::Future, io::Write, net::ToSocketAddrs, task::Poll};
+use std::{fs, io::Write, net::ToSocketAddrs};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 use tower::make::Shared;
@@ -18,6 +18,7 @@ pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   tls_request_handler: BoxFuture<'static, Result<()>>,
   tls_port_: Option<u16>,
+  https_redirect_port: Option<u16>,
   #[cfg(test)]
   directory: std::path::PathBuf,
 }
@@ -43,6 +44,7 @@ impl Server {
       request_handler,
       tls_request_handler,
       tls_port_: Some(tls_port),
+      https_redirect_port: arguments.https_redirect_port,
       #[cfg(test)]
       directory,
     })
@@ -52,7 +54,11 @@ impl Server {
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<(u16, BoxFuture<'static, Result<()>>)> {
-    let dir = LETS_ENCRYPT_STAGING_DIRECTORY;
+    let dir = if cfg!(test) {
+      LETS_ENCRYPT_STAGING_DIRECTORY
+    } else {
+      LETS_ENCRYPT_PRODUCTION_DIRECTORY
+    };
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", arguments.https_port.unwrap_or(0)))
@@ -60,7 +66,8 @@ impl Server {
       .expect("fixme");
     simple_logger::SimpleLogger::new()
       .with_level(log::LevelFilter::Info)
-      .init();
+      .init()
+      .ok();
 
     Ok((
       dbg!(listener.local_addr().expect("fixme").port()),
@@ -71,7 +78,7 @@ impl Server {
         dbg!(arguments.acme_cache_directory.clone()),
         move |tls_stream| Self::bar(request_handler.clone(), tls_stream),
       )
-      .map(|x| x.map_err(|err| todo!()))
+      .map(|x| x.map_err(|_| todo!()))
       .boxed(),
     ))
   }
@@ -186,6 +193,11 @@ impl Server {
   #[cfg(test)]
   pub(crate) fn tls_port(&self) -> Option<u16> {
     self.tls_port_
+  }
+
+  #[cfg(test)]
+  pub(crate) fn https_redirect_port(&self) -> Option<u16> {
+    self.https_redirect_port
   }
 
   #[cfg(test)]
