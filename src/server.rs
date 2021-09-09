@@ -4,17 +4,14 @@ use crate::{
   error::{self, Result},
   request_handler::RequestHandler,
 };
-use async_rustls::server::TlsStream;
-use cradle::prelude::*;
 use futures::{future::BoxFuture, FutureExt};
 use hyper::server::conn::{AddrIncoming, Http};
 use openssl::x509::X509;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
-use std::{fs, io::Write, net::ToSocketAddrs};
+use std::{fs, future::Future, io::Write, net::ToSocketAddrs, task::Poll};
 use tokio::net::TcpStream;
-use tokio_util::compat::{Compat, TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-use tokio_util::compat::{FuturesAsyncReadCompatExt, FuturesAsyncWriteCompatExt};
+use tokio_rustls::server::TlsStream;
 use tower::make::Shared;
 
 pub(crate) struct Server {
@@ -58,27 +55,13 @@ impl Server {
     let dir = LETS_ENCRYPT_STAGING_DIRECTORY;
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", arguments.https_port.unwrap_or(0)))
       .await
       .expect("fixme");
     simple_logger::SimpleLogger::new()
       .with_level(log::LevelFilter::Info)
       .init();
 
-    run!(
-      LogCommand,
-      "ls",
-      &arguments.acme_cache_directory.as_ref().unwrap()
-    );
-    run!(
-      LogCommand,
-      "cat",
-      arguments
-        .acme_cache_directory
-        .as_ref()
-        .unwrap()
-        .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ")
-    );
     Ok((
       dbg!(listener.local_addr().expect("fixme").port()),
       crate::bind_listen_serve::bind_listen_serve(
@@ -86,16 +69,18 @@ impl Server {
         dbg!(dir),
         vec!["test.agora.download".to_string()],
         dbg!(arguments.acme_cache_directory.clone()),
-        move |tls_stream: TlsStream<Compat<TcpStream>>| {
-          eprintln!("starting tls response");
-          let request_handler_clone = request_handler.clone();
-          let bar = Http::new().serve_connection(tls_stream.compat(), request_handler_clone);
-          bar.map(|x| x.expect("fixme"))
-        },
+        move |tls_stream| Self::bar(request_handler.clone(), tls_stream),
       )
       .map(|x| x.map_err(|err| todo!()))
       .boxed(),
     ))
+  }
+
+  async fn bar(request_handler: RequestHandler, tls_stream: TlsStream<TcpStream>) {
+    Http::new()
+      .serve_connection(tls_stream, request_handler)
+      .await
+      .ok();
   }
 
   async fn setup_request_handler(

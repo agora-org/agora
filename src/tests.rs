@@ -1086,7 +1086,7 @@ f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
     ],
     |context| async move {
       eprintln!("waiting...");
-      tokio::time::sleep(Duration::from_millis(3000)).await;
+      tokio::time::sleep(Duration::from_millis(1000)).await;
       context.write("file", "encrypted content");
       let client = ClientBuilder::new()
         .danger_accept_invalid_certs(true)

@@ -37,6 +37,8 @@ simple_logger = "1.13.0"
 log = "0.4.14"
 cradle = "0.0.24"
 async-rustls = "0.2.0"
+tokio-rustls = "0.22.0"
+futures-util = "0.3.17"
 
 [dependencies.tokio-stream]
 version = "0.1.7"
@@ -69,10 +71,6 @@ features = ["wrap_help"]
 [dependencies.tokio]
 version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
-
-[dependencies.tokio-util]
-version = "0.6.8"
-features = ["compat"]
 
 [dependencies.tower]
 version = "0.4.6"
