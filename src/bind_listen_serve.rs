@@ -20,6 +20,41 @@ pub(crate) struct TlsRequestHandler {
 }
 
 impl TlsRequestHandler {
+  pub(crate) async fn new(
+    environment: &mut Environment,
+    arguments: &Arguments,
+    acme_cache_directory: &Path,
+    https_port: u16,
+  ) -> Result<TlsRequestHandler> {
+    // fixme: pass this in?
+    let lnd_client = Server::setup_lnd_client(environment, arguments).await?;
+    let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
+    // fixme: bind on different address?
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
+      .await
+      .expect("fixme");
+    simple_logger::SimpleLogger::new()
+      .with_level(log::LevelFilter::Info)
+      .init()
+      .ok();
+
+    Ok(TlsRequestHandler {
+      port: listener.local_addr().expect("fixme").port(),
+      run: crate::bind_listen_serve::bind_listen_serve(
+        listener,
+        if cfg!(test) {
+          LETS_ENCRYPT_STAGING_DIRECTORY
+        } else {
+          LETS_ENCRYPT_PRODUCTION_DIRECTORY
+        },
+        vec!["test.agora.download".to_string()],
+        Some(environment.working_directory.join(acme_cache_directory)),
+        request_handler,
+      )
+      .await,
+    })
+  }
+
   pub(crate) fn port(&self) -> u16 {
     self.port
   }
@@ -27,41 +62,6 @@ impl TlsRequestHandler {
   pub(crate) async fn run(self) {
     self.run.await;
   }
-}
-
-pub(crate) async fn foo(
-  environment: &mut Environment,
-  arguments: &Arguments,
-  acme_cache_directory: &Path,
-  https_port: u16,
-) -> Result<TlsRequestHandler> {
-  // fixme: pass this in?
-  let lnd_client = Server::setup_lnd_client(environment, arguments).await?;
-  let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
-  // fixme: bind on different address?
-  let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
-    .await
-    .expect("fixme");
-  simple_logger::SimpleLogger::new()
-    .with_level(log::LevelFilter::Info)
-    .init()
-    .ok();
-
-  Ok(TlsRequestHandler {
-    port: listener.local_addr().expect("fixme").port(),
-    run: crate::bind_listen_serve::bind_listen_serve(
-      listener,
-      if cfg!(test) {
-        LETS_ENCRYPT_STAGING_DIRECTORY
-      } else {
-        LETS_ENCRYPT_PRODUCTION_DIRECTORY
-      },
-      vec!["test.agora.download".to_string()],
-      Some(environment.working_directory.join(acme_cache_directory)),
-      request_handler,
-    )
-    .await,
-  })
 }
 
 async fn bind_listen_serve(

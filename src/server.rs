@@ -1,6 +1,5 @@
 use crate::{
   arguments::Arguments,
-  bind_listen_serve::foo,
   bind_listen_serve::TlsRequestHandler,
   environment::Environment,
   error::{self, Result},
@@ -35,7 +34,7 @@ impl Server {
 
     let tls_request_handler = if let Some(https_port) = arguments.https_port {
       let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
-      Some(foo(environment, &arguments, acme_cache_directory, https_port).await?)
+      Some(TlsRequestHandler::new(environment, &arguments, acme_cache_directory, https_port).await?)
     } else {
       None
     };
