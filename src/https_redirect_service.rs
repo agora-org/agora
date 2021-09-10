@@ -1,5 +1,6 @@
 use crate::{
   arguments::Arguments,
+  bind_listen_serve::TlsRequestHandler,
   error::{self, Result},
   redirect::redirect,
 };
@@ -23,7 +24,7 @@ pub(crate) struct HttpsRedirectService {
 impl HttpsRedirectService {
   pub(crate) fn new_server(
     arguments: &Arguments,
-    https_port: Option<u16>,
+    tls_request_handler: &Option<TlsRequestHandler>,
   ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
     match arguments.https_redirect_port {
       Some(https_redirect_port) => {
@@ -41,7 +42,7 @@ impl HttpsRedirectService {
           })?;
 
         let server = hyper::Server::bind(&socket_addr).serve(Shared::new(HttpsRedirectService {
-          https_port: https_port.unwrap(),
+          https_port: tls_request_handler.as_ref().expect("fixme").port(),
         }));
 
         Ok(Some(server))

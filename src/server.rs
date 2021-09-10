@@ -19,8 +19,6 @@ pub(crate) struct Server {
   tls_request_handler: Option<TlsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
-  tls_port: Option<u16>,
-  #[cfg(test)]
   directory: std::path::PathBuf,
 }
 
@@ -35,21 +33,18 @@ impl Server {
 
     let request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
-    let (tls_port, tls_request_handler) = if let Some(https_port) = arguments.https_port {
+    let tls_request_handler = if let Some(https_port) = arguments.https_port {
       let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
-      let (a, b) = foo(environment, &arguments, acme_cache_directory, https_port).await?;
-      (Some(a), Some(b))
+      Some(foo(environment, &arguments, acme_cache_directory, https_port).await?)
     } else {
-      (None, None)
+      None
     };
 
-    let https_redirect_server = HttpsRedirectService::new_server(&arguments, tls_port)?;
+    let https_redirect_server = HttpsRedirectService::new_server(&arguments, &tls_request_handler)?;
 
     Ok(Self {
       request_handler,
       tls_request_handler,
-      #[cfg(test)]
-      tls_port,
       https_redirect_server,
       #[cfg(test)]
       directory,
@@ -161,7 +156,10 @@ impl Server {
 
   #[cfg(test)]
   pub(crate) fn tls_port(&self) -> Option<u16> {
-    self.tls_port
+    self
+      .tls_request_handler
+      .as_ref()
+      .map(|handler| handler.port())
   }
 
   #[cfg(test)]

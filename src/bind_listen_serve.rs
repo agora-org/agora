@@ -14,11 +14,18 @@ use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;
 
-pub(crate) struct TlsRequestHandler(BoxFuture<'static, ()>);
+pub(crate) struct TlsRequestHandler {
+  port: u16,
+  run: BoxFuture<'static, ()>,
+}
 
 impl TlsRequestHandler {
+  pub(crate) fn port(&self) -> u16 {
+    self.port
+  }
+
   pub(crate) async fn run(self) {
-    self.0.await;
+    self.run.await;
   }
 }
 
@@ -27,7 +34,7 @@ pub(crate) async fn foo(
   arguments: &Arguments,
   acme_cache_directory: &Path,
   https_port: u16,
-) -> Result<(u16, TlsRequestHandler)> {
+) -> Result<TlsRequestHandler> {
   // fixme: pass this in?
   let lnd_client = Server::setup_lnd_client(environment, arguments).await?;
   let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
@@ -40,9 +47,9 @@ pub(crate) async fn foo(
     .init()
     .ok();
 
-  Ok((
-    listener.local_addr().expect("fixme").port(),
-    crate::bind_listen_serve::bind_listen_serve(
+  Ok(TlsRequestHandler {
+    port: listener.local_addr().expect("fixme").port(),
+    run: crate::bind_listen_serve::bind_listen_serve(
       listener,
       if cfg!(test) {
         LETS_ENCRYPT_STAGING_DIRECTORY
@@ -54,16 +61,16 @@ pub(crate) async fn foo(
       request_handler,
     )
     .await,
-  ))
+  })
 }
 
-pub(crate) async fn bind_listen_serve(
+async fn bind_listen_serve(
   listener: TcpListener,
   directory_url: impl AsRef<str>,
   domains: Vec<String>,
   cache_dir: Option<impl AsRef<Path>>,
   request_handler: RequestHandler,
-) -> TlsRequestHandler {
+) -> BoxFuture<'static, ()> {
   let resolver = ResolvesServerCertUsingAcme::new();
   let config = ServerConfig::new(NoClientAuth::new());
   let acceptor = TlsAcceptor::new(config, resolver.clone());
@@ -75,32 +82,30 @@ pub(crate) async fn bind_listen_serve(
   });
 
   let mut listener = TcpListenerStream::new(listener);
-  TlsRequestHandler(
-    (async move {
-      while let Some(tcp) = listener.next().await {
-        let tcp = match tcp {
-          Ok(tcp) => tcp,
-          Err(err) => {
-            log::error!("tcp accept error: {:?}", err);
-            continue;
-          }
-        };
-        let acceptor = acceptor.clone();
-        let request_handler = request_handler.clone();
-        match acceptor.accept(tcp).await {
-          Ok(Some(tls_stream)) => {
-            Http::new()
-              .serve_connection(tls_stream, request_handler)
-              .await
-              .ok();
-          }
-          Ok(None) => {}
-          Err(err) => log::error!("tls accept error: {:?}", err),
+  (async move {
+    while let Some(tcp) = listener.next().await {
+      let tcp = match tcp {
+        Ok(tcp) => tcp,
+        Err(err) => {
+          log::error!("tcp accept error: {:?}", err);
+          continue;
         }
+      };
+      let acceptor = acceptor.clone();
+      let request_handler = request_handler.clone();
+      match acceptor.accept(tcp).await {
+        Ok(Some(tls_stream)) => {
+          Http::new()
+            .serve_connection(tls_stream, request_handler)
+            .await
+            .ok();
+        }
+        Ok(None) => {}
+        Err(err) => log::error!("tls accept error: {:?}", err),
       }
-    })
-    .boxed(),
-  )
+    }
+  })
+  .boxed()
 }
 
 #[derive(Clone)]
