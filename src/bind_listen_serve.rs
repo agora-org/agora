@@ -4,11 +4,8 @@ use hyper::server::conn::Http;
 use rustls_acme::acme::ACME_TLS_ALPN_NAME;
 use rustls_acme::ResolvesServerCertUsingAcme;
 use std::sync::Arc;
-use std::{future::Future, io, path::Path};
-use tokio::{
-  net::{TcpListener, TcpStream},
-  task,
-};
+use std::{io, path::Path};
+use tokio::{net::TcpListener, task};
 use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;

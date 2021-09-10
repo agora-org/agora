@@ -6,13 +6,11 @@ use crate::{
   request_handler::RequestHandler,
 };
 use futures::{future::BoxFuture, future::OptionFuture, FutureExt};
-use hyper::server::conn::{AddrIncoming, Http};
+use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
 use std::{io::Write, net::ToSocketAddrs, path::Path};
-use tokio::net::TcpStream;
-use tokio_rustls::server::TlsStream;
 use tower::make::Shared;
 
 pub(crate) struct Server {
