@@ -1135,13 +1135,13 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
     ],
     |context| async move {
       let cache_directory = context.working_directory().join("cache-directory");
-      for _ in 0..100 {
+      for _ in 0..1000 {
         if cache_directory.is_dir() {
           return;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
       }
-      panic!("Cache directory not created after one second");
+      panic!("Cache directory not created after ten seconds");
     },
   );
 }

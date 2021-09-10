@@ -1,21 +1,22 @@
 use crate::{
   arguments::Arguments,
+  bind_listen_serve::foo,
+  bind_listen_serve::TlsRequestHandler,
   environment::Environment,
   error::{self, Result},
   https_redirect_service::HttpsRedirectService,
   request_handler::RequestHandler,
 };
-use futures::{future::BoxFuture, future::OptionFuture, FutureExt};
+use futures::{future::OptionFuture, FutureExt};
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
-use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
-use std::{io::Write, net::ToSocketAddrs, path::Path};
+use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
-  tls_request_handler: Option<BoxFuture<'static, Result<()>>>,
+  tls_request_handler: Option<TlsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
   tls_port: Option<u16>,
@@ -36,7 +37,7 @@ impl Server {
 
     let (tls_port, tls_request_handler) = if let Some(https_port) = arguments.https_port {
       let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
-      let (a, b) = Self::foo(environment, &arguments, acme_cache_directory, https_port).await?;
+      let (a, b) = foo(environment, &arguments, acme_cache_directory, https_port).await?;
       (Some(a), Some(b))
     } else {
       (None, None)
@@ -53,40 +54,6 @@ impl Server {
       #[cfg(test)]
       directory,
     })
-  }
-
-  async fn foo(
-    environment: &mut Environment,
-    arguments: &Arguments,
-    acme_cache_directory: &Path,
-    https_port: u16,
-  ) -> Result<(u16, BoxFuture<'static, Result<()>>)> {
-    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
-    let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
-      .await
-      .expect("fixme");
-    simple_logger::SimpleLogger::new()
-      .with_level(log::LevelFilter::Info)
-      .init()
-      .ok();
-
-    Ok((
-      listener.local_addr().expect("fixme").port(),
-      crate::bind_listen_serve::bind_listen_serve(
-        listener,
-        if cfg!(test) {
-          LETS_ENCRYPT_STAGING_DIRECTORY
-        } else {
-          LETS_ENCRYPT_PRODUCTION_DIRECTORY
-        },
-        vec!["test.agora.download".to_string()],
-        Some(environment.working_directory.join(acme_cache_directory)),
-        request_handler,
-      )
-      .map(|x| x.map_err(|_| todo!()))
-      .boxed(),
-    ))
   }
 
   async fn setup_request_handler(
@@ -121,7 +88,7 @@ impl Server {
     Ok(request_handler)
   }
 
-  async fn setup_lnd_client(
+  pub(crate) async fn setup_lnd_client(
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<Option<agora_lnd_client::Client>> {
@@ -179,7 +146,7 @@ impl Server {
   pub(crate) async fn run(self) -> Result<()> {
     futures::try_join!(
       self.request_handler.map(|x| x.context(error::ServerRun)),
-      OptionFuture::from(self.tls_request_handler).map(|option| option.unwrap_or(Ok(()))),
+      OptionFuture::from(self.tls_request_handler.map(|x| x.run())).map(Ok),
       OptionFuture::from(self.https_redirect_server)
         .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
     )?;

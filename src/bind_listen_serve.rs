@@ -1,14 +1,61 @@
-use crate::request_handler::RequestHandler;
-use futures::StreamExt;
+use crate::{
+  arguments::Arguments, environment::Environment, error::Result, request_handler::RequestHandler,
+  server::Server,
+};
+use futures::{future::BoxFuture, FutureExt, StreamExt};
 use hyper::server::conn::Http;
 use rustls_acme::acme::ACME_TLS_ALPN_NAME;
 use rustls_acme::ResolvesServerCertUsingAcme;
+use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
+use std::path::Path;
 use std::sync::Arc;
-use std::{io, path::Path};
 use tokio::{net::TcpListener, task};
 use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;
+
+pub(crate) struct TlsRequestHandler(BoxFuture<'static, ()>);
+
+impl TlsRequestHandler {
+  pub(crate) async fn run(self) {
+    self.0.await;
+  }
+}
+
+pub(crate) async fn foo(
+  environment: &mut Environment,
+  arguments: &Arguments,
+  acme_cache_directory: &Path,
+  https_port: u16,
+) -> Result<(u16, TlsRequestHandler)> {
+  // fixme: pass this in?
+  let lnd_client = Server::setup_lnd_client(environment, arguments).await?;
+  let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
+  // fixme: bind on different address?
+  let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
+    .await
+    .expect("fixme");
+  simple_logger::SimpleLogger::new()
+    .with_level(log::LevelFilter::Info)
+    .init()
+    .ok();
+
+  Ok((
+    listener.local_addr().expect("fixme").port(),
+    crate::bind_listen_serve::bind_listen_serve(
+      listener,
+      if cfg!(test) {
+        LETS_ENCRYPT_STAGING_DIRECTORY
+      } else {
+        LETS_ENCRYPT_PRODUCTION_DIRECTORY
+      },
+      vec!["test.agora.download".to_string()],
+      Some(environment.working_directory.join(acme_cache_directory)),
+      request_handler,
+    )
+    .await,
+  ))
+}
 
 pub(crate) async fn bind_listen_serve(
   listener: TcpListener,
@@ -16,7 +63,7 @@ pub(crate) async fn bind_listen_serve(
   domains: Vec<String>,
   cache_dir: Option<impl AsRef<Path>>,
   request_handler: RequestHandler,
-) -> io::Result<()> {
+) -> TlsRequestHandler {
   let resolver = ResolvesServerCertUsingAcme::new();
   let config = ServerConfig::new(NoClientAuth::new());
   let acceptor = TlsAcceptor::new(config, resolver.clone());
@@ -28,30 +75,32 @@ pub(crate) async fn bind_listen_serve(
   });
 
   let mut listener = TcpListenerStream::new(listener);
-  while let Some(tcp) = listener.next().await {
-    let tcp = match tcp {
-      Ok(tcp) => tcp,
-      Err(err) => {
-        log::error!("tcp accept error: {:?}", err);
-        continue;
-      }
-    };
-    let acceptor = acceptor.clone();
-    let request_handler = request_handler.clone();
-    task::spawn(async move {
-      match acceptor.accept(tcp).await {
-        Ok(Some(tls_stream)) => {
-          Http::new()
-            .serve_connection(tls_stream, request_handler)
-            .await
-            .ok();
+  TlsRequestHandler(
+    (async move {
+      while let Some(tcp) = listener.next().await {
+        let tcp = match tcp {
+          Ok(tcp) => tcp,
+          Err(err) => {
+            log::error!("tcp accept error: {:?}", err);
+            continue;
+          }
+        };
+        let acceptor = acceptor.clone();
+        let request_handler = request_handler.clone();
+        match acceptor.accept(tcp).await {
+          Ok(Some(tls_stream)) => {
+            Http::new()
+              .serve_connection(tls_stream, request_handler)
+              .await
+              .ok();
+          }
+          Ok(None) => {}
+          Err(err) => log::error!("tls accept error: {:?}", err),
         }
-        Ok(None) => {}
-        Err(err) => log::error!("tls accept error: {:?}", err),
       }
-    });
-  }
-  Ok(())
+    })
+    .boxed(),
+  )
 }
 
 #[derive(Clone)]
