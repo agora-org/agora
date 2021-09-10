@@ -2,25 +2,97 @@ use crate::{
   arguments::Arguments,
   environment::Environment,
   error::{self, Result},
+  redirect::redirect,
   request_handler::RequestHandler,
 };
 use futures::{future::BoxFuture, FutureExt};
+use http::uri::{Authority, Scheme, Uri};
 use hyper::server::conn::{AddrIncoming, Http};
+use hyper::{header, Body, Request, Response, StatusCode};
 use openssl::x509::X509;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
-use std::{fs, io::Write, net::ToSocketAddrs};
+use std::{
+  fs, future,
+  io::Write,
+  net::ToSocketAddrs,
+  task::{Context, Poll},
+};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 use tower::make::Shared;
+use tower::Service;
 
 pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   tls_request_handler: BoxFuture<'static, Result<()>>,
   tls_port_: Option<u16>,
   https_redirect_port: Option<u16>,
+  https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
+}
+
+#[derive(Clone)]
+struct HttpsRedirectService {
+  https_port: u16,
+}
+
+impl HttpsRedirectService {
+  fn new_server(
+    arguments: &Arguments,
+    https_port: Option<u16>,
+  ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
+    match arguments.https_redirect_port {
+      Some(https_redirect_port) => {
+        let socket_addr = (arguments.address.as_str(), https_redirect_port)
+          .to_socket_addrs()
+          .context(error::AddressResolutionIo {
+            input: &arguments.address,
+          })?
+          .next()
+          .ok_or_else(|| {
+            error::AddressResolutionNoAddresses {
+              input: arguments.address.clone(),
+            }
+            .build()
+          })?;
+
+        let server = hyper::Server::bind(&socket_addr).serve(Shared::new(HttpsRedirectService {
+          https_port: https_port.unwrap(),
+        }));
+
+        Ok(Some(server))
+      }
+      None => Ok(None),
+    }
+  }
+}
+
+impl Service<Request<Body>> for HttpsRedirectService {
+  type Response = Response<Body>;
+  type Error = http::Error;
+  type Future = future::Ready<Result<Self::Response, Self::Error>>;
+
+  fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    Poll::Ready(Ok(()))
+  }
+
+  fn call(&mut self, request: Request<Body>) -> Self::Future {
+    let authority = request.headers().get(header::HOST).unwrap();
+
+    let authority = Authority::from_maybe_shared(authority.to_str().unwrap().to_string()).unwrap();
+
+    future::ready(Ok(
+      redirect(format!(
+        "https://{}:{}{}",
+        authority.host(),
+        self.https_port,
+        request.uri()
+      ))
+      .unwrap(),
+    ))
+  }
 }
 
 impl Server {
@@ -40,11 +112,17 @@ impl Server {
       fs::create_dir_all(environment.working_directory.join(acme_cache_directory)).unwrap();
     }
 
+    let https_redirect_server = HttpsRedirectService::new_server(&arguments, Some(tls_port))?;
+
     Ok(Self {
       request_handler,
       tls_request_handler,
       tls_port_: Some(tls_port),
-      https_redirect_port: arguments.https_redirect_port,
+      // fixme: remove this field
+      https_redirect_port: https_redirect_server
+        .as_ref()
+        .map(|server| server.local_addr().port()),
+      https_redirect_server,
       #[cfg(test)]
       directory,
     })
@@ -178,10 +256,19 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    futures::try_join!(
-      self.request_handler.map(|x| x.context(error::ServerRun)),
-      self.tls_request_handler
-    )?;
+    if let Some(https_redirect_server) = self.https_redirect_server {
+      futures::try_join!(
+        self.request_handler.map(|x| x.context(error::ServerRun)),
+        self.tls_request_handler,
+        https_redirect_server.map(|x| x.context(error::ServerRun)),
+      )?;
+    } else {
+      futures::try_join!(
+        self.request_handler.map(|x| x.context(error::ServerRun)),
+        self.tls_request_handler,
+      )?;
+    }
+
     Ok(())
   }
 

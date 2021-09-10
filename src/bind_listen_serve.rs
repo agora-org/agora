@@ -1,4 +1,3 @@
-use async_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use futures::StreamExt;
 use rustls_acme::acme::ACME_TLS_ALPN_NAME;
 use rustls_acme::ResolvesServerCertUsingAcme;
@@ -8,6 +7,7 @@ use tokio::{
   net::{TcpListener, TcpStream},
   task,
 };
+use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;
 
@@ -33,7 +33,6 @@ where
     resolver.run(directory_url, domains, cache_dir).await;
   });
 
-  // let f = Arc::new(f);
   let mut listener = TcpListenerStream::new(listener);
   while let Some(tcp) = listener.next().await {
     let tcp = match tcp {

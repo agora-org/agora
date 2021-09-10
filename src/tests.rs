@@ -1160,6 +1160,25 @@ fn redirects_requests_from_port_80_to_443() {
 
 #[test]
 #[ignore]
+fn https_redirect_port_requires_https_port() {
+  let mut environment = Environment::test();
+  environment.arguments = vec!["agora".into(), "--https-redirect-port=0".into()];
+
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
+
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async {
+      let error = Server::setup(&mut environment).await.err().unwrap();
+      assert_contains(&error.to_string(), "FOO");
+    });
+}
+
+#[test]
+#[ignore]
 fn feature_is_documented_in_readme() {}
 
 // todo: error when tls cache flag is not set

@@ -1,6 +1,7 @@
 use crate::error::{Error, Result};
 use hyper::{header, Body, Response, StatusCode};
 
+// maybe use URI to avoid error?
 pub(crate) fn redirect(location: String) -> Result<Response<Body>> {
   Response::builder()
     .status(StatusCode::FOUND)
