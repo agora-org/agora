@@ -40,7 +40,7 @@ impl TlsRequestHandler {
 
     Ok(TlsRequestHandler {
       port: listener.local_addr().expect("fixme").port(),
-      run: crate::bind_listen_serve::bind_listen_serve(
+      run: bind_listen_serve(
         listener,
         if cfg!(test) {
           LETS_ENCRYPT_STAGING_DIRECTORY
