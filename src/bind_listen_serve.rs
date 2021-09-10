@@ -1,4 +1,6 @@
+use crate::request_handler::RequestHandler;
 use futures::StreamExt;
+use hyper::server::conn::Http;
 use rustls_acme::acme::ACME_TLS_ALPN_NAME;
 use rustls_acme::ResolvesServerCertUsingAcme;
 use std::sync::Arc;
@@ -11,18 +13,13 @@ use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;
 
-pub async fn bind_listen_serve<P, F, Fut>(
+pub(crate) async fn bind_listen_serve(
   listener: TcpListener,
   directory_url: impl AsRef<str>,
   domains: Vec<String>,
-  cache_dir: Option<P>,
-  f: F,
-) -> io::Result<()>
-where
-  P: AsRef<Path>,
-  F: 'static + Clone + Sync + Send + Fn(TlsStream<TcpStream>) -> Fut,
-  Fut: Future<Output = ()> + Send,
-{
+  cache_dir: Option<impl AsRef<Path>>,
+  request_handler: RequestHandler,
+) -> io::Result<()> {
   let resolver = ResolvesServerCertUsingAcme::new();
   let config = ServerConfig::new(NoClientAuth::new());
   let acceptor = TlsAcceptor::new(config, resolver.clone());
@@ -42,11 +39,16 @@ where
         continue;
       }
     };
-    let f = f.clone();
     let acceptor = acceptor.clone();
+    let request_handler = request_handler.clone();
     task::spawn(async move {
       match acceptor.accept(tcp).await {
-        Ok(Some(tls)) => f(tls).await,
+        Ok(Some(tls_stream)) => {
+          Http::new()
+            .serve_connection(tls_stream, request_handler)
+            .await
+            .ok();
+        }
         Ok(None) => {}
         Err(err) => log::error!("tls accept error: {:?}", err),
       }
@@ -56,19 +58,19 @@ where
 }
 
 #[derive(Clone)]
-pub struct TlsAcceptor {
+pub(crate) struct TlsAcceptor {
   config: Arc<ServerConfig>,
 }
 
 impl TlsAcceptor {
-  pub fn new(mut config: ServerConfig, resolver: Arc<ResolvesServerCertUsingAcme>) -> Self {
+  pub(crate) fn new(mut config: ServerConfig, resolver: Arc<ResolvesServerCertUsingAcme>) -> Self {
     config.alpn_protocols.push(ACME_TLS_ALPN_NAME.to_vec());
     config.cert_resolver = resolver;
     let config = Arc::new(config);
     TlsAcceptor { config }
   }
 
-  pub async fn accept<IO>(&self, stream: IO) -> std::io::Result<Option<TlsStream<IO>>>
+  pub(crate) async fn accept<IO>(&self, stream: IO) -> std::io::Result<Option<TlsStream<IO>>>
   where
     IO: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
   {

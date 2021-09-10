@@ -5,20 +5,22 @@ use crate::{
   https_redirect_service::HttpsRedirectService,
   request_handler::RequestHandler,
 };
-use futures::{future::BoxFuture, FutureExt};
+use futures::{future::BoxFuture, future::OptionFuture, FutureExt};
 use hyper::server::conn::{AddrIncoming, Http};
 use openssl::x509::X509;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use snafu::ResultExt;
-use std::{fs, io::Write, net::ToSocketAddrs};
+use std::{io::Write, net::ToSocketAddrs, path::Path};
 use tokio::net::TcpStream;
 use tokio_rustls::server::TlsStream;
 use tower::make::Shared;
 
 pub(crate) struct Server {
   request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
-  tls_request_handler: BoxFuture<'static, Result<()>>,
+  tls_request_handler: Option<BoxFuture<'static, Result<()>>>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
+  #[cfg(test)]
+  tls_port: Option<u16>,
   #[cfg(test)]
   directory: std::path::PathBuf,
 }
@@ -28,23 +30,27 @@ impl Server {
     let arguments = environment.arguments()?;
 
     let directory = environment.working_directory.join(&arguments.directory);
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+    let _ = tokio::fs::read_dir(&directory)
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
     let request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
-    let (tls_port, tls_request_handler) = Self::foo(environment, &arguments).await?;
-    // fixme
-    if let Some(acme_cache_directory) = &arguments.acme_cache_directory {
-      fs::create_dir_all(environment.working_directory.join(acme_cache_directory)).unwrap();
-    }
+    let (tls_port, tls_request_handler) = if let Some(https_port) = arguments.https_port {
+      let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
+      let (a, b) = Self::foo(environment, &arguments, acme_cache_directory, https_port).await?;
+      (Some(a), Some(b))
+    } else {
+      (None, None)
+    };
 
-    let https_redirect_server = HttpsRedirectService::new_server(&arguments, Some(tls_port))?;
+    let https_redirect_server = HttpsRedirectService::new_server(&arguments, tls_port)?;
 
     Ok(Self {
       request_handler,
       tls_request_handler,
+      #[cfg(test)]
+      tls_port,
       https_redirect_server,
       #[cfg(test)]
       directory,
@@ -54,15 +60,12 @@ impl Server {
   async fn foo(
     environment: &mut Environment,
     arguments: &Arguments,
+    acme_cache_directory: &Path,
+    https_port: u16,
   ) -> Result<(u16, BoxFuture<'static, Result<()>>)> {
-    let dir = if cfg!(test) {
-      LETS_ENCRYPT_STAGING_DIRECTORY
-    } else {
-      LETS_ENCRYPT_PRODUCTION_DIRECTORY
-    };
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", arguments.https_port.unwrap_or(0)))
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
       .await
       .expect("fixme");
     simple_logger::SimpleLogger::new()
@@ -71,24 +74,21 @@ impl Server {
       .ok();
 
     Ok((
-      dbg!(listener.local_addr().expect("fixme").port()),
+      listener.local_addr().expect("fixme").port(),
       crate::bind_listen_serve::bind_listen_serve(
         listener,
-        dbg!(dir),
+        if cfg!(test) {
+          LETS_ENCRYPT_STAGING_DIRECTORY
+        } else {
+          LETS_ENCRYPT_PRODUCTION_DIRECTORY
+        },
         vec!["test.agora.download".to_string()],
-        dbg!(arguments.acme_cache_directory.clone()),
-        move |tls_stream| Self::bar(request_handler.clone(), tls_stream),
+        Some(environment.working_directory.join(acme_cache_directory)),
+        request_handler,
       )
       .map(|x| x.map_err(|_| todo!()))
       .boxed(),
     ))
-  }
-
-  async fn bar(request_handler: RequestHandler, tls_stream: TlsStream<TcpStream>) {
-    Http::new()
-      .serve_connection(tls_stream, request_handler)
-      .await
-      .ok();
   }
 
   async fn setup_request_handler(
@@ -179,18 +179,12 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    if let Some(https_redirect_server) = self.https_redirect_server {
-      futures::try_join!(
-        self.request_handler.map(|x| x.context(error::ServerRun)),
-        self.tls_request_handler,
-        https_redirect_server.map(|x| x.context(error::ServerRun)),
-      )?;
-    } else {
-      futures::try_join!(
-        self.request_handler.map(|x| x.context(error::ServerRun)),
-        self.tls_request_handler,
-      )?;
-    }
+    futures::try_join!(
+      self.request_handler.map(|x| x.context(error::ServerRun)),
+      OptionFuture::from(self.tls_request_handler).map(|option| option.unwrap_or(Ok(()))),
+      OptionFuture::from(self.https_redirect_server)
+        .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
+    )?;
 
     Ok(())
   }
@@ -202,12 +196,15 @@ impl Server {
 
   #[cfg(test)]
   pub(crate) fn tls_port(&self) -> Option<u16> {
-    self.tls_port_
+    self.tls_port
   }
 
   #[cfg(test)]
   pub(crate) fn https_redirect_port(&self) -> Option<u16> {
-    self.https_redirect_port
+    self
+      .https_redirect_server
+      .as_ref()
+      .map(|server| server.local_addr().port())
   }
 
   #[cfg(test)]
