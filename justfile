@@ -11,10 +11,10 @@ test *args="--all":
   cargo ltest --all-features "$@"
 
 fast-tests *args="":
-  cargo ltest "$@"
+  cargo ltest "$@" --bin agora
 
 slow-tests *args="slow_tests":
-  cargo ltest --features slow-tests "$@"
+  cargo ltest --features slow-tests "$@" --bin agora
 
 integration *args:
   cargo ltest --test integration "$@"
@@ -70,3 +70,11 @@ open:
   else
     open http://localhost:8080
   fi
+
+feedback-bench:
+  # echo '// foo' >> src/tests/tls_tests.rs
+  cargo ltest --bin agora --no-run
+
+feedback-profile:
+  echo '// foo' >> src/request_handler.rs
+  RUSTFLAGS=-Zself-profile cargo +nightly test --bin agora

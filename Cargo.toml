@@ -93,3 +93,8 @@ test = false
 
 [features]
 slow-tests = []
+
+[profile.test]
+opt-level = "s"
+debug = false
+# split-debuginfo = "packed"
