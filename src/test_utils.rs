@@ -28,7 +28,7 @@ macro_rules! assert_matches {
 pub(crate) fn assert_contains(haystack: &str, needle: &str) {
   assert!(
     haystack.contains(needle),
-    "\n{:?} does not contain {:?}\n",
+    "assert_contains:\n---\n{}\n---\n  does not contain {:?}\n",
     haystack,
     needle
   );

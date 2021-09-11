@@ -16,7 +16,11 @@ pub(crate) struct Arguments {
   // fixme: make this optional
   #[structopt(long, help = "Port to listen on for incoming HTTP requests")]
   pub(crate) http_port: u16,
-  #[structopt(long, help = "Port to listen on for incoming HTTPS requests")]
+  #[structopt(
+    long,
+    help = "Port to listen on for incoming HTTPS requests",
+    requires = "acme-cache-directory"
+  )]
   pub(crate) https_port: Option<u16>,
   #[structopt(
     long,
