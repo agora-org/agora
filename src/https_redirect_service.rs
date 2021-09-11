@@ -24,7 +24,6 @@ pub(crate) struct HttpsRedirectService {
 impl HttpsRedirectService {
   pub(crate) fn new_server(
     arguments: &Arguments,
-    // fixme: pass in options differently?
     tls_request_handler: &TlsRequestHandler,
   ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
     match arguments.https_redirect_port {

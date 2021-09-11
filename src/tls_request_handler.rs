@@ -39,7 +39,6 @@ impl TlsRequestHandler {
       .init()
       .ok();
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
-    // fixme: bind on different address?
     let socket_addr = (arguments.address.as_str(), https_port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
