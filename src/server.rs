@@ -14,7 +14,7 @@ use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {
-  request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  http_request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
   tls_request_handler: Option<TlsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
@@ -30,7 +30,7 @@ impl Server {
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
-    let request_handler = Self::setup_request_handler(environment, &arguments).await?;
+    let http_request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
     let tls_request_handler = if let Some(https_port) = arguments.https_port {
       let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
@@ -52,7 +52,7 @@ impl Server {
     let https_redirect_server = HttpsRedirectService::new_server(&arguments, &tls_request_handler)?;
 
     Ok(Self {
-      request_handler,
+      http_request_handler,
       tls_request_handler,
       https_redirect_server,
       #[cfg(test)]
@@ -149,7 +149,9 @@ impl Server {
 
   pub(crate) async fn run(self) -> Result<()> {
     futures::try_join!(
-      self.request_handler.map(|x| x.context(error::ServerRun)),
+      self
+        .http_request_handler
+        .map(|x| x.context(error::ServerRun)),
       OptionFuture::from(self.tls_request_handler.map(|x| x.run())).map(Ok),
       OptionFuture::from(self.https_redirect_server)
         .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
@@ -159,8 +161,8 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn port(&self) -> u16 {
-    self.request_handler.local_addr().port()
+  pub(crate) fn http_port(&self) -> u16 {
+    self.http_request_handler.local_addr().port()
   }
 
   #[cfg(test)]
@@ -204,7 +206,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&mut environment).await.unwrap();
-        let ip = server.request_handler.local_addr().ip();
+        let ip = server.http_request_handler.local_addr().ip();
         assert!(
           ip == IpAddr::from([127, 0, 0, 1])
             || ip == IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),

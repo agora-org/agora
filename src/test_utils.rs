@@ -102,19 +102,19 @@ where
     .block_on(async {
       let server = Server::setup(environment).await.unwrap();
       let files_directory = server.directory().to_owned();
-      let port = server.port();
+      let http_port = server.http_port();
       let https_port = server.https_port();
       let https_redirect_port = server.https_redirect_port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+      let http_url = Url::parse(&format!("http://localhost:{}", http_port)).unwrap();
       let working_directory = environment.working_directory.clone();
       let test_result = task::LocalSet::new()
         .run_until(async move {
           task::spawn_local(f(TestContext {
-            base_url: url.clone(),
-            files_url: url.join("files/").unwrap(),
+            base_url: http_url.clone(),
+            files_url: http_url.join("files/").unwrap(),
             tls_files_url: https_port.map(|port| {
-              let mut url = url.join("files/").unwrap();
+              let mut url = http_url.join("files/").unwrap();
               url.set_scheme("https").unwrap();
               url.set_port(Some(port)).unwrap();
               url
