@@ -114,6 +114,7 @@ dependencies = [
  "pretty_assertions",
  "pulldown-cmark",
  "qrcodegen",
+ "rcgen",
  "regex",
  "reqwest",
  "resvg",
@@ -2807,6 +2808,7 @@ dependencies = [
  "chrono",
  "pem",
  "ring",
+ "x509-parser",
  "yasna",
 ]
 
@@ -4407,6 +4409,7 @@ dependencies = [
  "lazy_static",
  "nom",
  "oid-registry",
+ "ring",
  "rusticata-macros",
  "thiserror",
 ]

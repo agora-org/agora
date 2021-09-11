@@ -1125,6 +1125,117 @@ fn serves_tls_requests_with_cert_from_cache_directory() {
   );
 }
 
+fn set_up_cache_self_signed() -> (TempDir, Certificate) {
+  use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, DnType, IsCa, KeyPair, SanType,
+    PKCS_ECDSA_P256_SHA256,
+  };
+
+  let tempdir = TempDir::new().unwrap();
+  let root_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
+  let root_certificate = {
+    let mut params: CertificateParams = Default::default();
+    params.key_pair = Some(root_keys);
+    params.alg = &PKCS_ECDSA_P256_SHA256;
+    params
+      .distinguished_name
+      .push(DnType::CommonName, "test.root.authority");
+    // params.
+    dbg!(&params.alg);
+    dbg!(&params.not_before);
+    dbg!(&params.not_after);
+    dbg!(&params.subject_alt_names);
+    dbg!(&params.distinguished_name);
+    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    Certificate::from_params(params).unwrap()
+  };
+
+  let cert_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
+  let foo = cert_keys.serialize_pem();
+  let certificate = {
+    let mut params =
+      CertificateParams::from_ca_cert_pem(&root_certificate.serialize_pem().unwrap(), cert_keys)
+        .unwrap();
+    params
+      .subject_alt_names
+      .push(SanType::DnsName("test.agora.download".to_string()));
+    params
+      .distinguished_name
+      .push(DnType::CommonName, "test.agora.download");
+    dbg!(&params.alg);
+    dbg!(&params.not_before);
+    dbg!(&params.not_after);
+    dbg!(&params.subject_alt_names);
+    dbg!(&params.distinguished_name);
+    Certificate::from_params(params).unwrap()
+  };
+  let cert_file = format!(
+    "{}\r\n\r\n{}\r\n\r\n{}",
+    foo,
+    certificate.serialize_pem().unwrap(),
+    root_certificate.serialize_pem().unwrap(),
+  );
+  // fixme: maybe file hash is different?
+  fs::write(
+    tempdir
+      .path()
+      .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
+    dbg!(&cert_file),
+  )
+  .unwrap();
+  (
+    tempdir,
+    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
+  )
+}
+
+async fn https_client_self_signed(context: &TestContext, root_cert: Certificate) -> Client {
+  let client = ClientBuilder::new()
+    .danger_accept_invalid_certs(true)
+    .add_root_certificate(root_cert)
+    .build()
+    .unwrap();
+
+  for _ in 0..100 {
+    if client
+      .get(context.tls_files_url().clone())
+      .send()
+      .await
+      .is_ok()
+    {
+      return client;
+    }
+
+    tokio::time::sleep(Duration::from_millis(10)).await;
+  }
+
+  panic!("HTTPS server not ready after one second");
+}
+
+#[test]
+fn serves_tls_requests_with_cert_from_cache_directory_self_signed() {
+  let (tempdir, root_certificate) = set_up_cache_self_signed();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      tempdir.path().to_str().unwrap(),
+      "--https-port=0",
+    ],
+    |context| async move {
+      context.write("file", "encrypted content");
+      let client = https_client_self_signed(&context, root_certificate).await;
+      let response = client
+        .get(context.tls_files_url().join("file").unwrap())
+        .send()
+        .await
+        .unwrap();
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
+  );
+}
+
 #[test]
 fn creates_cert_cache_directory_if_it_doesnt_exist() {
   test_with_arguments(
