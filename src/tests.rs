@@ -9,7 +9,6 @@ use crate::{
 };
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
-use indoc::indoc;
 use lexiclean::Lexiclean;
 use pretty_assertions::assert_eq;
 use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
@@ -948,140 +947,57 @@ fn percent_encodes_unicode() {
   });
 }
 
-fn set_up_cache() -> TempDir {
-  // fixme: what about expiration?
-  let test_agora_download_staging_cert = "
-    -----BEGIN PRIVATE KEY-----\x0d
-    MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg20NYzvJtBkQpiy6R\x0d
-    iVANK2NpAdYCnlW3zTLO2p2IjEqhRANCAAR0s0wc9Am9HPsOtX81Fhz+yl5TKPCv\x0d
-    UuD7ECOSsHPnsw31FTs5XqvRvXEEItYZEnoalFQzsGA+6jej63gZgUQx\x0d
-    -----END PRIVATE KEY-----\x0d
+fn set_up_test_certificate() -> (TempDir, Certificate) {
+  use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
+    PKCS_ECDSA_P256_SHA256,
+  };
 
-    -----BEGIN CERTIFICATE-----
-    MIID7TCCA3KgAwIBAgITAPrtmheIRJifkMkVKOyM2CP3KTAKBggqhkjOPQQDAzBV
-    MQswCQYDVQQGEwJVUzEgMB4GA1UEChMXKFNUQUdJTkcpIExldCdzIEVuY3J5cHQx
-    JDAiBgNVBAMTGyhTVEFHSU5HKSBFcnNhdHogRWRhbWFtZSBFMTAeFw0yMTA4MjYy
-    MTMwNDBaFw0yMTExMjQyMTMwMzlaMB4xHDAaBgNVBAMTE3Rlc3QuYWdvcmEuZG93
-    bmxvYWQwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR0s0wc9Am9HPsOtX81Fhz+
-    yl5TKPCvUuD7ECOSsHPnsw31FTs5XqvRvXEEItYZEnoalFQzsGA+6jej63gZgUQx
-    o4ICVjCCAlIwDgYDVR0PAQH/BAQDAgeAMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggr
-    BgEFBQcDAjAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBSFC4trBmgVATlZQtUW/6zk
-    Re3XjDAfBgNVHSMEGDAWgBTr+SXCgChm4m0IkjLzwuGtw/81RTBdBggrBgEFBQcB
-    AQRRME8wJQYIKwYBBQUHMAGGGWh0dHA6Ly9zdGctZTEuby5sZW5jci5vcmcwJgYI
-    KwYBBQUHMAKGGmh0dHA6Ly9zdGctZTEuaS5sZW5jci5vcmcvMB4GA1UdEQQXMBWC
-    E3Rlc3QuYWdvcmEuZG93bmxvYWQwTAYDVR0gBEUwQzAIBgZngQwBAgEwNwYLKwYB
-    BAGC3xMBAQEwKDAmBggrBgEFBQcCARYaaHR0cDovL2Nwcy5sZXRzZW5jcnlwdC5v
-    cmcwggEEBgorBgEEAdZ5AgQCBIH1BIHyAPAAdgDdmTT8peckgMlWaH2BNJkISbJJ
-    97Vp2Me8qz9cwfNuZAAAAXuEli7tAAAEAwBHMEUCIQC7WIpWHoAicAnzHgIoRQGs
-    FvtK35o0rQgaXL2H7t2EawIgIWIvL5CNToDc0MYtSRSD06aVO9jaKNjOyYeAA2iq
-    vvMAdgCwzIPlpfl9a698CcwoSQSHKsfoixMsY1C3xv0m4WxsdwAAAXuEli8NAAAE
-    AwBHMEUCIQCtRPUuiuhHBz3IcivfmZwytHgTqnvuv9V8dDT3vhXCMgIgGR7UOfQA
-    7M4LZnDH8kX/eIGBHQLwrYODG/dTl5VTaYcwCgYIKoZIzj0EAwMDaQAwZgIxAKOH
-    u09yfRdqjEfGfniyhy0rBfJ4FxHcZyv0osjvG9O9m7ESWm+hfMuXyDEqoQnZjwIx
-    ANsA24FHVwJZaLSL2qKf7gHGwKSfgO7l46ooSucDC+NU//NyBHutafk2vH1AhVXL
-    eQ==
-    -----END CERTIFICATE-----
+  let root_certificate = {
+    let mut params: CertificateParams = Default::default();
+    params.key_pair = Some(KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap());
+    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    Certificate::from_params(params).unwrap()
+  };
 
-    -----BEGIN CERTIFICATE-----
-    MIIDCzCCApGgAwIBAgIRALRY4992FVxZJKOJ3bpffWIwCgYIKoZIzj0EAwMwaDEL
-    MAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1cml0
-    eSBSZXNlYXJjaCBHcm91cDEkMCIGA1UEAxMbKFNUQUdJTkcpIEJvZ3VzIEJyb2Nj
-    b2xpIFgyMB4XDTIwMDkwNDAwMDAwMFoXDTI1MDkxNTE2MDAwMFowVTELMAkGA1UE
-    BhMCVVMxIDAeBgNVBAoTFyhTVEFHSU5HKSBMZXQncyBFbmNyeXB0MSQwIgYDVQQD
-    ExsoU1RBR0lORykgRXJzYXR6IEVkYW1hbWUgRTEwdjAQBgcqhkjOPQIBBgUrgQQA
-    IgNiAAT9v/PJUtHOTk28nXCXrpP665vI4Z094h8o7R+5E6yNajZa0UubqjpZFoGq
-    u785/vGXj6mdfIzc9boITGusZCSWeMj5ySMZGZkS+VSvf8VQqj+3YdEu4PLZEjBA
-    ivRFpEejggEQMIIBDDAOBgNVHQ8BAf8EBAMCAYYwHQYDVR0lBBYwFAYIKwYBBQUH
-    AwIGCCsGAQUFBwMBMBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0OBBYEFOv5JcKA
-    KGbibQiSMvPC4a3D/zVFMB8GA1UdIwQYMBaAFN7Ro1lkDsGaNqNG7rAQdu+ul5Vm
-    MDYGCCsGAQUFBwEBBCowKDAmBggrBgEFBQcwAoYaaHR0cDovL3N0Zy14Mi5pLmxl
-    bmNyLm9yZy8wKwYDVR0fBCQwIjAgoB6gHIYaaHR0cDovL3N0Zy14Mi5jLmxlbmNy
-    Lm9yZy8wIgYDVR0gBBswGTAIBgZngQwBAgEwDQYLKwYBBAGC3xMBAQEwCgYIKoZI
-    zj0EAwMDaAAwZQIwXcZbdgxcGH9rTErfSTkXfBKKygU0yO7OpbuNeY1id0FZ/hRY
-    N5fdLOGuc+aHfCsMAjEA0P/xwKr6NQ9MN7vrfGAzO397PApdqfM7VdFK18aEu1xm
-    3HMFKzIR8eEPsMx4smMl
-    -----END CERTIFICATE-----
-
-    -----BEGIN CERTIFICATE-----
-    MIIEmTCCAoGgAwIBAgIRAJJVIr2Em/sOzhBD2bEnEJwwDQYJKoZIhvcNAQELBQAw
-    ZjELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1
-    cml0eSBSZXNlYXJjaCBHcm91cDEiMCAGA1UEAxMZKFNUQUdJTkcpIFByZXRlbmQg
-    UGVhciBYMTAeFw0yMDA5MDQwMDAwMDBaFw0yNTA5MTUxNjAwMDBaMGgxCzAJBgNV
-    BAYTAlVTMTMwMQYDVQQKEyooU1RBR0lORykgSW50ZXJuZXQgU2VjdXJpdHkgUmVz
-    ZWFyY2ggR3JvdXAxJDAiBgNVBAMTGyhTVEFHSU5HKSBCb2d1cyBCcm9jY29saSBY
-    MjB2MBAGByqGSM49AgEGBSuBBAAiA2IABDr0vsNZAswMWDiWwNOgMNBxT9rSwSyj
-    6BUKkfQDLJJdZwtve+XkKsnEfgAr2HpQPK38BVzmzB2Fydt1ywfnQIzyVTidjnLI
-    01ajuHXA1rvq0NlSC3ZyUWMqZ1dTDE4VcaOB7TCB6jAOBgNVHQ8BAf8EBAMCAQYw
-    DwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU3tGjWWQOwZo2o0busBB2766XlWYw
-    HwYDVR0jBBgwFoAUtfNl8v6wCpIf+zx980SgrGMlwxQwNgYIKwYBBQUHAQEEKjAo
-    MCYGCCsGAQUFBzAChhpodHRwOi8vc3RnLXgxLmkubGVuY3Iub3JnLzArBgNVHR8E
-    JDAiMCCgHqAchhpodHRwOi8vc3RnLXgxLmMubGVuY3Iub3JnLzAiBgNVHSAEGzAZ
-    MAgGBmeBDAECATANBgsrBgEEAYLfEwEBATANBgkqhkiG9w0BAQsFAAOCAgEAMkp5
-    etLOxM4+a6EqX2hmAd+yNUSNCA7+MYn/VrwJnpkWe8zuC+fILYMYRuByWs/zeFmo
-    56Jc7td5N9I+QN0rYSeEbgdTAMeaBjZ3P6eJxM1Aa76Abrj5ULfq8XhOE37SYgFb
-    ZS9YPOQ4wuisCXHrrmu4ZdZJmzXIQX562xBeJxf0o4LBqS2C3SmpkPY+f8lTtmFO
-    /I6qSSl8T5XyNE385zNXaRd8rMJqNC9fIHDjPeJMIaou0TZYT0uNb9OZ7ZhT7smQ
-    SaHcGxtK0SVmJvGNagc6RldrHFbemLbwVpeI4NopRHynQqzkVtsfAlK8VD92SYbp
-    olFsJZWuHVkHgccuI1Hx0+RUp1VGj1PPV+0JmGZeG2ybLloU2rjjMbRmkNjTxub2
-    U1vzCGpBSaBfYQLjLHDwQk1AqRENlZxDqCkXFro8eqT6TFHdtw27KIT+ov1Qyofi
-    q3Uj1w7tPpcFMSDfiWNRE0XGYCjELDo19oPqQthIMQ5X+/3YpCqZceR4vMR6n9ol
-    Lp/0KmjAzqU+LqD2fmFLttKvZUxW8aECTGIcDHGCPJDklwDW3l7DUQ08Wj5Fh/KE
-    f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
-    8VhPQaU1Enn7NW+4IHnfSeP6G5rzLEtl0PreC4k=
-    -----END CERTIFICATE-----
-  "
-  .unindent();
-
+  let certificate_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
+  let certificate_keys_pem = certificate_keys.serialize_pem();
+  let certificate = {
+    let mut params = CertificateParams::from_ca_cert_pem(
+      &root_certificate.serialize_pem().unwrap(),
+      certificate_keys,
+    )
+    .unwrap();
+    params
+      .subject_alt_names
+      .push(SanType::DnsName("test.agora.download".to_string()));
+    Certificate::from_params(params).unwrap()
+  };
+  let certificate_file = vec![
+    certificate_keys_pem,
+    certificate.serialize_pem().unwrap(),
+    root_certificate.serialize_pem().unwrap(),
+  ]
+  .join("\n");
   let tempdir = TempDir::new().unwrap();
-
+  // fixme: maybe file hash is different?
   fs::write(
     tempdir
       .path()
       .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
-    test_agora_download_staging_cert,
+    certificate_file,
   )
   .unwrap();
-  tempdir
+  (
+    tempdir,
+    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
+  )
 }
 
-const LETS_ENCRYPT_STAGING_ROOT_CERT_X2: &str = indoc!(
-  "
-    -----BEGIN CERTIFICATE-----
-    MIIEmTCCAoGgAwIBAgIRAJJVIr2Em/sOzhBD2bEnEJwwDQYJKoZIhvcNAQELBQAw
-    ZjELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1
-    cml0eSBSZXNlYXJjaCBHcm91cDEiMCAGA1UEAxMZKFNUQUdJTkcpIFByZXRlbmQg
-    UGVhciBYMTAeFw0yMDA5MDQwMDAwMDBaFw0yNTA5MTUxNjAwMDBaMGgxCzAJBgNV
-    BAYTAlVTMTMwMQYDVQQKEyooU1RBR0lORykgSW50ZXJuZXQgU2VjdXJpdHkgUmVz
-    ZWFyY2ggR3JvdXAxJDAiBgNVBAMTGyhTVEFHSU5HKSBCb2d1cyBCcm9jY29saSBY
-    MjB2MBAGByqGSM49AgEGBSuBBAAiA2IABDr0vsNZAswMWDiWwNOgMNBxT9rSwSyj
-    6BUKkfQDLJJdZwtve+XkKsnEfgAr2HpQPK38BVzmzB2Fydt1ywfnQIzyVTidjnLI
-    01ajuHXA1rvq0NlSC3ZyUWMqZ1dTDE4VcaOB7TCB6jAOBgNVHQ8BAf8EBAMCAQYw
-    DwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU3tGjWWQOwZo2o0busBB2766XlWYw
-    HwYDVR0jBBgwFoAUtfNl8v6wCpIf+zx980SgrGMlwxQwNgYIKwYBBQUHAQEEKjAo
-    MCYGCCsGAQUFBzAChhpodHRwOi8vc3RnLXgxLmkubGVuY3Iub3JnLzArBgNVHR8E
-    JDAiMCCgHqAchhpodHRwOi8vc3RnLXgxLmMubGVuY3Iub3JnLzAiBgNVHSAEGzAZ
-    MAgGBmeBDAECATANBgsrBgEEAYLfEwEBATANBgkqhkiG9w0BAQsFAAOCAgEAMkp5
-    etLOxM4+a6EqX2hmAd+yNUSNCA7+MYn/VrwJnpkWe8zuC+fILYMYRuByWs/zeFmo
-    56Jc7td5N9I+QN0rYSeEbgdTAMeaBjZ3P6eJxM1Aa76Abrj5ULfq8XhOE37SYgFb
-    ZS9YPOQ4wuisCXHrrmu4ZdZJmzXIQX562xBeJxf0o4LBqS2C3SmpkPY+f8lTtmFO
-    /I6qSSl8T5XyNE385zNXaRd8rMJqNC9fIHDjPeJMIaou0TZYT0uNb9OZ7ZhT7smQ
-    SaHcGxtK0SVmJvGNagc6RldrHFbemLbwVpeI4NopRHynQqzkVtsfAlK8VD92SYbp
-    olFsJZWuHVkHgccuI1Hx0+RUp1VGj1PPV+0JmGZeG2ybLloU2rjjMbRmkNjTxub2
-    U1vzCGpBSaBfYQLjLHDwQk1AqRENlZxDqCkXFro8eqT6TFHdtw27KIT+ov1Qyofi
-    q3Uj1w7tPpcFMSDfiWNRE0XGYCjELDo19oPqQthIMQ5X+/3YpCqZceR4vMR6n9ol
-    Lp/0KmjAzqU+LqD2fmFLttKvZUxW8aECTGIcDHGCPJDklwDW3l7DUQ08Wj5Fh/KE
-    f5c9fF3u87WUAJu4Vh9C+ewXZtzL0LD46lYgpn7fv5w9sLS4zQ3CIC3udjJ5Gc/v
-    8VhPQaU1Enn7NW+4IHnfSeP6G5rzLEtl0PreC4k=
-    -----END CERTIFICATE-----
-  ",
-);
-
-async fn https_client(context: &TestContext) -> Client {
+async fn https_client(context: &TestContext, root_certificate: Certificate) -> Client {
   let client = ClientBuilder::new()
     .danger_accept_invalid_certs(true)
-    .add_root_certificate(
-      Certificate::from_pem(LETS_ENCRYPT_STAGING_ROOT_CERT_X2.as_bytes()).unwrap(),
-    )
+    .add_root_certificate(root_certificate)
     .build()
     .unwrap();
 
@@ -1103,128 +1019,17 @@ async fn https_client(context: &TestContext) -> Client {
 
 #[test]
 fn serves_tls_requests_with_cert_from_cache_directory() {
-  let tempdir = set_up_cache();
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
 
   test_with_arguments(
     &[
       "--acme-cache-directory",
-      tempdir.path().to_str().unwrap(),
+      certificate_cache.path().to_str().unwrap(),
       "--https-port=0",
     ],
     |context| async move {
       context.write("file", "encrypted content");
-      let client = https_client(&context).await;
-      let response = client
-        .get(context.tls_files_url().join("file").unwrap())
-        .send()
-        .await
-        .unwrap();
-      let body = response.text().await.unwrap();
-      assert_eq!(body, "encrypted content");
-    },
-  );
-}
-
-fn set_up_cache_self_signed() -> (TempDir, Certificate) {
-  use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, DnType, IsCa, KeyPair, SanType,
-    PKCS_ECDSA_P256_SHA256,
-  };
-
-  let tempdir = TempDir::new().unwrap();
-  let root_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
-  let root_certificate = {
-    let mut params: CertificateParams = Default::default();
-    params.key_pair = Some(root_keys);
-    params.alg = &PKCS_ECDSA_P256_SHA256;
-    params
-      .distinguished_name
-      .push(DnType::CommonName, "test.root.authority");
-    // params.
-    dbg!(&params.alg);
-    dbg!(&params.not_before);
-    dbg!(&params.not_after);
-    dbg!(&params.subject_alt_names);
-    dbg!(&params.distinguished_name);
-    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    Certificate::from_params(params).unwrap()
-  };
-
-  let cert_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
-  let foo = cert_keys.serialize_pem();
-  let certificate = {
-    let mut params =
-      CertificateParams::from_ca_cert_pem(&root_certificate.serialize_pem().unwrap(), cert_keys)
-        .unwrap();
-    params
-      .subject_alt_names
-      .push(SanType::DnsName("test.agora.download".to_string()));
-    params
-      .distinguished_name
-      .push(DnType::CommonName, "test.agora.download");
-    dbg!(&params.alg);
-    dbg!(&params.not_before);
-    dbg!(&params.not_after);
-    dbg!(&params.subject_alt_names);
-    dbg!(&params.distinguished_name);
-    Certificate::from_params(params).unwrap()
-  };
-  let cert_file = format!(
-    "{}\r\n\r\n{}\r\n\r\n{}",
-    foo,
-    certificate.serialize_pem().unwrap(),
-    root_certificate.serialize_pem().unwrap(),
-  );
-  // fixme: maybe file hash is different?
-  fs::write(
-    tempdir
-      .path()
-      .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
-    dbg!(&cert_file),
-  )
-  .unwrap();
-  (
-    tempdir,
-    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
-  )
-}
-
-async fn https_client_self_signed(context: &TestContext, root_cert: Certificate) -> Client {
-  let client = ClientBuilder::new()
-    .danger_accept_invalid_certs(true)
-    .add_root_certificate(root_cert)
-    .build()
-    .unwrap();
-
-  for _ in 0..100 {
-    if client
-      .get(context.tls_files_url().clone())
-      .send()
-      .await
-      .is_ok()
-    {
-      return client;
-    }
-
-    tokio::time::sleep(Duration::from_millis(10)).await;
-  }
-
-  panic!("HTTPS server not ready after one second");
-}
-
-#[test]
-fn serves_tls_requests_with_cert_from_cache_directory_self_signed() {
-  let (tempdir, root_certificate) = set_up_cache_self_signed();
-
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      tempdir.path().to_str().unwrap(),
-      "--https-port=0",
-    ],
-    |context| async move {
-      context.write("file", "encrypted content");
-      let client = https_client_self_signed(&context, root_certificate).await;
+      let client = https_client(&context, root_certificate).await;
       let response = client
         .get(context.tls_files_url().join("file").unwrap())
         .send()
@@ -1259,18 +1064,18 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
 
 #[test]
 fn redirects_requests_from_port_80_to_443() {
-  let cache = set_up_cache();
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
 
   test_with_arguments(
     &[
       "--acme-cache-directory",
-      cache.path().to_str().unwrap(),
+      certificate_cache.path().to_str().unwrap(),
       "--https-port=0",
       "--https-redirect-port=0",
     ],
     |context| async move {
       context.write("file", "encrypted content");
-      let client = https_client(&context).await;
+      let client = https_client(&context, root_certificate).await;
       let response = client
         .get(dbg!(format!(
           "http://localhost:{}/files/file",
