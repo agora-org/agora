@@ -28,17 +28,16 @@ impl TlsRequestHandler {
     https_port: u16,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Result<TlsRequestHandler> {
+    simple_logger::SimpleLogger::new()
+      .with_level(log::LevelFilter::Info)
+      .init()
+      .ok();
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     // fixme: bind on different address?
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
       .await
       .expect("fixme");
     let https_port = listener.local_addr().expect("fixme").port();
-    simple_logger::SimpleLogger::new()
-      .with_level(log::LevelFilter::Info)
-      .init()
-      .ok();
-
     let cache_dir = environment.working_directory.join(acme_cache_directory);
     let resolver = ResolvesServerCertUsingAcme::new();
     let resolver_clone = resolver.clone();
@@ -73,12 +72,10 @@ impl TlsRequestHandler {
           continue;
         }
       };
-      let acceptor = tls_acceptor.clone();
-      let request_handler = self.request_handler.clone();
-      match acceptor.accept(tcp).await {
+      match tls_acceptor.clone().accept(tcp).await {
         Ok(Some(tls_stream)) => {
           Http::new()
-            .serve_connection(tls_stream, request_handler)
+            .serve_connection(tls_stream, self.request_handler.clone())
             .await
             .ok();
         }
