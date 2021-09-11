@@ -1,6 +1,5 @@
 use crate::{
   arguments::Arguments, environment::Environment, error::Result, request_handler::RequestHandler,
-  server::Server,
 };
 use futures::StreamExt;
 use hyper::server::conn::Http;
@@ -27,9 +26,8 @@ impl TlsRequestHandler {
     arguments: &Arguments,
     acme_cache_directory: &Path,
     https_port: u16,
+    lnd_client: Option<agora_lnd_client::Client>,
   ) -> Result<TlsRequestHandler> {
-    // fixme: pass this in?
-    let lnd_client = Server::setup_lnd_client(environment, arguments).await?;
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     // fixme: bind on different address?
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))

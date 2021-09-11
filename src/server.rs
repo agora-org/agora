@@ -34,7 +34,17 @@ impl Server {
 
     let tls_request_handler = if let Some(https_port) = arguments.https_port {
       let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
-      Some(TlsRequestHandler::new(environment, &arguments, acme_cache_directory, https_port).await?)
+      let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+      Some(
+        TlsRequestHandler::new(
+          environment,
+          &arguments,
+          acme_cache_directory,
+          https_port,
+          lnd_client,
+        )
+        .await?,
+      )
     } else {
       None
     };
@@ -82,7 +92,7 @@ impl Server {
     Ok(request_handler)
   }
 
-  pub(crate) async fn setup_lnd_client(
+  async fn setup_lnd_client(
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<Option<agora_lnd_client::Client>> {
