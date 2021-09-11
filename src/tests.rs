@@ -1001,20 +1001,20 @@ async fn https_client(context: &TestContext, root_certificate: Certificate) -> C
     .build()
     .unwrap();
 
-  for _ in 0..100 {
-    if client
-      .get(context.tls_files_url().clone())
-      .send()
-      .await
-      .is_ok()
-    {
-      return client;
+  let mut i = 0;
+  let error = loop {
+    match client.get(context.tls_files_url().clone()).send().await {
+      Ok(_) => return client,
+      Err(error) => {
+        i += 1;
+        if i >= 100 {
+          break error;
+        }
+      }
     }
+  };
 
-    tokio::time::sleep(Duration::from_millis(10)).await;
-  }
-
-  panic!("HTTPS server not ready after one second");
+  panic!("HTTPS server not ready after one second:\n{}", error);
 }
 
 #[test]
