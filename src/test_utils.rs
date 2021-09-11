@@ -106,7 +106,7 @@ where
       let https_port = server.https_port();
       let https_redirect_port = server.https_redirect_port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      let http_url = Url::parse(&format!("http://localhost:{}", http_port)).unwrap();
+      let http_url = Url::parse(&format!("http://localhost:{}", http_port.unwrap())).unwrap();
       let working_directory = environment.working_directory.clone();
       let test_result = task::LocalSet::new()
         .run_until(async move {

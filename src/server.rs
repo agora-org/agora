@@ -14,7 +14,7 @@ use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {
-  http_request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
   tls_request_handler: Option<TlsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
@@ -30,7 +30,12 @@ impl Server {
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
-    let http_request_handler = Self::setup_request_handler(environment, &arguments).await?;
+    let http_request_handler = match arguments.http_port {
+      Some(http_port) => {
+        Some(Self::setup_request_handler(environment, &arguments, http_port).await?)
+      }
+      None => None,
+    };
 
     let (tls_request_handler, https_redirect_server) =
       if let Some(https_port) = arguments.https_port {
@@ -63,10 +68,11 @@ impl Server {
   async fn setup_request_handler(
     environment: &mut Environment,
     arguments: &Arguments,
+    http_port: u16,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
 
-    let socket_addr = (arguments.address.as_str(), arguments.http_port)
+    let socket_addr = (arguments.address.as_str(), http_port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
         input: &arguments.address,
@@ -85,7 +91,7 @@ impl Server {
 
     writeln!(
       environment.stderr,
-      "Listening on {}",
+      "Listening on {} (http)",
       request_handler.local_addr()
     )
     .context(error::StderrWrite)?;
@@ -149,9 +155,8 @@ impl Server {
 
   pub(crate) async fn run(self) -> Result<()> {
     futures::try_join!(
-      self
-        .http_request_handler
-        .map(|x| x.context(error::ServerRun)),
+      OptionFuture::from(self.http_request_handler)
+        .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
       OptionFuture::from(self.tls_request_handler.map(|x| x.run())).map(Ok),
       OptionFuture::from(self.https_redirect_server)
         .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
@@ -161,8 +166,11 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn http_port(&self) -> u16 {
-    self.http_request_handler.local_addr().port()
+  pub(crate) fn http_port(&self) -> Option<u16> {
+    self
+      .http_request_handler
+      .as_ref()
+      .map(|handler| handler.local_addr().port())
   }
 
   #[cfg(test)]
@@ -206,7 +214,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&mut environment).await.unwrap();
-        let ip = server.http_request_handler.local_addr().ip();
+        let ip = server.http_request_handler.unwrap().local_addr().ip();
         assert!(
           ip == IpAddr::from([127, 0, 0, 1])
             || ip == IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),

@@ -1180,8 +1180,6 @@ fn https_redirect_port_requires_https_port() {
   environment.arguments = vec![
     "agora".into(),
     "--directory=www".into(),
-    // fixme: make optional and remove
-    "--http-port=0".into(),
     "--https-redirect-port=0".into(),
   ];
 
@@ -1212,8 +1210,6 @@ fn https_port_requires_acme_cache_directory() {
   environment.arguments = vec![
     "agora".into(),
     "--directory=www".into(),
-    // fixme: make optional and remove
-    "--http-port=0".into(),
     "--https-port=0".into(),
   ];
 
@@ -1240,3 +1236,7 @@ fn https_port_requires_acme_cache_directory() {
 #[test]
 #[ignore]
 fn feature_is_documented_in_readme() {}
+
+#[test]
+#[ignore]
+fn what_happens_when_no_ports_are_given() {}

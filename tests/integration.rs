@@ -17,9 +17,9 @@ struct AgoraInstance {
 }
 
 impl AgoraInstance {
-  fn new(tempdir: TempDir) -> Self {
+  fn new(tempdir: TempDir, additional_flags: Vec<&str>) -> Self {
     let mut child = Command::new(executable_path("agora"))
-      .arg("--http-port=0")
+      .args(additional_flags)
       .arg("--directory=.")
       .current_dir(&tempdir)
       .stderr(Stdio::piped())
@@ -34,7 +34,9 @@ impl AgoraInstance {
     let port: u16 = first_line
       .strip_prefix("Listening on 0.0.0.0:")
       .unwrap()
-      .trim_end()
+      .split_whitespace()
+      .next()
+      .unwrap()
       .parse()
       .unwrap();
 
@@ -63,22 +65,35 @@ impl AgoraInstance {
 }
 
 #[test]
-fn server_listens_on_all_ip_addresses() {
+fn server_listens_on_all_ip_addresses_http() {
   let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraInstance::new(tempdir);
+  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"]);
+  let port = agora.port;
   assert_eq!(
     reqwest::blocking::get(agora.base_url()).unwrap().status(),
     StatusCode::OK
   );
   let stderr = agora.kill();
-  assert!(stderr.contains("0.0.0.0:"));
+  assert!(stderr.contains(&format!("Listening on 0.0.0.0:{} (http)", port)));
+}
+
+#[test]
+fn server_listens_on_all_ip_addresses_https() {
+  let tempdir = tempfile::tempdir().unwrap();
+  let agora = AgoraInstance::new(
+    tempdir,
+    vec!["--https-port=0", "--acme-cache-directory=cache"],
+  );
+  let port = agora.port;
+  let stderr = agora.kill();
+  assert!(stderr.contains(&format!("Listening on 0.0.0.0:{} (https)", port)));
 }
 
 #[test]
 fn errors_contain_backtraces() {
   let tempdir = tempfile::tempdir().unwrap();
   fs::write(tempdir.path().join(".hidden"), "").unwrap();
-  let agora = AgoraInstance::new(tempdir);
+  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"]);
   let status = reqwest::blocking::get(agora.base_url().join("/files/.hidden").unwrap())
     .unwrap()
     .status();

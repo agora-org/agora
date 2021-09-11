@@ -15,7 +15,7 @@ pub(crate) struct Arguments {
   pub(crate) directory: PathBuf,
   // fixme: make this optional
   #[structopt(long, help = "Port to listen on for incoming HTTP requests")]
-  pub(crate) http_port: u16,
+  pub(crate) http_port: Option<u16>,
   #[structopt(
     long,
     help = "Port to listen on for incoming HTTPS requests",

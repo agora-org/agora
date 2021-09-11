@@ -1,16 +1,22 @@
 use crate::{
-  arguments::Arguments, environment::Environment, error::Result, request_handler::RequestHandler,
+  arguments::Arguments,
+  environment::Environment,
+  error::{self, Result},
+  request_handler::RequestHandler,
 };
 use futures::StreamExt;
 use hyper::server::conn::Http;
-use rustls_acme::acme::ACME_TLS_ALPN_NAME;
-use rustls_acme::ResolvesServerCertUsingAcme;
-use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
-use std::path::Path;
-use std::sync::Arc;
+use rustls_acme::{
+  acme::{ACME_TLS_ALPN_NAME, LETS_ENCRYPT_PRODUCTION_DIRECTORY, LETS_ENCRYPT_STAGING_DIRECTORY},
+  ResolvesServerCertUsingAcme,
+};
+use snafu::ResultExt;
+use std::{io::Write, net::ToSocketAddrs, path::Path, sync::Arc};
 use tokio::task;
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
-use tokio_rustls::server::TlsStream;
+use tokio_rustls::{
+  rustls::{NoClientAuth, ServerConfig, Session},
+  server::TlsStream,
+};
 use tokio_stream::wrappers::TcpListenerStream;
 
 pub(crate) struct TlsRequestHandler {
@@ -34,9 +40,27 @@ impl TlsRequestHandler {
       .ok();
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     // fixme: bind on different address?
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
+    let socket_addr = (arguments.address.as_str(), https_port)
+      .to_socket_addrs()
+      .context(error::AddressResolutionIo {
+        input: &arguments.address,
+      })?
+      .next()
+      .ok_or_else(|| {
+        error::AddressResolutionNoAddresses {
+          input: arguments.address.clone(),
+        }
+        .build()
+      })?;
+    let listener = tokio::net::TcpListener::bind(socket_addr)
       .await
       .expect("fixme");
+    writeln!(
+      environment.stderr,
+      "Listening on {} (https)",
+      listener.local_addr().expect("fixme")
+    )
+    .context(error::StderrWrite)?;
     let https_port = listener.local_addr().expect("fixme").port();
     let cache_dir = environment.working_directory.join(acme_cache_directory);
     let resolver = ResolvesServerCertUsingAcme::new();
