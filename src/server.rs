@@ -32,24 +32,24 @@ impl Server {
 
     let http_request_handler = Self::setup_request_handler(environment, &arguments).await?;
 
-    let tls_request_handler = if let Some(https_port) = arguments.https_port {
-      let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
-      let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
-      Some(
-        TlsRequestHandler::new(
+    let (tls_request_handler, https_redirect_server) =
+      if let Some(https_port) = arguments.https_port {
+        let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
+        let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+        let tls_request_handler = TlsRequestHandler::new(
           environment,
           &arguments,
           acme_cache_directory,
           https_port,
           lnd_client,
         )
-        .await?,
-      )
-    } else {
-      None
-    };
-
-    let https_redirect_server = HttpsRedirectService::new_server(&arguments, &tls_request_handler)?;
+        .await?;
+        let https_redirect_server =
+          HttpsRedirectService::new_server(&arguments, &tls_request_handler)?;
+        (Some(tls_request_handler), https_redirect_server)
+      } else {
+        (None, None)
+      };
 
     Ok(Self {
       http_request_handler,

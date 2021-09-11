@@ -147,6 +147,7 @@ where
 }
 
 pub(crate) struct TestContext {
+  // fixme: can we replace some of these fields by storing the `Server`?
   base_url: Url,
   files_directory: PathBuf,
   files_url: Url,

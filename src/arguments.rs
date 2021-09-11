@@ -18,7 +18,11 @@ pub(crate) struct Arguments {
   pub(crate) http_port: u16,
   #[structopt(long, help = "Port to listen on for incoming HTTPS requests")]
   pub(crate) https_port: Option<u16>,
-  #[structopt(long, help = "Port to redirect to HTTPS through HTTP")]
+  #[structopt(
+    long,
+    help = "Port to redirect to HTTPS through HTTP",
+    requires = "https-port"
+  )]
   pub(crate) https_redirect_port: Option<u16>,
   #[structopt(
     long,

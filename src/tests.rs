@@ -1175,10 +1175,15 @@ fn redirects_requests_from_port_80_to_443() {
 }
 
 #[test]
-#[ignore]
 fn https_redirect_port_requires_https_port() {
   let mut environment = Environment::test();
-  environment.arguments = vec!["agora".into(), "--https-redirect-port=0".into()];
+  environment.arguments = vec![
+    "agora".into(),
+    "--directory=www".into(),
+    // fixme: make optional and remove
+    "--http-port=0".into(),
+    "--https-redirect-port=0".into(),
+  ];
 
   let www = environment.working_directory.join("www");
   std::fs::create_dir(&www).unwrap();
@@ -1189,7 +1194,14 @@ fn https_redirect_port_requires_https_port() {
     .unwrap()
     .block_on(async {
       let error = Server::setup(&mut environment).await.err().unwrap();
-      assert_contains(&error.to_string(), "FOO");
+      assert_contains(
+        &error.to_string(),
+        &"
+          The following required arguments were not provided:
+              \u{1b}[1;31m--https-port <https-port>\u{1b}[0m
+        "
+        .unindent(),
+      );
     });
 }
 
