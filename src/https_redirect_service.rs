@@ -43,7 +43,7 @@ impl HttpsRedirectService {
           })?;
 
         let server = hyper::Server::bind(&socket_addr).serve(Shared::new(HttpsRedirectService {
-          https_port: tls_request_handler.as_ref().expect("fixme").port(),
+          https_port: tls_request_handler.as_ref().expect("fixme").https_port(),
         }));
 
         Ok(Some(server))

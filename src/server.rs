@@ -154,11 +154,11 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn tls_port(&self) -> Option<u16> {
+  pub(crate) fn https_port(&self) -> Option<u16> {
     self
       .tls_request_handler
       .as_ref()
-      .map(|handler| handler.port())
+      .map(|handler| handler.https_port())
   }
 
   #[cfg(test)]

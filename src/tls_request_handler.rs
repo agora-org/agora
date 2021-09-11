@@ -2,21 +2,23 @@ use crate::{
   arguments::Arguments, environment::Environment, error::Result, request_handler::RequestHandler,
   server::Server,
 };
-use futures::{future::BoxFuture, FutureExt, StreamExt};
+use futures::StreamExt;
 use hyper::server::conn::Http;
 use rustls_acme::acme::ACME_TLS_ALPN_NAME;
 use rustls_acme::ResolvesServerCertUsingAcme;
 use rustls_acme::{acme::LETS_ENCRYPT_PRODUCTION_DIRECTORY, acme::LETS_ENCRYPT_STAGING_DIRECTORY};
 use std::path::Path;
 use std::sync::Arc;
-use tokio::{net::TcpListener, task};
+use tokio::task;
 use tokio_rustls::rustls::{NoClientAuth, ServerConfig, Session};
 use tokio_rustls::server::TlsStream;
 use tokio_stream::wrappers::TcpListenerStream;
 
 pub(crate) struct TlsRequestHandler {
-  port: u16,
-  run: BoxFuture<'static, ()>,
+  request_handler: RequestHandler,
+  https_port: u16,
+  tcp_listener_stream: TcpListenerStream,
+  resolver: Arc<ResolvesServerCertUsingAcme>,
 }
 
 impl TlsRequestHandler {
@@ -33,57 +35,39 @@ impl TlsRequestHandler {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", https_port))
       .await
       .expect("fixme");
+    let https_port = listener.local_addr().expect("fixme").port();
     simple_logger::SimpleLogger::new()
       .with_level(log::LevelFilter::Info)
       .init()
       .ok();
 
+    let cache_dir = environment.working_directory.join(acme_cache_directory);
+    let resolver = ResolvesServerCertUsingAcme::new();
+    let resolver_clone = resolver.clone();
+    task::spawn(async move {
+      resolver_clone
+        .run(
+          if cfg!(test) {
+            LETS_ENCRYPT_STAGING_DIRECTORY
+          } else {
+            LETS_ENCRYPT_PRODUCTION_DIRECTORY
+          },
+          vec!["test.agora.download".to_string()],
+          Some(cache_dir),
+        )
+        .await;
+    });
     Ok(TlsRequestHandler {
-      port: listener.local_addr().expect("fixme").port(),
-      run: bind_listen_serve(
-        listener,
-        if cfg!(test) {
-          LETS_ENCRYPT_STAGING_DIRECTORY
-        } else {
-          LETS_ENCRYPT_PRODUCTION_DIRECTORY
-        },
-        vec!["test.agora.download".to_string()],
-        Some(environment.working_directory.join(acme_cache_directory)),
-        request_handler,
-      )
-      .await,
+      request_handler,
+      https_port,
+      tcp_listener_stream: TcpListenerStream::new(listener),
+      resolver,
     })
   }
 
-  pub(crate) fn port(&self) -> u16 {
-    self.port
-  }
-
-  pub(crate) async fn run(self) {
-    self.run.await;
-  }
-}
-
-async fn bind_listen_serve(
-  listener: TcpListener,
-  directory_url: impl AsRef<str>,
-  domains: Vec<String>,
-  cache_dir: Option<impl AsRef<Path>>,
-  request_handler: RequestHandler,
-) -> BoxFuture<'static, ()> {
-  let resolver = ResolvesServerCertUsingAcme::new();
-  let config = ServerConfig::new(NoClientAuth::new());
-  let acceptor = TlsAcceptor::new(config, resolver.clone());
-
-  let directory_url = directory_url.as_ref().to_string();
-  let cache_dir = cache_dir.map(|p| p.as_ref().to_path_buf());
-  task::spawn(async move {
-    resolver.run(directory_url, domains, cache_dir).await;
-  });
-
-  let mut listener = TcpListenerStream::new(listener);
-  (async move {
-    while let Some(tcp) = listener.next().await {
+  pub(crate) async fn run(mut self) {
+    let tls_acceptor = TlsAcceptor::new(ServerConfig::new(NoClientAuth::new()), self.resolver);
+    while let Some(tcp) = self.tcp_listener_stream.next().await {
       let tcp = match tcp {
         Ok(tcp) => tcp,
         Err(err) => {
@@ -91,8 +75,8 @@ async fn bind_listen_serve(
           continue;
         }
       };
-      let acceptor = acceptor.clone();
-      let request_handler = request_handler.clone();
+      let acceptor = tls_acceptor.clone();
+      let request_handler = self.request_handler.clone();
       match acceptor.accept(tcp).await {
         Ok(Some(tls_stream)) => {
           Http::new()
@@ -104,8 +88,11 @@ async fn bind_listen_serve(
         Err(err) => log::error!("tls accept error: {:?}", err),
       }
     }
-  })
-  .boxed()
+  }
+
+  pub(crate) fn https_port(&self) -> u16 {
+    self.https_port
+  }
 }
 
 #[derive(Clone)]

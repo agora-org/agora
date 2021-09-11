@@ -103,7 +103,7 @@ where
       let server = Server::setup(environment).await.unwrap();
       let files_directory = server.directory().to_owned();
       let port = server.port();
-      let tls_port = server.tls_port();
+      let https_port = server.https_port();
       let https_redirect_port = server.https_redirect_port();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
@@ -113,7 +113,7 @@ where
           task::spawn_local(f(TestContext {
             base_url: url.clone(),
             files_url: url.join("files/").unwrap(),
-            tls_files_url: tls_port.map(|port| {
+            tls_files_url: https_port.map(|port| {
               let mut url = url.join("files/").unwrap();
               url.set_scheme("https").unwrap();
               url.set_port(Some(port)).unwrap();
