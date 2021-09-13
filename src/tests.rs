@@ -1097,6 +1097,8 @@ fn redirects_requests_from_port_80_to_443() {
   );
 }
 
+// fixme: dry up require tests
+
 #[test]
 fn https_redirect_port_requires_https_port() {
   let mut environment = Environment::test();
@@ -1119,7 +1121,7 @@ fn https_redirect_port_requires_https_port() {
         &error.to_string(),
         &"
           The following required arguments were not provided:
-              \u{1b}[1;31m<--http-port <http-port>|--https-port <https-port>>\u{1b}[0m
+              <--http-port <http-port>|--https-port <https-port>>
         "
         .unindent(),
       );
@@ -1148,7 +1150,7 @@ fn https_port_requires_acme_cache_directory() {
         &error.to_string(),
         &"
           The following required arguments were not provided:
-              \u{1b}[1;31m--acme-cache-directory <acme-cache-directory>\u{1b}[0m
+              --acme-cache-directory <acme-cache-directory>
         "
         .unindent(),
       );
@@ -1178,7 +1180,7 @@ fn https_port_requires_acme_domain() {
         &error.to_string(),
         &"
           The following required arguments were not provided:
-              \u{1b}[1;31m--acme-domain <acme-domain>...\u{1b}[0m
+              --acme-domain <acme-domain>...
         "
         .unindent(),
       );
@@ -1203,7 +1205,7 @@ fn require_at_least_one_port_argument() {
         &error.to_string(),
         &"
           The following required arguments were not provided:
-              \u{1b}[1;31m<--http-port <http-port>|--https-port <https-port>>\u{1b}[0m
+              <--http-port <http-port>|--https-port <https-port>>
         "
         .unindent(),
       );

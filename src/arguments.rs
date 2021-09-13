@@ -1,9 +1,15 @@
 use http::uri::Authority;
 use std::path::PathBuf;
-use structopt::{clap::ArgGroup, StructOpt};
+use structopt::{
+  clap::{AppSettings, ArgGroup},
+  StructOpt,
+};
 
 #[derive(StructOpt)]
-#[structopt(group = ArgGroup::with_name("port").multiple(true).required(true))]
+#[structopt(
+  group = ArgGroup::with_name("port").multiple(true).required(true),
+  settings = if cfg!(test) { &[AppSettings::ColorNever] } else { &[] })
+]
 pub(crate) struct Arguments {
   #[structopt(
     long,
