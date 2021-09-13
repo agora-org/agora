@@ -971,14 +971,19 @@ fn set_up_test_certificate() -> (TempDir, Certificate) {
     params
       .subject_alt_names
       .push(SanType::DnsName("test.agora.download".to_string()));
+    params
+      .subject_alt_names
+      .push(SanType::DnsName("localhost".to_string()));
     Certificate::from_params(params).unwrap()
   };
   let certificate_file = vec![
     certificate_keys_pem,
-    certificate.serialize_pem().unwrap(),
+    certificate
+      .serialize_pem_with_signer(&root_certificate)
+      .unwrap(),
     root_certificate.serialize_pem().unwrap(),
   ]
-  .join("\n");
+  .join("\r\n");
   let tempdir = TempDir::new().unwrap();
   // fixme: maybe file hash is different?
   fs::write(
@@ -996,7 +1001,6 @@ fn set_up_test_certificate() -> (TempDir, Certificate) {
 
 async fn https_client(context: &TestContext, root_certificate: Certificate) -> Client {
   let client = ClientBuilder::new()
-    .danger_accept_invalid_certs(true)
     .add_root_certificate(root_certificate)
     .build()
     .unwrap();
@@ -1051,11 +1055,11 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
     ],
     |context| async move {
       let cache_directory = context.working_directory().join("cache-directory");
-      for _ in 0..1000 {
+      for _ in 0..100 {
         if cache_directory.is_dir() {
           return;
         }
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
       }
       panic!("Cache directory not created after ten seconds");
     },
@@ -1077,10 +1081,10 @@ fn redirects_requests_from_port_80_to_443() {
       context.write("file", "encrypted content");
       let client = https_client(&context, root_certificate).await;
       let response = client
-        .get(dbg!(format!(
+        .get(format!(
           "http://localhost:{}/files/file",
           context.https_redirect_port()
-        )))
+        ))
         .send()
         .await
         .unwrap();
