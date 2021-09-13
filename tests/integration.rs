@@ -30,7 +30,6 @@ impl AgoraInstance {
     let child_stderr = child.stderr.take().unwrap();
     let mut child_stderr = BufReader::new(child_stderr);
     child_stderr.read_line(&mut first_line).unwrap();
-    dbg!(&first_line);
     let port: u16 = first_line
       .strip_prefix("Listening on 0.0.0.0:")
       .unwrap()

@@ -10,6 +10,11 @@ pub(crate) struct Arguments {
     help = "Cache directory for TLS certificates fetched via ACME protocol. Let's Encrypt is the only supported ACME provider."
   )]
   pub(crate) acme_cache_directory: Option<PathBuf>,
+  #[structopt(
+    long,
+    help = "Request TLS certificate for <acme-domain>. This agora instance must be reachable at <acme-domain>:443 to respond to ACME challenges."
+  )]
+  pub(crate) acme_domain: Vec<String>,
   #[structopt(long, default_value = "0.0.0.0", help = "Address to listen on")]
   pub(crate) address: String,
   #[structopt(long, help = "Directory of files to serve")]
@@ -24,7 +29,7 @@ pub(crate) struct Arguments {
     long,
     group = "port",
     help = "Port to listen on for incoming HTTPS requests",
-    requires = "acme-cache-directory"
+    requires_all = &["acme-cache-directory", "acme-domain"]
   )]
   pub(crate) https_port: Option<u16>,
   #[structopt(

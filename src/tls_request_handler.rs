@@ -64,6 +64,7 @@ impl TlsRequestHandler {
     let cache_dir = environment.working_directory.join(acme_cache_directory);
     let resolver = ResolvesServerCertUsingAcme::new();
     let resolver_clone = resolver.clone();
+    let acme_domains = arguments.acme_domain.clone();
     task::spawn(async move {
       resolver_clone
         .run(
@@ -72,7 +73,7 @@ impl TlsRequestHandler {
           } else {
             LETS_ENCRYPT_PRODUCTION_DIRECTORY
           },
-          vec!["test.agora.download".to_string()],
+          acme_domains,
           Some(cache_dir),
         )
         .await;

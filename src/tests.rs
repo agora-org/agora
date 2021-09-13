@@ -989,7 +989,7 @@ fn set_up_test_certificate() -> (TempDir, Certificate) {
   fs::write(
     tempdir
       .path()
-      .join("cached_cert_meyicV8c4vZJEa0tHNZJjRzZ2-lwUwossNGS4wkKAIQ"),
+      .join("cached_cert_83kei_h4oopqh8sXFFlhGeQJIS_pkJJv-y5XDpnLtyw"),
     certificate_file,
   )
   .unwrap();
@@ -1005,20 +1005,20 @@ async fn https_client(context: &TestContext, root_certificate: Certificate) -> C
     .build()
     .unwrap();
 
-  let mut i = 0;
-  let error = loop {
+  let mut error = None;
+  for _ in 0..10 {
     match client.get(context.tls_files_url().clone()).send().await {
       Ok(_) => return client,
-      Err(error) => {
-        i += 1;
-        if i >= 100 {
-          break error;
-        }
+      Err(err) => {
+        error = Some(err);
       }
     }
-  };
-
-  panic!("HTTPS server not ready after one second:\n{}", error);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+  }
+  panic!(
+    "HTTPS server not ready after one second:\n{}",
+    error.unwrap()
+  );
 }
 
 #[test]
@@ -1030,6 +1030,7 @@ fn serves_tls_requests_with_cert_from_cache_directory() {
       "--acme-cache-directory",
       certificate_cache.path().to_str().unwrap(),
       "--https-port=0",
+      "--acme-domain=localhost",
     ],
     |context| async move {
       context.write("file", "encrypted content");
@@ -1052,6 +1053,7 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
       "--acme-cache-directory",
       "cache-directory",
       "--https-port=0",
+      "--acme-domain=localhost",
     ],
     |context| async move {
       let cache_directory = context.working_directory().join("cache-directory");
@@ -1076,6 +1078,7 @@ fn redirects_requests_from_port_80_to_443() {
       certificate_cache.path().to_str().unwrap(),
       "--https-port=0",
       "--https-redirect-port=0",
+      "--acme-domain=localhost",
     ],
     |context| async move {
       context.write("file", "encrypted content");
@@ -1146,6 +1149,36 @@ fn https_port_requires_acme_cache_directory() {
         &"
           The following required arguments were not provided:
               \u{1b}[1;31m--acme-cache-directory <acme-cache-directory>\u{1b}[0m
+        "
+        .unindent(),
+      );
+    });
+}
+
+#[test]
+fn https_port_requires_acme_domain() {
+  let mut environment = Environment::test();
+  environment.arguments = vec![
+    "agora".into(),
+    "--directory=www".into(),
+    "--https-port=0".into(),
+    "--acme-cache-directory=cache".into(),
+  ];
+
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
+
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async {
+      let error = Server::setup(&mut environment).await.err().unwrap();
+      assert_contains(
+        &error.to_string(),
+        &"
+          The following required arguments were not provided:
+              \u{1b}[1;31m--acme-domain <acme-domain>...\u{1b}[0m
         "
         .unindent(),
       );
