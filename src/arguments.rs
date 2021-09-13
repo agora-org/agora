@@ -1,8 +1,9 @@
 use http::uri::Authority;
 use std::path::PathBuf;
-use structopt::StructOpt;
+use structopt::{clap::ArgGroup, StructOpt};
 
 #[derive(StructOpt)]
+#[structopt(group = ArgGroup::with_name("port").multiple(true).required(true))]
 pub(crate) struct Arguments {
   #[structopt(
     long,
@@ -13,10 +14,15 @@ pub(crate) struct Arguments {
   pub(crate) address: String,
   #[structopt(long, help = "Directory of files to serve")]
   pub(crate) directory: PathBuf,
-  #[structopt(long, help = "Port to listen on for incoming HTTP requests")]
+  #[structopt(
+    long,
+    group = "port",
+    help = "Port to listen on for incoming HTTP requests"
+  )]
   pub(crate) http_port: Option<u16>,
   #[structopt(
     long,
+    group = "port",
     help = "Port to listen on for incoming HTTPS requests",
     requires = "acme-cache-directory"
   )]

@@ -25,10 +25,7 @@ pub(crate) enum Error {
   },
   #[snafu(display("`{}` did not resolve to an IP address", input))]
   AddressResolutionNoAddresses { input: String, backtrace: Backtrace },
-  #[snafu(
-    context(false),
-    display("Failed to parse command line arguments: {}", source)
-  )]
+  #[snafu(context(false), display("{}", source))]
   Clap {
     source: clap::Error,
     backtrace: Backtrace,

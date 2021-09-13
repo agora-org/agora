@@ -1116,8 +1116,7 @@ fn https_redirect_port_requires_https_port() {
         &error.to_string(),
         &"
           The following required arguments were not provided:
-              \u{1b}[1;31m--acme-cache-directory <acme-cache-directory>\u{1b}[0m
-              \u{1b}[1;31m--https-port <https-port>\u{1b}[0m
+              \u{1b}[1;31m<--http-port <http-port>|--https-port <https-port>>\u{1b}[0m
         "
         .unindent(),
       );
@@ -1154,9 +1153,30 @@ fn https_port_requires_acme_cache_directory() {
 }
 
 #[test]
-#[ignore]
-fn feature_is_documented_in_readme() {}
+fn require_at_least_one_port_argument() {
+  let mut environment = Environment::test();
+  environment.arguments = vec!["agora".into(), "--directory=www".into()];
+
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
+
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async {
+      let error = Server::setup(&mut environment).await.err().unwrap();
+      assert_contains(
+        &error.to_string(),
+        &"
+          The following required arguments were not provided:
+              \u{1b}[1;31m<--http-port <http-port>|--https-port <https-port>>\u{1b}[0m
+        "
+        .unindent(),
+      );
+    });
+}
 
 #[test]
 #[ignore]
-fn what_happens_when_no_ports_are_given() {}
+fn feature_is_documented_in_readme() {}
