@@ -30,6 +30,7 @@ impl AgoraInstance {
     let child_stderr = child.stderr.take().unwrap();
     let mut child_stderr = BufReader::new(child_stderr);
     child_stderr.read_line(&mut first_line).unwrap();
+    eprintln!("First line: {}", first_line);
     let port: u16 = first_line
       .strip_prefix("Listening on 0.0.0.0:")
       .unwrap()
@@ -81,7 +82,11 @@ fn server_listens_on_all_ip_addresses_https() {
   let tempdir = tempfile::tempdir().unwrap();
   let agora = AgoraInstance::new(
     tempdir,
-    vec!["--https-port=0", "--acme-cache-directory=cache"],
+    vec![
+      "--https-port=0",
+      "--acme-cache-directory=cache",
+      "--acme-domain=foo",
+    ],
   );
   let port = agora.port;
   let stderr = agora.kill();

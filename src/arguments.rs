@@ -21,6 +21,7 @@ pub(crate) struct Arguments {
     help = "Request TLS certificate for <acme-domain>. This agora instance must be reachable at <acme-domain>:443 to respond to ACME challenges."
   )]
   pub(crate) acme_domain: Vec<String>,
+  // FIXME: Should we listen on `::`? Cross-platform behavior?
   #[structopt(long, default_value = "0.0.0.0", help = "Address to listen on")]
   pub(crate) address: String,
   #[structopt(long, help = "Directory of files to serve")]

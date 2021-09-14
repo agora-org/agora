@@ -166,32 +166,81 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn http_port(&self) -> Option<u16> {
-    self
-      .http_request_handler
-      .as_ref()
-      .map(|handler| handler.local_addr().port())
+  pub(crate) fn test_context(&self, environment: &Environment) -> TestContext {
+    let http_url = reqwest::Url::parse(&format!(
+      "http://localhost:{}",
+      self
+        .http_request_handler
+        .as_ref()
+        .map(|handler| handler.local_addr().port())
+        .unwrap()
+    ))
+    .unwrap();
+    let working_directory = environment.working_directory.clone();
+    TestContext {
+      base_url: http_url.clone(),
+      files_url: http_url.join("files/").unwrap(),
+      tls_files_url: self
+        .tls_request_handler
+        .as_ref()
+        .map(|handler| handler.https_port())
+        .map(|https_port| {
+          let mut url = http_url.join("files/").unwrap();
+          url.set_scheme("https").unwrap();
+          url.set_port(Some(https_port)).unwrap();
+          url
+        }),
+      https_redirect_port: self
+        .https_redirect_server
+        .as_ref()
+        .map(|server| server.local_addr().port()),
+      working_directory,
+      files_directory: self.directory.to_owned(),
+    }
+  }
+}
+
+#[cfg(test)]
+pub(crate) struct TestContext {
+  base_url: reqwest::Url,
+  files_directory: std::path::PathBuf,
+  files_url: reqwest::Url,
+  tls_files_url: Option<reqwest::Url>,
+  https_redirect_port: Option<u16>,
+  working_directory: std::path::PathBuf,
+}
+
+#[cfg(test)]
+impl TestContext {
+  pub(crate) fn files_url(&self) -> &reqwest::Url {
+    &self.files_url
   }
 
-  #[cfg(test)]
-  pub(crate) fn https_port(&self) -> Option<u16> {
-    self
-      .tls_request_handler
-      .as_ref()
-      .map(|handler| handler.https_port())
+  pub(crate) fn tls_files_url(&self) -> &reqwest::Url {
+    self.tls_files_url.as_ref().unwrap()
   }
 
-  #[cfg(test)]
-  pub(crate) fn https_redirect_port(&self) -> Option<u16> {
-    self
-      .https_redirect_server
-      .as_ref()
-      .map(|server| server.local_addr().port())
+  pub(crate) fn https_redirect_port(&self) -> u16 {
+    self.https_redirect_port.unwrap()
   }
 
-  #[cfg(test)]
-  pub(crate) fn directory(&self) -> &std::path::Path {
-    &self.directory
+  pub(crate) fn files_directory(&self) -> &std::path::Path {
+    &self.files_directory
+  }
+
+  pub(crate) fn base_url(&self) -> &reqwest::Url {
+    &self.base_url
+  }
+
+  pub(crate) fn working_directory(&self) -> &std::path::Path {
+    &self.working_directory
+  }
+
+  pub(crate) fn write(&self, path: &str, content: &str) -> std::path::PathBuf {
+    let path = self.files_directory.join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, content).unwrap();
+    path
   }
 }
 

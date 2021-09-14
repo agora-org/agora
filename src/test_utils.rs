@@ -1,14 +1,10 @@
-use crate::{environment::Environment, server::Server};
+use crate::{
+  environment::Environment,
+  server::{Server, TestContext},
+};
 #[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;
-use reqwest::Url;
-use std::{
-  ffi::OsString,
-  fs,
-  future::Future,
-  panic,
-  path::{Path, PathBuf},
-};
+use std::{ffi::OsString, future::Future, panic};
 use tokio::task;
 
 macro_rules! assert_matches {
@@ -89,7 +85,7 @@ where
 
 pub(crate) fn test_with_environment<Function, F>(
   environment: &mut Environment,
-  f: Function,
+  test_function: Function,
 ) -> String
 where
   Function: FnOnce(TestContext) -> F,
@@ -101,30 +97,10 @@ where
     .unwrap()
     .block_on(async {
       let server = Server::setup(environment).await.unwrap();
-      let files_directory = server.directory().to_owned();
-      let http_port = server.http_port();
-      let https_port = server.https_port();
-      let https_redirect_port = server.https_redirect_port();
+      let test_context = server.test_context(environment);
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      let http_url = Url::parse(&format!("http://localhost:{}", http_port.unwrap())).unwrap();
-      let working_directory = environment.working_directory.clone();
       let test_result = task::LocalSet::new()
-        .run_until(async move {
-          task::spawn_local(f(TestContext {
-            base_url: http_url.clone(),
-            files_url: http_url.join("files/").unwrap(),
-            tls_files_url: https_port.map(|port| {
-              let mut url = http_url.join("files/").unwrap();
-              url.set_scheme("https").unwrap();
-              url.set_port(Some(port)).unwrap();
-              url
-            }),
-            https_redirect_port,
-            working_directory,
-            files_directory,
-          }))
-          .await
-        })
+        .run_until(async move { task::spawn_local(test_function(test_context)).await })
         .await;
       if let Err(test_join_error) = test_result {
         eprintln!("stderr from server: {}", environment.stderr.contents());
@@ -144,47 +120,4 @@ where
       }
       environment.stderr.contents()
     })
-}
-
-pub(crate) struct TestContext {
-  // fixme: can we replace some of these fields by storing the `Server`?
-  base_url: Url,
-  files_directory: PathBuf,
-  files_url: Url,
-  tls_files_url: Option<Url>,
-  https_redirect_port: Option<u16>,
-  working_directory: PathBuf,
-}
-
-impl TestContext {
-  pub(crate) fn files_url(&self) -> &Url {
-    &self.files_url
-  }
-
-  pub(crate) fn tls_files_url(&self) -> &Url {
-    self.tls_files_url.as_ref().unwrap()
-  }
-
-  pub(crate) fn https_redirect_port(&self) -> u16 {
-    self.https_redirect_port.unwrap()
-  }
-
-  pub(crate) fn files_directory(&self) -> &Path {
-    &self.files_directory
-  }
-
-  pub(crate) fn base_url(&self) -> &Url {
-    &self.base_url
-  }
-
-  pub(crate) fn working_directory(&self) -> &Path {
-    &self.working_directory
-  }
-
-  pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
-    let path = self.files_directory.join(path);
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(&path, content).unwrap();
-    path
-  }
 }

@@ -1,10 +1,9 @@
 use crate::{
   environment::Environment,
   error::Error,
-  server::Server,
+  server::{Server, TestContext},
   test_utils::{
     assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
-    TestContext,
   },
 };
 use guard::guard_unwrap;
