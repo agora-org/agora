@@ -96,7 +96,7 @@ impl TlsRequestHandler {
           continue;
         }
       };
-      match tls_acceptor.clone().accept(tcp).await {
+      match tls_acceptor.accept(tcp).await {
         Ok(Some(tls_stream)) => {
           Http::new()
             .serve_connection(tls_stream, self.request_handler.clone())
