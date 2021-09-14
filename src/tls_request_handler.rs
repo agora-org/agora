@@ -89,23 +89,30 @@ impl TlsRequestHandler {
   pub(crate) async fn run(mut self) {
     let tls_acceptor = TlsAcceptor::new(ServerConfig::new(NoClientAuth::new()), self.resolver);
     while let Some(tcp) = self.tcp_listener_stream.next().await {
-      let tcp = match tcp {
-        Ok(tcp) => tcp,
-        Err(err) => {
-          log::error!("tcp accept error: {:?}", err);
-          continue;
-        }
-      };
-      match tls_acceptor.accept(tcp).await {
-        Ok(Some(tls_stream)) => {
-          Http::new()
-            .serve_connection(tls_stream, self.request_handler.clone())
-            .await
-            .ok();
-        }
-        Ok(None) => {}
-        Err(err) => log::error!("tls accept error: {:?}", err),
-      }
+      eprintln!("Got new connection…");
+      let request_handler = self.request_handler.clone();
+      let tls_acceptor = tls_acceptor.clone();
+      tokio::spawn(async move {
+        match tcp {
+          Ok(tcp) => {
+            let result = tls_acceptor.accept(tcp).await;
+            eprintln!("Completed TLS negotiation.");
+            match result {
+              Ok(Some(tls_stream)) => {
+                Http::new()
+                  .serve_connection(tls_stream, request_handler)
+                  .await
+                  .ok();
+              }
+              Ok(None) => {}
+              Err(err) => log::error!("tls accept error: {:?}", err),
+            };
+          }
+          Err(err) => {
+            log::error!("tcp accept error: {:?}", err);
+          }
+        };
+      });
     }
   }
 

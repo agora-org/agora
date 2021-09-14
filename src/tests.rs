@@ -1225,16 +1225,14 @@ fn serves_multiple_clients_through_tls() {
     ],
     |context| async move {
       context.write("file", "encrypted content");
-      for i in 0..1000 {
-        let client = https_client(&context, root_certificate.clone()).await;
+      for i in 0..100000 {
         dbg!(i);
-        let response = client
+        https_client(&context, root_certificate.clone())
+          .await
           .get(context.tls_files_url().join("file").unwrap())
           .send()
           .await
           .unwrap();
-        let body = response.text().await.unwrap();
-        assert_eq!(body, "encrypted content");
       }
     },
   );
