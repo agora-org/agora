@@ -1213,31 +1213,5 @@ fn require_at_least_one_port_argument() {
 }
 
 #[test]
-fn serves_multiple_clients_through_tls() {
-  let (certificate_cache, root_certificate) = set_up_test_certificate();
-
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      certificate_cache.path().to_str().unwrap(),
-      "--https-port=0",
-      "--acme-domain=localhost",
-    ],
-    |context| async move {
-      context.write("file", "encrypted content");
-      for i in 0..100000 {
-        dbg!(i);
-        https_client(&context, root_certificate.clone())
-          .await
-          .get(context.tls_files_url().join("file").unwrap())
-          .send()
-          .await
-          .unwrap();
-      }
-    },
-  );
-}
-
-#[test]
 #[ignore]
 fn feature_is_documented_in_readme() {}

@@ -87,17 +87,14 @@ impl TlsRequestHandler {
   }
 
   pub(crate) async fn run(mut self) {
-    let tls_acceptor = TlsAcceptor::new(ServerConfig::new(NoClientAuth::new()), self.resolver);
-    while let Some(tcp) = self.tcp_listener_stream.next().await {
-      eprintln!("Got new connection…");
-      let request_handler = self.request_handler.clone();
-      let tls_acceptor = tls_acceptor.clone();
-      tokio::spawn(async move {
-        match tcp {
-          Ok(tcp) => {
-            let result = tls_acceptor.accept(tcp).await;
-            eprintln!("Completed TLS negotiation.");
-            match result {
+    let tls_acceptor = TlsAcceptor::new(self.resolver);
+    while let Some(result) = self.tcp_listener_stream.next().await {
+      match result {
+        Ok(connection) => {
+          let request_handler = self.request_handler.clone();
+          let tls_acceptor = tls_acceptor.clone();
+          tokio::spawn(async move {
+            match tls_acceptor.accept(connection).await {
               Ok(Some(tls_stream)) => {
                 Http::new()
                   .serve_connection(tls_stream, request_handler)
@@ -105,14 +102,14 @@ impl TlsRequestHandler {
                   .ok();
               }
               Ok(None) => {}
-              Err(err) => log::error!("tls accept error: {:?}", err),
+              Err(err) => log::error!("TLS accept error: {:?}", err),
             };
-          }
-          Err(err) => {
-            log::error!("tcp accept error: {:?}", err);
-          }
-        };
-      });
+          });
+        }
+        Err(err) => {
+          log::error!("TCP accept error: {:?}", err);
+        }
+      }
     }
   }
 
@@ -127,11 +124,17 @@ pub(crate) struct TlsAcceptor {
 }
 
 impl TlsAcceptor {
-  pub(crate) fn new(mut config: ServerConfig, resolver: Arc<ResolvesServerCertUsingAcme>) -> Self {
-    config.alpn_protocols.push(ACME_TLS_ALPN_NAME.to_vec());
+  pub(crate) fn new(resolver: Arc<ResolvesServerCertUsingAcme>) -> Self {
+    let mut config = ServerConfig::new(NoClientAuth::new());
+    config.set_protocols(&[
+      ACME_TLS_ALPN_NAME.to_vec(),
+      b"h2".to_vec(),
+      b"http/1.1".to_vec(),
+    ]);
     config.cert_resolver = resolver;
-    let config = Arc::new(config);
-    TlsAcceptor { config }
+    Self {
+      config: Arc::new(config),
+    }
   }
 
   pub(crate) async fn accept<IO>(&self, stream: IO) -> std::io::Result<Option<TlsStream<IO>>>
