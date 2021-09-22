@@ -3019,6 +3019,8 @@ dependencies = [
 [[package]]
 name = "rustls-acme"
 version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e34bf68c343df4afa2aeb2866fc9d97f10c0b66eccd8efd8ff4d7c5f1f0df54c"
 dependencies = [
  "async-h1",
  "async-rustls",
