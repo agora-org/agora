@@ -984,7 +984,6 @@ fn set_up_test_certificate() -> (TempDir, Certificate) {
   ]
   .join("\r\n");
   let tempdir = TempDir::new().unwrap();
-  // fixme: maybe file hash is different?
   fs::write(
     tempdir
       .path()
