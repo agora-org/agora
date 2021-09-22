@@ -91,7 +91,7 @@ impl Server {
 
     writeln!(
       environment.stderr,
-      "Listening on {} (http)",
+      "Listening for HTTP connections on `{}`",
       request_handler.local_addr()
     )
     .context(error::StderrWrite)?;

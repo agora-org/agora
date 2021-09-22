@@ -32,11 +32,11 @@ impl AgoraInstance {
     child_stderr.read_line(&mut first_line).unwrap();
     eprintln!("First line: {}", first_line);
     let port: u16 = first_line
-      .strip_prefix("Listening on 0.0.0.0:")
-      .unwrap()
-      .split_whitespace()
-      .next()
-      .unwrap()
+      .chars()
+      .skip_while(|c| *c != ':')
+      .skip(1)
+      .take_while(|c| *c != '`')
+      .collect::<String>()
       .parse()
       .unwrap();
 
@@ -74,7 +74,10 @@ fn server_listens_on_all_ip_addresses_http() {
     StatusCode::OK
   );
   let stderr = agora.kill();
-  assert!(stderr.contains(&format!("Listening on 0.0.0.0:{} (http)", port)));
+  assert!(stderr.contains(&format!(
+    "Listening for HTTP connections on `0.0.0.0:{}`",
+    port
+  )));
 }
 
 #[test]
@@ -90,7 +93,10 @@ fn server_listens_on_all_ip_addresses_https() {
   );
   let port = agora.port;
   let stderr = agora.kill();
-  assert!(stderr.contains(&format!("Listening on 0.0.0.0:{} (https)", port)));
+  assert!(stderr.contains(&format!(
+    "Listening for HTTPS connections on `0.0.0.0:{}`",
+    port
+  )));
 }
 
 #[test]

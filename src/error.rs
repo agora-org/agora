@@ -26,12 +26,6 @@ pub(crate) enum Error {
   },
   #[snafu(display("`{}` did not resolve to an IP address", input))]
   AddressResolutionNoAddresses { input: String, backtrace: Backtrace },
-  #[snafu(display("Failed to bind to `{}`: {}", socket_addr, source))]
-  Bind {
-    backtrace: Backtrace,
-    socket_addr: SocketAddr,
-    source: io::Error,
-  },
   #[snafu(context(false), display("{}", source))]
   Clap {
     source: clap::Error,
@@ -143,6 +137,12 @@ pub(crate) enum Error {
     source: hyper::Error,
     backtrace: Backtrace,
   },
+  #[snafu(display("I/O error on socket address `{}`: {}", socket_addr, source))]
+  SocketIo {
+    backtrace: Backtrace,
+    socket_addr: SocketAddr,
+    source: io::Error,
+  },
   #[snafu(display("Static asset not found: {}", uri_path))]
   StaticAssetNotFound {
     uri_path: String,
@@ -176,7 +176,6 @@ impl Error {
       | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
-      | Bind { .. }
       | Clap { .. }
       | ConfigDeserialize { .. }
       | ConfigMissingBasePrice { .. }
@@ -190,6 +189,7 @@ impl Error {
       | PaymentRequestTooLongForQrCode { .. }
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
+      | SocketIo { .. }
       | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
     }
   }

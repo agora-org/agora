@@ -53,14 +53,17 @@ impl TlsRequestHandler {
       })?;
     let listener = tokio::net::TcpListener::bind(socket_addr)
       .await
-      .context(error::Bind { socket_addr })?;
+      .context(error::SocketIo { socket_addr })?;
+    let local_addr = listener
+      .local_addr()
+      .context(error::SocketIo { socket_addr })?;
     writeln!(
       environment.stderr,
-      "Listening on {} (https)",
-      listener.local_addr().expect("fixme")
+      "Listening for HTTPS connections on `{}`",
+      local_addr,
     )
     .context(error::StderrWrite)?;
-    let https_port = listener.local_addr().expect("fixme").port();
+    let https_port = local_addr.port();
     let cache_dir = environment.working_directory.join(acme_cache_directory);
     let resolver = ResolvesServerCertUsingAcme::new();
     let resolver_clone = resolver.clone();
