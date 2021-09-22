@@ -18,7 +18,6 @@ use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::TcpStream,
 };
-use unindent::Unindent;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;
@@ -1093,121 +1092,6 @@ fn redirects_requests_from_port_80_to_443() {
       assert_eq!(body, "encrypted content");
     },
   );
-}
-
-// fixme: dry up require tests
-
-#[test]
-fn https_redirect_port_requires_https_port() {
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--directory=www".into(),
-    "--https-redirect-port=0".into(),
-  ];
-
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async {
-      let error = Server::setup(&mut environment).await.err().unwrap();
-      assert_contains(
-        &error.to_string(),
-        &"
-          The following required arguments were not provided:
-              <--http-port <http-port>|--https-port <https-port>>
-        "
-        .unindent(),
-      );
-    });
-}
-
-#[test]
-fn https_port_requires_acme_cache_directory() {
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--directory=www".into(),
-    "--https-port=0".into(),
-  ];
-
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async {
-      let error = Server::setup(&mut environment).await.err().unwrap();
-      assert_contains(
-        &error.to_string(),
-        &"
-          The following required arguments were not provided:
-              --acme-cache-directory <acme-cache-directory>
-        "
-        .unindent(),
-      );
-    });
-}
-
-#[test]
-fn https_port_requires_acme_domain() {
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--directory=www".into(),
-    "--https-port=0".into(),
-    "--acme-cache-directory=cache".into(),
-  ];
-
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async {
-      let error = Server::setup(&mut environment).await.err().unwrap();
-      assert_contains(
-        &error.to_string(),
-        &"
-          The following required arguments were not provided:
-              --acme-domain <acme-domain>...
-        "
-        .unindent(),
-      );
-    });
-}
-
-#[test]
-fn require_at_least_one_port_argument() {
-  let mut environment = Environment::test();
-  environment.arguments = vec!["agora".into(), "--directory=www".into()];
-
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async {
-      let error = Server::setup(&mut environment).await.err().unwrap();
-      assert_contains(
-        &error.to_string(),
-        &"
-          The following required arguments were not provided:
-              <--http-port <http-port>|--https-port <https-port>>
-        "
-        .unindent(),
-      );
-    });
 }
 
 #[test]

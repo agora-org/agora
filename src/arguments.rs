@@ -5,7 +5,7 @@ use structopt::{
   StructOpt,
 };
 
-#[derive(StructOpt)]
+#[derive(Debug, StructOpt)]
 #[structopt(
   group = ArgGroup::with_name("port").multiple(true).required(true),
   settings = if cfg!(test) { &[AppSettings::ColorNever] } else { &[] })
@@ -61,4 +61,72 @@ pub(crate) struct Arguments {
     requires = "lnd-rpc-authority"
   )]
   pub(crate) lnd_rpc_macaroon_path: Option<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::test_utils::assert_contains;
+  use unindent::Unindent;
+
+  #[test]
+  fn https_redirect_port_requires_https_port() {
+    assert_contains(
+      &Arguments::from_iter_safe(&["agora", "--directory=www", "--https-redirect-port=0"])
+        .unwrap_err()
+        .to_string(),
+      &"
+        The following required arguments were not provided:
+            <--http-port <http-port>|--https-port <https-port>>
+      "
+      .unindent(),
+    );
+  }
+
+  #[test]
+  fn https_port_requires_acme_cache_directory() {
+    assert_contains(
+      &Arguments::from_iter_safe(&["agora", "--directory=www", "--https-port=0"])
+        .unwrap_err()
+        .to_string(),
+      &"
+        The following required arguments were not provided:
+            --acme-cache-directory <acme-cache-directory>
+      "
+      .unindent(),
+    );
+  }
+
+  #[test]
+  fn https_port_requires_acme_domain() {
+    assert_contains(
+      &Arguments::from_iter_safe(&[
+        "agora",
+        "--directory=www",
+        "--https-port=0",
+        "--acme-cache-directory=cache",
+      ])
+      .unwrap_err()
+      .to_string(),
+      &"
+        The following required arguments were not provided:
+            --acme-domain <acme-domain>...
+      "
+      .unindent(),
+    );
+  }
+
+  #[test]
+  fn require_at_least_one_port_argument() {
+    assert_contains(
+      &Arguments::from_iter_safe(&["agora", "--directory=www"])
+        .unwrap_err()
+        .to_string(),
+      &"
+        The following required arguments were not provided:
+            <--http-port <http-port>|--https-port <https-port>>
+      "
+      .unindent(),
+    );
+  }
 }
