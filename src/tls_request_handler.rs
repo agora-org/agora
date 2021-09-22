@@ -53,7 +53,7 @@ impl TlsRequestHandler {
       })?;
     let listener = tokio::net::TcpListener::bind(socket_addr)
       .await
-      .expect("fixme");
+      .context(error::Bind { socket_addr })?;
     writeln!(
       environment.stderr,
       "Listening on {} (https)",

@@ -5,6 +5,7 @@ use snafu::{ErrorCompat, Snafu};
 use std::{
   fmt::Debug,
   io,
+  net::SocketAddr,
   path::{PathBuf, MAIN_SEPARATOR},
   str::Utf8Error,
 };
@@ -25,6 +26,12 @@ pub(crate) enum Error {
   },
   #[snafu(display("`{}` did not resolve to an IP address", input))]
   AddressResolutionNoAddresses { input: String, backtrace: Backtrace },
+  #[snafu(display("Failed to bind to `{}`: {}", socket_addr, source))]
+  Bind {
+    backtrace: Backtrace,
+    socket_addr: SocketAddr,
+    source: io::Error,
+  },
   #[snafu(context(false), display("{}", source))]
   Clap {
     source: clap::Error,
@@ -169,6 +176,7 @@ impl Error {
       | SymlinkAccess { .. } => StatusCode::NOT_FOUND,
       AddressResolutionIo { .. }
       | AddressResolutionNoAddresses { .. }
+      | Bind { .. }
       | Clap { .. }
       | ConfigDeserialize { .. }
       | ConfigMissingBasePrice { .. }
