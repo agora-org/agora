@@ -68,6 +68,11 @@ This produces a statically linked binary that runs on, e.g., Alpine and CentOS L
 You can configure the network port and address `agora` listens on, and the directory it serves.
 See `agora --help` for details.
 
+### HTTPS Configuration
+
+If you're running `agora` on a public domain it can be configured to automatically request TLS certificates for HTTPS from [Let's Encrypt](https://letsencrypt.org/) via the [ACME](https://datatracker.ietf.org/doc/html/rfc8555) protocol.
+See the `--acme-*` and `--https-*` flags in `agora --help` for details.
+
 ### LND Configuration
 
 By default `agora` serves files for free.

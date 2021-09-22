@@ -1093,7 +1093,3 @@ fn redirects_requests_from_port_80_to_443() {
     },
   );
 }
-
-#[test]
-#[ignore]
-fn feature_is_documented_in_readme() {}
