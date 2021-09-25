@@ -27,7 +27,7 @@ pub(crate) struct Arguments {
   pub(crate) lnd_rpc_cert_path: Option<PathBuf>,
   #[structopt(
     long,
-    help = "Read LND's gRPC macaroon from <lnd-rpc-macaroon-path>. Needed if LND requires macaroon authentication. The macaroon has to include permissions for creating and querying invoices. By default LND writes its invoice macaroon to `~/.lnd/data/chain/bitcoin/mainnet/invoice.macaroon`.",
+    help = "Read LND gRPC macaroon from <lnd-rpc-macaroon-path>. Needed if LND requires macaroon authentication. The macaroon must include permissions for creating and querying invoices. By default LND writes its invoice macaroon to `~/.lnd/data/chain/bitcoin/mainnet/invoice.macaroon`.",
     requires = "lnd-rpc-authority"
   )]
   pub(crate) lnd_rpc_macaroon_path: Option<PathBuf>,
