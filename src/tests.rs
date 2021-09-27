@@ -1004,7 +1004,7 @@ async fn https_client(context: &TestContext, root_certificate: Certificate) -> C
 
   let mut error = None;
   for _ in 0..10 {
-    match client.get(context.tls_files_url().clone()).send().await {
+    match client.get(context.https_files_url().clone()).send().await {
       Ok(_) => return client,
       Err(err) => {
         error = Some(err);
@@ -1033,7 +1033,7 @@ fn serves_tls_requests_with_cert_from_cache_directory() {
       context.write("file", "encrypted content");
       let client = https_client(&context, root_certificate).await;
       let response = client
-        .get(context.tls_files_url().join("file").unwrap())
+        .get(context.https_files_url().join("file").unwrap())
         .send()
         .await
         .unwrap();

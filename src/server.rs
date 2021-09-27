@@ -180,7 +180,7 @@ impl Server {
     TestContext {
       base_url: http_url.clone(),
       files_url: http_url.join("files/").unwrap(),
-      tls_files_url: self
+      https_files_url: self
         .https_request_handler
         .as_ref()
         .map(|handler| handler.https_port())
@@ -205,7 +205,7 @@ pub(crate) struct TestContext {
   base_url: reqwest::Url,
   files_directory: std::path::PathBuf,
   files_url: reqwest::Url,
-  tls_files_url: Option<reqwest::Url>,
+  https_files_url: Option<reqwest::Url>,
   https_redirect_port: Option<u16>,
   working_directory: std::path::PathBuf,
 }
@@ -216,8 +216,8 @@ impl TestContext {
     &self.files_url
   }
 
-  pub(crate) fn tls_files_url(&self) -> &reqwest::Url {
-    self.tls_files_url.as_ref().unwrap()
+  pub(crate) fn https_files_url(&self) -> &reqwest::Url {
+    self.https_files_url.as_ref().unwrap()
   }
 
   pub(crate) fn https_redirect_port(&self) -> u16 {
