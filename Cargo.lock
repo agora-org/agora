@@ -83,7 +83,6 @@ version = "0.0.7"
 dependencies = [
  "agora-lnd-client",
  "async-rustls",
- "async-std",
  "backtrace",
  "bardecoder",
  "bytes",
@@ -275,7 +274,6 @@ dependencies = [
  "futures-lite",
  "num_cpus",
  "once_cell",
- "tokio",
 ]
 
 [[package]]

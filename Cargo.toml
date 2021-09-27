@@ -43,10 +43,6 @@ tonic = "0.4.3"
 path = "agora-lnd-client"
 version = "0.0.1"
 
-[dependencies.async-std]
-version = "1.10.0"
-features = ["tokio1"]
-
 [dependencies.hyper]
 version = "0.14.7"
 features = ["server", "stream", "tcp", "http1", "http2"]
@@ -102,7 +98,7 @@ features = ["x509-parser"]
 
 [dev-dependencies.reqwest]
 version = "0.11.3"
-features = ["blocking", "stream", "rustls-tls"]
+features = ["blocking", "stream"]
 default-features = false
 
 [[test]]
