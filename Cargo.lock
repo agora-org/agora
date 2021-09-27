@@ -89,7 +89,6 @@ dependencies = [
  "bytes",
  "chromiumoxide",
  "color-backtrace",
- "cradle 0.0.24",
  "executable-path",
  "form_urlencoded",
  "futures",
@@ -99,7 +98,6 @@ dependencies = [
  "http",
  "hyper",
  "image",
- "indoc",
  "lexiclean",
  "libc",
  "lightning-invoice",
@@ -142,7 +140,7 @@ dependencies = [
 name = "agora-lnd-client"
 version = "0.0.1"
 dependencies = [
- "cradle 0.0.21",
+ "cradle",
  "hex",
  "hex-literal",
  "http",
@@ -154,11 +152,9 @@ dependencies = [
  "pretty_assertions",
  "prost",
  "regex",
- "reqwest",
  "serde",
  "serde_yaml",
  "sha2",
- "snafu",
  "tempfile",
  "tokio",
  "tonic",
@@ -845,15 +841,6 @@ name = "cradle"
 version = "0.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b1164a87f6f56a255b85adc678e3d6e46ca3ad9331b79461ac706fc783c103c"
-dependencies = [
- "rustversion",
-]
-
-[[package]]
-name = "cradle"
-version = "0.0.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe8e5c2b25f94945117dc30a77289cd34b5ae21093614a48f5e6b5969990013a"
 dependencies = [
  "rustversion",
 ]
@@ -1710,15 +1697,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "indoc"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5a75aeaaef0ce18b58056d306c27b07436fbb34b8816c53094b76dd81803136"
-dependencies = [
- "unindent",
-]
-
-[[package]]
 name = "infer"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1880,7 +1858,7 @@ dependencies = [
 name = "lnd-test-context"
 version = "0.0.0"
 dependencies = [
- "cradle 0.0.21",
+ "cradle",
  "hex-literal",
  "lazy_static",
  "pretty_assertions",
@@ -2630,7 +2608,7 @@ name = "publish"
 version = "0.0.0"
 dependencies = [
  "cargo_metadata",
- "cradle 0.0.21",
+ "cradle",
  "structopt",
  "tempfile",
 ]
