@@ -50,7 +50,7 @@ impl Server {
         )
         .await?;
         let https_redirect_server =
-          HttpsRedirectService::new_server(&arguments, &https_request_handler)?;
+          HttpsRedirectService::new_server(&environment, &arguments, &https_request_handler)?;
         (Some(https_request_handler), https_redirect_server)
       } else {
         (None, None)

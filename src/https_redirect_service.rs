@@ -1,14 +1,18 @@
 use crate::{
   arguments::Arguments,
+  environment::Environment,
   error::{self, Result},
+  error_page,
   https_request_handler::HttpsRequestHandler,
   redirect::redirect,
+  stderr::Stderr,
 };
 use http::uri::Authority;
 use hyper::server::conn::AddrIncoming;
 use hyper::{header, Body, Request, Response};
 use snafu::ResultExt;
 use std::{
+  convert::Infallible,
   future,
   net::ToSocketAddrs,
   task::{Context, Poll},
@@ -19,14 +23,17 @@ use tower::Service;
 #[derive(Clone)]
 pub(crate) struct HttpsRedirectService {
   https_port: u16,
+  stderr: Stderr,
 }
 
 impl HttpsRedirectService {
   pub(crate) fn new_server(
+    environment: &Environment,
     arguments: &Arguments,
     https_request_handler: &HttpsRequestHandler,
   ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
     match arguments.https_redirect_port {
+      None => Ok(None),
       Some(https_redirect_port) => {
         let socket_addr = (arguments.address.as_str(), https_redirect_port)
           .to_socket_addrs()
@@ -41,20 +48,33 @@ impl HttpsRedirectService {
             .build()
           })?;
 
-        let server = hyper::Server::bind(&socket_addr).serve(Shared::new(HttpsRedirectService {
-          https_port: https_request_handler.https_port(),
-        }));
-
-        Ok(Some(server))
+        Ok(Some(hyper::Server::bind(&socket_addr).serve(Shared::new(
+          HttpsRedirectService {
+            https_port: https_request_handler.https_port(),
+            stderr: environment.stderr.clone(),
+          },
+        ))))
       }
-      None => Ok(None),
     }
+  }
+
+  fn bar(&mut self, request: Request<Body>) -> Result<Response<Body>> {
+    let authority = request.headers().get(header::HOST).unwrap();
+
+    let authority = Authority::from_maybe_shared(authority.to_str().unwrap().to_string()).unwrap();
+
+    redirect(format!(
+      "https://{}:{}{}",
+      authority.host(),
+      self.https_port,
+      request.uri()
+    ))
   }
 }
 
 impl Service<Request<Body>> for HttpsRedirectService {
   type Response = Response<Body>;
-  type Error = http::Error;
+  type Error = Infallible;
   type Future = future::Ready<Result<Self::Response, Self::Error>>;
 
   fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -62,18 +82,7 @@ impl Service<Request<Body>> for HttpsRedirectService {
   }
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
-    let authority = request.headers().get(header::HOST).unwrap();
-
-    let authority = Authority::from_maybe_shared(authority.to_str().unwrap().to_string()).unwrap();
-
-    future::ready(Ok(
-      redirect(format!(
-        "https://{}:{}{}",
-        authority.host(),
-        self.https_port,
-        request.uri()
-      ))
-      .unwrap(),
-    ))
+    let result = self.bar(request);
+    future::ready(error_page::map_error(&mut self.stderr, result))
   }
 }

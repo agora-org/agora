@@ -9,6 +9,7 @@ mod arguments;
 mod config;
 mod environment;
 mod error;
+mod error_page;
 mod file_stream;
 mod files;
 mod html;
