@@ -15,7 +15,7 @@ use tower::make::Shared;
 
 pub(crate) struct Server {
   http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
-  tls_request_handler: Option<HttpsRequestHandler>,
+  https_request_handler: Option<HttpsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
@@ -37,11 +37,11 @@ impl Server {
       None => None,
     };
 
-    let (tls_request_handler, https_redirect_server) =
+    let (https_request_handler, https_redirect_server) =
       if let Some(https_port) = arguments.https_port {
         let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
         let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
-        let tls_request_handler = HttpsRequestHandler::new(
+        let https_request_handler = HttpsRequestHandler::new(
           environment,
           &arguments,
           acme_cache_directory,
@@ -50,15 +50,15 @@ impl Server {
         )
         .await?;
         let https_redirect_server =
-          HttpsRedirectService::new_server(&arguments, &tls_request_handler)?;
-        (Some(tls_request_handler), https_redirect_server)
+          HttpsRedirectService::new_server(&arguments, &https_request_handler)?;
+        (Some(https_request_handler), https_redirect_server)
       } else {
         (None, None)
       };
 
     Ok(Self {
       http_request_handler,
-      tls_request_handler,
+      https_request_handler,
       https_redirect_server,
       #[cfg(test)]
       directory,
@@ -157,7 +157,7 @@ impl Server {
     futures::try_join!(
       OptionFuture::from(self.http_request_handler)
         .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
-      OptionFuture::from(self.tls_request_handler.map(|x| x.run())).map(Ok),
+      OptionFuture::from(self.https_request_handler.map(|x| x.run())).map(Ok),
       OptionFuture::from(self.https_redirect_server)
         .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
     )?;
@@ -181,7 +181,7 @@ impl Server {
       base_url: http_url.clone(),
       files_url: http_url.join("files/").unwrap(),
       tls_files_url: self
-        .tls_request_handler
+        .https_request_handler
         .as_ref()
         .map(|handler| handler.https_port())
         .map(|https_port| {

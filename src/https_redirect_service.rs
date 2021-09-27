@@ -24,7 +24,7 @@ pub(crate) struct HttpsRedirectService {
 impl HttpsRedirectService {
   pub(crate) fn new_server(
     arguments: &Arguments,
-    tls_request_handler: &HttpsRequestHandler,
+    https_request_handler: &HttpsRequestHandler,
   ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
     match arguments.https_redirect_port {
       Some(https_redirect_port) => {
@@ -42,7 +42,7 @@ impl HttpsRedirectService {
           })?;
 
         let server = hyper::Server::bind(&socket_addr).serve(Shared::new(HttpsRedirectService {
-          https_port: tls_request_handler.https_port(),
+          https_port: https_request_handler.https_port(),
         }));
 
         Ok(Some(server))
