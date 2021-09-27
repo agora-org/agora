@@ -1019,7 +1019,7 @@ async fn https_client(context: &TestContext, root_certificate: Certificate) -> C
 }
 
 #[test]
-fn serves_tls_requests_with_cert_from_cache_directory() {
+fn serves_https_requests_with_cert_from_cache_directory() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 
   test_with_arguments(

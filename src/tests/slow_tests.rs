@@ -412,7 +412,7 @@ fn serves_multiple_clients_through_tls() {
       }
       let mut handles = Vec::new();
       for client in clients {
-        let url = context.tls_files_url().join("file").unwrap();
+        let url = context.https_files_url().join("file").unwrap();
         handles.push(tokio::spawn(async move {
           client.get(url).send().await.unwrap();
         }));
