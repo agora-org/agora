@@ -41,10 +41,6 @@ termcolor = "1.1.2"
 tokio-rustls = "0.22.0"
 tonic = "0.4.3"
 
-[dependencies.tokio-stream]
-version = "0.1.7"
-features = ["net"]
-
 [dependencies.agora-lnd-client]
 path = "agora-lnd-client"
 version = "0.0.1"
@@ -73,6 +69,10 @@ features = ["wrap_help"]
 version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
 
+[dependencies.tokio-stream]
+version = "0.1.7"
+features = ["net"]
+
 [dependencies.tower]
 version = "0.4.6"
 features = ["make"]
@@ -95,6 +95,9 @@ tiny-skia = "0.5.1"
 unindent = "0.1.7"
 usvg = "0.15.0"
 
+[dev-dependencies.lnd-test-context]
+path = "lnd-test-context"
+
 [dev-dependencies.rcgen]
 version = "0.8.13"
 features = ["x509-parser"]
@@ -103,9 +106,6 @@ features = ["x509-parser"]
 version = "0.11.3"
 features = ["blocking", "stream", "rustls-tls"]
 default-features = false
-
-[dev-dependencies.lnd-test-context]
-path = "lnd-test-context"
 
 [[test]]
 name = "integration"
