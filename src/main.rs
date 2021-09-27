@@ -13,6 +13,7 @@ mod file_stream;
 mod files;
 mod html;
 mod https_redirect_service;
+mod https_request_handler;
 mod input_path;
 mod redirect;
 mod request_handler;
@@ -21,7 +22,6 @@ mod static_assets;
 mod stderr;
 #[cfg(test)]
 mod tests;
-mod tls_request_handler;
 
 #[tokio::main]
 async fn main() {

@@ -1,8 +1,8 @@
 use crate::{
   arguments::Arguments,
   error::{self, Result},
+  https_request_handler::HttpsRequestHandler,
   redirect::redirect,
-  tls_request_handler::TlsRequestHandler,
 };
 use http::uri::Authority;
 use hyper::server::conn::AddrIncoming;
@@ -24,7 +24,7 @@ pub(crate) struct HttpsRedirectService {
 impl HttpsRedirectService {
   pub(crate) fn new_server(
     arguments: &Arguments,
-    tls_request_handler: &TlsRequestHandler,
+    tls_request_handler: &HttpsRequestHandler,
   ) -> Result<Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>> {
     match arguments.https_redirect_port {
       Some(https_redirect_port) => {

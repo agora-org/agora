@@ -3,8 +3,8 @@ use crate::{
   environment::Environment,
   error::{self, Result},
   https_redirect_service::HttpsRedirectService,
+  https_request_handler::HttpsRequestHandler,
   request_handler::RequestHandler,
-  tls_request_handler::TlsRequestHandler,
 };
 use futures::{future::OptionFuture, FutureExt};
 use hyper::server::conn::AddrIncoming;
@@ -15,7 +15,7 @@ use tower::make::Shared;
 
 pub(crate) struct Server {
   http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
-  tls_request_handler: Option<TlsRequestHandler>,
+  tls_request_handler: Option<HttpsRequestHandler>,
   https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
@@ -41,7 +41,7 @@ impl Server {
       if let Some(https_port) = arguments.https_port {
         let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
         let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
-        let tls_request_handler = TlsRequestHandler::new(
+        let tls_request_handler = HttpsRequestHandler::new(
           environment,
           &arguments,
           acme_cache_directory,

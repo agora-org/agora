@@ -19,21 +19,21 @@ use tokio_rustls::{
 };
 use tokio_stream::wrappers::TcpListenerStream;
 
-pub(crate) struct TlsRequestHandler {
+pub(crate) struct HttpsRequestHandler {
   request_handler: RequestHandler,
   https_port: u16,
   tcp_listener_stream: TcpListenerStream,
   resolver: Arc<ResolvesServerCertUsingAcme>,
 }
 
-impl TlsRequestHandler {
+impl HttpsRequestHandler {
   pub(crate) async fn new(
     environment: &mut Environment,
     arguments: &Arguments,
     acme_cache_directory: &Path,
     https_port: u16,
     lnd_client: Option<agora_lnd_client::Client>,
-  ) -> Result<TlsRequestHandler> {
+  ) -> Result<HttpsRequestHandler> {
     simple_logger::SimpleLogger::new()
       .with_level(log::LevelFilter::Info)
       .init()
@@ -81,7 +81,7 @@ impl TlsRequestHandler {
         )
         .await;
     });
-    Ok(TlsRequestHandler {
+    Ok(HttpsRequestHandler {
       request_handler,
       https_port,
       tcp_listener_stream: TcpListenerStream::new(listener),
