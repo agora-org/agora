@@ -13,18 +13,18 @@ use structopt::{
 pub(crate) struct Arguments {
   #[structopt(
     long,
-    help = "Cache directory for TLS certificates fetched via ACME protocol. Let's Encrypt is the only supported ACME provider."
+    help = "Store TLS certificates fetched from Let's Encrypt via ACME protocol in <acme-cache-directory>."
   )]
   pub(crate) acme_cache_directory: Option<PathBuf>,
   #[structopt(
     long,
-    help = "Request TLS certificate for <acme-domain>. This agora instance must be reachable at <acme-domain>:443 to respond to ACME challenges."
+    help = "Request TLS certificate for <acme-domain>. This agora instance must be reachable at <acme-domain>:443 to respond to Let's Encrypt ACME challenges."
   )]
   pub(crate) acme_domain: Vec<String>,
   #[structopt(
     long,
     default_value = "0.0.0.0",
-    help = "Listen on <address> for incoming requests"
+    help = "Listen on <address> for incoming requests."
   )]
   pub(crate) address: String,
   #[structopt(long, help = "Serve files from <directory>")]
@@ -32,19 +32,19 @@ pub(crate) struct Arguments {
   #[structopt(
     long,
     group = "port",
-    help = "Listen on <http-port> for incoming HTTP requests"
+    help = "Listen on <http-port> for incoming HTTP requests."
   )]
   pub(crate) http_port: Option<u16>,
   #[structopt(
     long,
     group = "port",
-    help = "Port to listen on for incoming HTTPS requests",
+    help = "Listen on <https-port> for incoming HTTPS requests.",
     requires_all = &["acme-cache-directory", "acme-domain"]
   )]
   pub(crate) https_port: Option<u16>,
   #[structopt(
     long,
-    help = "Port to redirect to HTTPS through HTTP",
+    help = "Redirect HTTP requests on <https-redirect-port> to HTTPS on <https-port>.",
     requires = "https-port"
   )]
   pub(crate) https_redirect_port: Option<u16>,
