@@ -13,7 +13,7 @@ use structopt::{
 pub(crate) struct Arguments {
   #[structopt(
     long,
-    help = "Store TLS certificates fetched from Let's Encrypt via ACME protocol in <acme-cache-directory>."
+    help = "Store TLS certificates fetched from Let's Encrypt via the ACME protocol in <acme-cache-directory>."
   )]
   pub(crate) acme_cache_directory: Option<PathBuf>,
   #[structopt(
@@ -76,12 +76,19 @@ mod tests {
   #[test]
   fn https_redirect_port_requires_https_port() {
     assert_contains(
-      &Arguments::from_iter_safe(&["agora", "--directory=www", "--https-redirect-port=0"])
-        .unwrap_err()
-        .to_string(),
+      &Arguments::from_iter_safe(&[
+        "agora",
+        "--directory=www",
+        "--https-redirect-port=0",
+        "--http-port=0",
+      ])
+      .unwrap_err()
+      .to_string(),
       &"
         The following required arguments were not provided:
-            <--http-port <http-port>|--https-port <https-port>>
+            --acme-cache-directory <acme-cache-directory>
+            --acme-domain <acme-domain>...
+            --https-port <https-port>
       "
       .unindent(),
     );
