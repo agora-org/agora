@@ -44,6 +44,12 @@ pub(crate) enum Error {
     backtrace: Backtrace,
     source: io::Error,
   },
+  #[snafu(display("{}", message))]
+  Custom {
+    backtrace: Backtrace,
+    status_code: StatusCode,
+    message: String,
+  },
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo {
     backtrace: Backtrace,
@@ -192,6 +198,7 @@ impl Error {
       | ServerRun { .. }
       | SocketIo { .. }
       | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      Custom { status_code, .. } => *status_code,
     }
   }
 

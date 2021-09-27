@@ -9,7 +9,7 @@ use crate::{
 };
 use http::uri::Authority;
 use hyper::server::conn::AddrIncoming;
-use hyper::{header, Body, Request, Response};
+use hyper::{header, Body, Request, Response, StatusCode};
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
@@ -58,10 +58,27 @@ impl HttpsRedirectService {
     }
   }
 
-  fn bar(&mut self, request: Request<Body>) -> Result<Response<Body>> {
-    let authority = request.headers().get(header::HOST).unwrap();
+  fn response(&mut self, request: Request<Body>) -> Result<Response<Body>> {
+    let authority = request.headers().get(header::HOST).ok_or_else(|| {
+      error::Custom {
+        message: "Missing HOST header",
+        status_code: StatusCode::BAD_REQUEST,
+      }
+      .build()
+    })?;
 
-    let authority = Authority::from_maybe_shared(authority.to_str().unwrap().to_string()).unwrap();
+    let authority =
+      Authority::from_maybe_shared(authority.as_bytes().to_vec()).map_err(|error| {
+        error::Custom {
+          message: format!(
+            "Invalid HOST header `{}`: {}",
+            String::from_utf8_lossy(authority.as_bytes()),
+            error
+          ),
+          status_code: StatusCode::BAD_REQUEST,
+        }
+        .build()
+      })?;
 
     redirect(format!(
       "https://{}:{}{}",
@@ -82,7 +99,7 @@ impl Service<Request<Body>> for HttpsRedirectService {
   }
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
-    let result = self.bar(request);
-    future::ready(error_page::map_error(&mut self.stderr, result))
+    let result = self.response(request);
+    future::ready(error_page::map_error(self.stderr.clone(), result))
   }
 }
