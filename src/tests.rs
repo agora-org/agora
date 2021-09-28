@@ -968,9 +968,6 @@ fn set_up_test_certificate() -> (TempDir, Certificate) {
     .unwrap();
     params
       .subject_alt_names
-      .push(SanType::DnsName("test.agora.download".to_string()));
-    params
-      .subject_alt_names
       .push(SanType::DnsName("localhost".to_string()));
     Certificate::from_params(params).unwrap()
   };
