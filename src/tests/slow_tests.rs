@@ -394,7 +394,7 @@ fn filenames_with_percent_encoding() {
 }
 
 #[test]
-fn serves_multiple_clients_through_tls() {
+fn serves_multiple_clients_through_https() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 
   test_with_arguments(
@@ -414,7 +414,7 @@ fn serves_multiple_clients_through_tls() {
       for client in clients {
         let url = context.https_files_url().join("file").unwrap();
         handles.push(tokio::spawn(async move {
-          client.get(url).send().await.unwrap();
+          assert_eq!(client.get(url).send().await.unwrap().text().await().unwrap(), "encrypted content");
         }));
       }
       for handle in handles {
