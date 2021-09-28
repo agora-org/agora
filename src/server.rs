@@ -39,7 +39,10 @@ impl Server {
 
     let (https_request_handler, https_redirect_server) =
       if let Some(https_port) = arguments.https_port {
-        let acme_cache_directory = arguments.acme_cache_directory.as_ref().unwrap();
+        let acme_cache_directory = arguments
+          .acme_cache_directory
+          .as_ref()
+          .expect("<https-port> requires <acme-cache-directory>");
         let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
         let https_request_handler = HttpsRequestHandler::new(
           environment,
