@@ -1085,6 +1085,7 @@ fn redirects_requests_from_port_80_to_443() {
         .send()
         .await
         .unwrap();
+      assert!(response.url().to_string().starts_with("https:"));
       let body = response.text().await.unwrap();
       assert_eq!(body, "encrypted content");
     },
