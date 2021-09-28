@@ -40,7 +40,7 @@ impl Environment {
       arguments: vec![
         "agora".into(),
         "--address=localhost".into(),
-        "--port=0".into(),
+        "--http-port=0".into(),
         "--directory=www".into(),
       ],
       stderr: Stderr::test(),

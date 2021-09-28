@@ -1,8 +1,8 @@
 use crate::{
   environment::Environment,
   error::{self, Error, Result},
+  error_page,
   files::Files,
-  html,
   input_path::InputPath,
   redirect::redirect,
   static_assets::StaticAssets,
@@ -14,11 +14,9 @@ use hyper::{
   service::Service,
   Body, Request, Response,
 };
-use maud::html;
 use snafu::ResultExt;
 use std::{
   convert::Infallible,
-  io::Write,
   path::Path,
   task::{self, Poll},
 };
@@ -41,26 +39,7 @@ impl RequestHandler {
     }
   }
 
-  async fn response(self, request: Request<Body>) -> Response<Body> {
-    let mut stderr = self.stderr.clone();
-
-    match self.response_result(request).await {
-      Ok(response) => response,
-      Err(error) => {
-        error.print_backtrace(&mut stderr);
-        writeln!(stderr, "{}", error).ok();
-        let mut response = html::wrap_body(html! {
-          h1 {
-            (error.status())
-          }
-        });
-        *response.status_mut() = error.status();
-        response
-      }
-    }
-  }
-
-  async fn response_result(mut self, request: Request<Body>) -> Result<Response<Body>> {
+  async fn response(mut self, request: Request<Body>) -> Result<Response<Body>> {
     tokio::spawn(async move { self.dispatch(request).await.map(Self::add_global_headers) })
       .await
       .context(error::RequestHandlerPanic)?
@@ -130,6 +109,11 @@ impl Service<Request<Body>> for RequestHandler {
   }
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
-    self.clone().response(request).map(Ok).boxed()
+    let stderr = self.stderr.clone();
+    self
+      .clone()
+      .response(request)
+      .map(move |result| error_page::map_error(stderr, result))
+      .boxed()
   }
 }
