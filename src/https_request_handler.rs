@@ -34,10 +34,6 @@ impl HttpsRequestHandler {
     https_port: u16,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Result<HttpsRequestHandler> {
-    simple_logger::SimpleLogger::new()
-      .with_level(log::LevelFilter::Info)
-      .init()
-      .ok();
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     let socket_addr = (arguments.address.as_str(), https_port)
       .to_socket_addrs()
@@ -68,6 +64,7 @@ impl HttpsRequestHandler {
     let resolver = ResolvesServerCertUsingAcme::new();
     let resolver_clone = resolver.clone();
     let acme_domains = arguments.acme_domain.clone();
+    assert!(!acme_domains.is_empty());
     task::spawn(async move {
       resolver_clone
         .run(

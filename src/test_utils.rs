@@ -91,6 +91,7 @@ where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
 {
+  env_logger::builder().is_test(true).try_init().ok();
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()

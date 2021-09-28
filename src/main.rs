@@ -26,6 +26,7 @@ mod tests;
 
 #[tokio::main]
 async fn main() {
+  env_logger::init();
   if let Err(error) = run().await {
     if let crate::error::Error::Clap { source, .. } = error {
       source.exit();
