@@ -22,7 +22,7 @@ use tokio_stream::wrappers::TcpListenerStream;
 pub(crate) struct HttpsRequestHandler {
   request_handler: RequestHandler,
   https_port: u16,
-  tcp_listener_stream: TcpListenerStream,
+  listener: tokio::net::TcpListener,
   resolver: Arc<ResolvesServerCertUsingAcme>,
 }
 
@@ -81,14 +81,15 @@ impl HttpsRequestHandler {
     Ok(HttpsRequestHandler {
       request_handler,
       https_port,
-      tcp_listener_stream: TcpListenerStream::new(listener),
+      listener,
       resolver,
     })
   }
 
-  pub(crate) async fn run(mut self) {
+  pub(crate) async fn run(self) {
     let tls_acceptor = TlsAcceptor::new(self.resolver);
-    while let Some(result) = self.tcp_listener_stream.next().await {
+    let mut tcp_listener_stream = TcpListenerStream::new(self.listener);
+    while let Some(result) = tcp_listener_stream.next().await {
       match result {
         Ok(connection) => {
           let request_handler = self.request_handler.clone();
