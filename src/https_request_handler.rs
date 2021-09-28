@@ -11,7 +11,12 @@ use rustls_acme::{
   ResolvesServerCertUsingAcme,
 };
 use snafu::ResultExt;
-use std::{io::Write, net::ToSocketAddrs, path::Path, sync::Arc};
+use std::{
+  io::Write,
+  net::ToSocketAddrs,
+  path::{Path, PathBuf},
+  sync::Arc,
+};
 use tokio::task;
 use tokio_rustls::{
   rustls::{NoClientAuth, ServerConfig, Session},
@@ -23,7 +28,8 @@ pub(crate) struct HttpsRequestHandler {
   request_handler: RequestHandler,
   https_port: u16,
   listener: tokio::net::TcpListener,
-  resolver: Arc<ResolvesServerCertUsingAcme>,
+  cache_dir: PathBuf,
+  acme_domains: Vec<String>,
 }
 
 impl HttpsRequestHandler {
@@ -61,10 +67,21 @@ impl HttpsRequestHandler {
     .context(error::StderrWrite)?;
     let https_port = local_addr.port();
     let cache_dir = environment.working_directory.join(acme_cache_directory);
+    assert!(!arguments.acme_domain.is_empty());
+    Ok(HttpsRequestHandler {
+      acme_domains: arguments.acme_domain.clone(),
+      request_handler,
+      https_port,
+      listener,
+      cache_dir,
+    })
+  }
+
+  pub(crate) async fn run(self) {
     let resolver = ResolvesServerCertUsingAcme::new();
     let resolver_clone = resolver.clone();
-    let acme_domains = arguments.acme_domain.clone();
-    assert!(!acme_domains.is_empty());
+    let acme_domains = self.acme_domains.clone();
+    let cache_dir = self.cache_dir.clone();
     task::spawn(async move {
       resolver_clone
         .run(
@@ -78,24 +95,22 @@ impl HttpsRequestHandler {
         )
         .await;
     });
-    Ok(HttpsRequestHandler {
-      request_handler,
-      https_port,
-      listener,
-      resolver,
-    })
-  }
-
-  pub(crate) async fn run(self) {
-    let tls_acceptor = TlsAcceptor::new(self.resolver);
+    let mut config = ServerConfig::new(NoClientAuth::new());
+    config.set_protocols(&[
+      ACME_TLS_ALPN_NAME.to_vec(),
+      b"h2".to_vec(),
+      b"http/1.1".to_vec(),
+    ]);
+    config.cert_resolver = resolver;
+    let config = Arc::new(config);
     let mut tcp_listener_stream = TcpListenerStream::new(self.listener);
     while let Some(result) = tcp_listener_stream.next().await {
       match result {
         Ok(connection) => {
           let request_handler = self.request_handler.clone();
-          let tls_acceptor = tls_acceptor.clone();
+          let config = config.clone();
           tokio::spawn(async move {
-            match tls_acceptor.accept(connection).await {
+            match Self::accept(config, connection).await {
               Ok(Some(tls_stream)) => {
                 Http::new()
                   .serve_connection(tls_stream, request_handler)
@@ -114,35 +129,14 @@ impl HttpsRequestHandler {
     }
   }
 
-  pub(crate) fn https_port(&self) -> u16 {
-    self.https_port
-  }
-}
-
-#[derive(Clone)]
-pub(crate) struct TlsAcceptor {
-  config: Arc<ServerConfig>,
-}
-
-impl TlsAcceptor {
-  pub(crate) fn new(resolver: Arc<ResolvesServerCertUsingAcme>) -> Self {
-    let mut config = ServerConfig::new(NoClientAuth::new());
-    config.set_protocols(&[
-      ACME_TLS_ALPN_NAME.to_vec(),
-      b"h2".to_vec(),
-      b"http/1.1".to_vec(),
-    ]);
-    config.cert_resolver = resolver;
-    Self {
-      config: Arc::new(config),
-    }
-  }
-
-  pub(crate) async fn accept<IO>(&self, stream: IO) -> std::io::Result<Option<TlsStream<IO>>>
+  pub(crate) async fn accept<IO>(
+    config: Arc<ServerConfig>,
+    stream: IO,
+  ) -> std::io::Result<Option<TlsStream<IO>>>
   where
     IO: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
   {
-    let tls = tokio_rustls::TlsAcceptor::from(self.config.clone())
+    let tls = tokio_rustls::TlsAcceptor::from(config.clone())
       .accept(stream)
       .await?;
     if tls.get_ref().1.get_alpn_protocol() == Some(ACME_TLS_ALPN_NAME) {
@@ -150,5 +144,9 @@ impl TlsAcceptor {
       return Ok(None);
     }
     Ok(Some(tls))
+  }
+
+  pub(crate) fn https_port(&self) -> u16 {
+    self.https_port
   }
 }
