@@ -129,13 +129,10 @@ impl HttpsRequestHandler {
     }
   }
 
-  pub(crate) async fn accept<IO>(
+  pub(crate) async fn accept(
     config: Arc<ServerConfig>,
-    stream: IO,
-  ) -> std::io::Result<Option<TlsStream<IO>>>
-  where
-    IO: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
-  {
+    stream: tokio::net::TcpStream,
+  ) -> std::io::Result<Option<TlsStream<tokio::net::TcpStream>>> {
     let tls = tokio_rustls::TlsAcceptor::from(config.clone())
       .accept(stream)
       .await?;
