@@ -14,7 +14,7 @@ body {
 .listing > li {
   border-bottom: 0.0625rem solid black;
   display: flex;
-  font-family: "Courier New", Courier, monospace;
+  font-family: monospace;
   height: 1.5rem;
   justify-content: space-between;
 }
@@ -56,7 +56,7 @@ body {
 }
 
 .invoice > .payment-request {
-  font-family: "Courier New", Courier, monospace;
+  font-family: monospace;
   overflow-wrap: anywhere;
   position: relative;
   background-color: #ddd;
@@ -85,7 +85,7 @@ body {
 }
 
 .filename {
-  font-family: "Courier New", Courier, monospace;
+  font-family: monospace;
 }
 
 .invoice .clipboard-copy {
