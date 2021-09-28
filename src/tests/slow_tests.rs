@@ -407,14 +407,17 @@ fn serves_multiple_clients_through_https() {
     |context| async move {
       context.write("file", "encrypted content");
       let mut clients = Vec::new();
-      for _ in 0..100 {
+      for _ in 0..20 {
         clients.push(https_client(&context, root_certificate.clone()).await)
       }
       let mut handles = Vec::new();
       for client in clients {
         let url = context.https_files_url().join("file").unwrap();
         handles.push(tokio::spawn(async move {
-          assert_eq!(client.get(url).send().await.unwrap().text().await().unwrap(), "encrypted content");
+          assert_eq!(
+            client.get(url).send().await.unwrap().text().await.unwrap(),
+            "encrypted content"
+          );
         }));
       }
       for handle in handles {
