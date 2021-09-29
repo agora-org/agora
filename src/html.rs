@@ -1,5 +1,6 @@
-use hyper::{header, Body, Response};
-use maud::{html, Markup, DOCTYPE};
+use crate::common::*;
+
+use maud::{html, DOCTYPE};
 
 pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
   let html = html! {

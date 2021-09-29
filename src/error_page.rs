@@ -1,11 +1,6 @@
-use crate::{
-  error::{Error, Result},
-  html,
-  stderr::Stderr,
-};
-use hyper::{Body, Response};
+use crate::common::*;
+
 use maud::html;
-use std::{convert::Infallible, io::Write};
 
 pub(crate) fn map_error(
   mut stderr: Stderr,

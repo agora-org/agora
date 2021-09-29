@@ -1,16 +1,7 @@
-use crate::{
-  error::{Error, Result},
-  input_path::InputPath,
-};
-use futures::Stream;
+use crate::common::*;
+
 use hyper::body::Bytes;
 use pin_project::pin_project;
-use snafu::ResultExt;
-use std::{
-  mem::MaybeUninit,
-  pin::Pin,
-  task::{self, Poll},
-};
 use tokio::{
   fs::File,
   io::{AsyncRead, ReadBuf},
@@ -37,7 +28,7 @@ impl FileStream {
 impl Stream for FileStream {
   type Item = Result<Bytes>;
 
-  fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+  fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
     let data = &mut [MaybeUninit::uninit(); 8 * 1024];
     let mut buf = ReadBuf::uninit(data);
 

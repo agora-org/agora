@@ -1,24 +1,6 @@
-use crate::{
-  arguments::Arguments,
-  environment::Environment,
-  error::{self, Result},
-  error_page,
-  https_request_handler::HttpsRequestHandler,
-  redirect::redirect,
-  stderr::Stderr,
-};
-use http::uri::Authority;
-use hyper::server::conn::AddrIncoming;
-use hyper::{header, Body, Request, Response, StatusCode};
-use snafu::ResultExt;
-use std::{
-  convert::Infallible,
-  future,
-  net::ToSocketAddrs,
-  task::{Context, Poll},
-};
+use crate::common::*;
+
 use tower::make::Shared;
-use tower::Service;
 
 #[derive(Clone)]
 pub(crate) struct HttpsRedirectService {

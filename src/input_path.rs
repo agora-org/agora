@@ -1,10 +1,7 @@
-use crate::{
-  environment::Environment,
-  error::{self, Error, Result},
-};
+use crate::common::*;
+
 use mime_guess::MimeGuess;
-use std::fmt::Debug;
-use std::path::{Component, Path, PathBuf};
+use std::path::Component;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {

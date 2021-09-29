@@ -1,11 +1,9 @@
-use crate::{
-  environment::Environment,
-  server::{Server, TestContext},
-};
+use crate::common::*;
+
+use crate::server::TestContext;
 #[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;
-use std::{ffi::OsString, future::Future, panic};
-use tokio::task;
+use std::panic;
 
 macro_rules! assert_matches {
   ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {
@@ -100,8 +98,8 @@ where
       let server = Server::setup(environment).await.unwrap();
       let test_context = server.test_context(environment);
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      let test_result = task::LocalSet::new()
-        .run_until(async move { task::spawn_local(test_function(test_context)).await })
+      let test_result = tokio::task::LocalSet::new()
+        .run_until(async move { tokio::task::spawn_local(test_function(test_context)).await })
         .await;
       if let Err(test_join_error) = test_result {
         eprintln!("stderr from server: {}", environment.stderr.contents());

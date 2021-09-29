@@ -1,5 +1,4 @@
-use crate::error::{Error, Result};
-use hyper::{header, Body, Response, StatusCode};
+use crate::common::*;
 
 pub(crate) fn redirect(location: String) -> Result<Response<Body>> {
   Response::builder()

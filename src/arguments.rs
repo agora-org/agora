@@ -1,9 +1,6 @@
-use http::uri::Authority;
-use std::path::PathBuf;
-use structopt::{
-  clap::{AppSettings, ArgGroup},
-  StructOpt,
-};
+use crate::common::*;
+
+use structopt::clap::{AppSettings, ArgGroup};
 
 #[derive(Debug, StructOpt)]
 #[structopt(
