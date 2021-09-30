@@ -16,10 +16,14 @@ struct Browser {
 
 impl Browser {
   async fn new() -> Self {
-    let (inner, mut handler) =
-      chromiumoxide::Browser::launch(dbg!(BrowserConfig::builder().build().unwrap()))
-        .await
-        .unwrap();
+    let (inner, mut handler) = chromiumoxide::Browser::launch(
+      BrowserConfig::builder()
+        .arg("--allow-insecure-localhost")
+        .build()
+        .unwrap(),
+    )
+    .await
+    .unwrap();
 
     let handle = task::spawn(async move {
       loop {
@@ -55,7 +59,7 @@ impl Drop for Browser {
 
 #[test]
 fn copy_payment_request_to_clipboard() {
-  let (certificate_cache, root_certificate) = set_up_test_certificate();
+  let (certificate_cache, _) = set_up_test_certificate();
 
   let lnd_test_context = LndTestContext::new_blocking();
 
@@ -85,15 +89,23 @@ fn copy_payment_request_to_clipboard() {
         .await
         .unwrap();
 
-      dbg!(page.content().await.unwrap());
-
-      // some error
-
       eprintln!("Clearing clipboard…");
       page
         .evaluate("navigator.clipboard.writeText('placeholder text')")
         .await
         .unwrap();
+
+      assert_eq!(
+        page
+          .evaluate(
+            "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
+          )
+          .await
+          .unwrap()
+          .into_value::<String>()
+          .unwrap(),
+        "none"
+      );
 
       eprintln!("Clicking clipboard copy button…");
       page
@@ -103,6 +115,18 @@ fn copy_payment_request_to_clipboard() {
         .hover()
         .await
         .unwrap();
+
+      assert_eq!(
+        page
+          .evaluate(
+            "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
+          )
+          .await
+          .unwrap()
+          .into_value::<String>()
+          .unwrap(),
+        "block"
+      );
 
       page
         .find_element(".clipboard-copy")
@@ -131,4 +155,42 @@ fn copy_payment_request_to_clipboard() {
       assert_eq!(clipboard_contents, payment_request);
     },
   );
+}
+
+#[test]
+fn clipboard_copy_button_does_not_appear_over_http() {
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo", "precious content");
+
+    let browser = Browser::new().await;
+
+    eprintln!("Browsing to new page…");
+    let page = browser
+      .inner
+      .new_page(context.files_url().join("foo").unwrap().as_ref())
+      .await
+      .unwrap();
+
+    eprintln!("Hover over payment request…");
+    page
+      .find_element(".payment-request")
+      .await
+      .unwrap()
+      .hover()
+      .await
+      .unwrap();
+
+    assert_eq!(
+      page
+        .evaluate(
+          "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
+        )
+        .await
+        .unwrap()
+        .into_value::<String>()
+        .unwrap(),
+      "none"
+    );
+  });
 }

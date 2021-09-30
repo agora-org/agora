@@ -322,12 +322,10 @@ impl Files {
               ":"
             }
             div class="payment-request"{
-              @if self.is_https {
-                button class="clipboard-copy" onclick=(
-                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
-                ) {
-                  (Files::icon("clipboard"))
-                }
+              button class="clipboard-copy" onclick=(
+                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+              ) {
+                (Files::icon("clipboard"))
               }
               (invoice.payment_request)
             }
