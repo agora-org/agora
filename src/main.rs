@@ -9,9 +9,12 @@ mod arguments;
 mod config;
 mod environment;
 mod error;
+mod error_page;
 mod file_stream;
 mod files;
 mod html;
+mod https_redirect_service;
+mod https_request_handler;
 mod input_path;
 mod redirect;
 mod request_handler;
@@ -23,6 +26,7 @@ mod tests;
 
 #[tokio::main]
 async fn main() {
+  env_logger::init();
   if let Err(error) = run().await {
     if let crate::error::Error::Clap { source, .. } = error {
       source.exit();

@@ -5,6 +5,7 @@ use snafu::{ErrorCompat, Snafu};
 use std::{
   fmt::Debug,
   io,
+  net::SocketAddr,
   path::{PathBuf, MAIN_SEPARATOR},
   str::Utf8Error,
 };
@@ -19,70 +20,73 @@ pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 pub(crate) enum Error {
   #[snafu(display("Failed to resolve `{}` to an IP address: {}", input, source))]
   AddressResolutionIo {
+    backtrace: Backtrace,
     input: String,
     source: io::Error,
-    backtrace: Backtrace,
   },
   #[snafu(display("`{}` did not resolve to an IP address", input))]
   AddressResolutionNoAddresses { input: String, backtrace: Backtrace },
-  #[snafu(
-    context(false),
-    display("Failed to parse command line arguments: {}", source)
-  )]
+  #[snafu(context(false), display("{}", source))]
   Clap {
-    source: clap::Error,
     backtrace: Backtrace,
+    source: clap::Error,
   },
   #[snafu(display("Failed to deserialize config file at `{}`: {}", path.display(), source))]
   ConfigDeserialize {
-    source: serde_yaml::Error,
-    path: PathBuf,
     backtrace: Backtrace,
+    path: PathBuf,
+    source: serde_yaml::Error,
   },
   #[snafu(display("Missing base price for paid file `{}`", path.display()))]
   ConfigMissingBasePrice { path: PathBuf, backtrace: Backtrace },
   #[snafu(display("Failed to retrieve current directory: {}", source))]
   CurrentDir {
-    source: io::Error,
     backtrace: Backtrace,
+    source: io::Error,
+  },
+  #[snafu(display("{}", message))]
+  Custom {
+    backtrace: Backtrace,
+    status_code: StatusCode,
+    message: String,
   },
   #[snafu(display("IO error accessing filesystem at `{}`: {}", path.display(), source))]
   FilesystemIo {
-    source: io::Error,
-    path: PathBuf,
     backtrace: Backtrace,
+    path: PathBuf,
+    source: io::Error,
   },
   #[snafu(display("Forbidden access to hidden file: {}", path.display()))]
-  HiddenFileAccess { path: PathBuf, backtrace: Backtrace },
+  HiddenFileAccess { backtrace: Backtrace, path: PathBuf },
   #[snafu(display(
     "Internal error, this is probably a bug in agora: {}\n\
       Consider filing an issue: https://github.com/soenkehahn/agora/issues/new/",
     message
   ))]
   Internal {
-    message: String,
     backtrace: Backtrace,
+    message: String,
   },
   #[snafu(display("Invalid URI file path: {}", uri_path))]
   InvalidFilePath {
-    uri_path: String,
     backtrace: Backtrace,
+    uri_path: String,
   },
   #[snafu(display("Invalid URI path: {}", uri_path))]
   InvalidUriPath {
+    backtrace: Backtrace,
     source: Utf8Error,
     uri_path: String,
-    backtrace: Backtrace,
   },
   #[snafu(display("Invalid invoice ID: {}", source))]
   InvoiceId {
-    source: hex::FromHexError,
     backtrace: Backtrace,
+    source: hex::FromHexError,
   },
   #[snafu(display("Invoice not found: {}", hex::encode(r_hash)))]
   InvoiceNotFound {
-    r_hash: [u8; 32],
     backtrace: Backtrace,
+    r_hash: [u8; 32],
   },
   #[snafu(display(
     "Request path `{}` did not match invoice path `{}` for invoice: {}",
@@ -91,32 +95,32 @@ pub(crate) enum Error {
     hex::encode(r_hash),
   ))]
   InvoicePathMismatch {
+    backtrace: Backtrace,
     invoice_tail: String,
     r_hash: [u8; 32],
     request_tail: String,
-    backtrace: Backtrace,
   },
   #[snafu(display("Invoice request requires LND client configuration: {}", uri_path))]
   LndNotConfiguredInvoiceRequest {
-    uri_path: String,
     backtrace: Backtrace,
+    uri_path: String,
   },
   #[snafu(display("Paid file request requires LND client configuration: `{}`", path.display()))]
   LndNotConfiguredPaidFileRequest { path: PathBuf, backtrace: Backtrace },
   #[snafu(display("OpenSSL error parsing LND RPC certificate: {}", source))]
   LndRpcCertificateParse {
-    source: openssl::error::ErrorStack,
     backtrace: Backtrace,
+    source: openssl::error::ErrorStack,
   },
   #[snafu(display("OpenSSL error connecting to LND RPC server: {}", source))]
   LndRpcConnect {
-    source: openssl::error::ErrorStack,
     backtrace: Backtrace,
+    source: openssl::error::ErrorStack,
   },
   #[snafu(display("LND RPC call failed: {}", source))]
   LndRpcStatus {
-    source: tonic::Status,
     backtrace: Backtrace,
+    source: tonic::Status,
   },
   #[snafu(display(
     "Payment request `{}` too long for QR code: {}",
@@ -124,33 +128,40 @@ pub(crate) enum Error {
     source
   ))]
   PaymentRequestTooLongForQrCode {
+    backtrace: Backtrace,
     payment_request: String,
     source: qrcodegen::DataTooLong,
   },
   #[snafu(display("Request handler panicked: {}", source))]
   RequestHandlerPanic {
-    source: JoinError,
     backtrace: Backtrace,
+    source: JoinError,
   },
   #[snafu(display("URI path did not match any route: {}", uri_path))]
   RouteNotFound { uri_path: String },
   #[snafu(display("Failed running HTTP server: {}", source))]
   ServerRun {
-    source: hyper::Error,
     backtrace: Backtrace,
+    source: hyper::Error,
+  },
+  #[snafu(display("I/O error on socket address `{}`: {}", socket_addr, source))]
+  SocketIo {
+    backtrace: Backtrace,
+    socket_addr: SocketAddr,
+    source: io::Error,
   },
   #[snafu(display("Static asset not found: {}", uri_path))]
   StaticAssetNotFound {
-    uri_path: String,
     backtrace: Backtrace,
+    uri_path: String,
   },
   #[snafu(display("IO error writing to stderr: {}", source))]
   StderrWrite {
-    source: io::Error,
     backtrace: Backtrace,
+    source: io::Error,
   },
   #[snafu(display("Forbidden access to escaping symlink: `{}`", path.display()))]
-  SymlinkAccess { path: PathBuf, backtrace: Backtrace },
+  SymlinkAccess { backtrace: Backtrace, path: PathBuf },
 }
 
 impl Error {
@@ -185,7 +196,9 @@ impl Error {
       | PaymentRequestTooLongForQrCode { .. }
       | RequestHandlerPanic { .. }
       | ServerRun { .. }
+      | SocketIo { .. }
       | StderrWrite { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+      Custom { status_code, .. } => *status_code,
     }
   }
 

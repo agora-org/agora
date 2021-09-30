@@ -13,14 +13,18 @@ homepage = "https://github.com/agora-org/agora"
 members = [".", "agora-lnd-client", "bin/prerelease", "bin/publish", "lnd-test-context"]
 
 [dependencies]
+async-rustls = "0.2.0"
 backtrace = "0.3.61"
 bytes = "1.0.1"
 color-backtrace = "0.5.1"
+env_logger = "0.9.0"
 form_urlencoded = "1.0.1"
 futures = "0.3.14"
+futures-util = "0.3.17"
 hex = "0.4.3"
 http = "0.2.4"
 lexiclean = "0.0.1"
+log = "0.4.14"
 maud = "0.22.2"
 mime_guess = "2.0.3"
 openssl = "0.10.35"
@@ -29,8 +33,10 @@ pin-project = "1.0.7"
 pulldown-cmark = "0.8.0"
 qrcodegen = "=1.6.0"
 rust-embed = "5.9.0"
+rustls-acme = "0.1.7"
 serde_yaml = "0.8.17"
 termcolor = "1.1.2"
+tokio-rustls = "0.22.0"
 tonic = "0.4.3"
 
 [dependencies.agora-lnd-client]
@@ -57,6 +63,10 @@ features = ["wrap_help"]
 version = "1.5.0"
 features = ["rt", "rt-multi-thread", "macros", "fs"]
 
+[dependencies.tokio-stream]
+version = "0.1.7"
+features = ["net"]
+
 [dependencies.tower]
 version = "0.4.6"
 features = ["make"]
@@ -79,12 +89,17 @@ tiny-skia = "0.5.1"
 unindent = "0.1.7"
 usvg = "0.15.0"
 
-[dev-dependencies.reqwest]
-version = "0.11.3"
-features = ["blocking", "stream"]
-
 [dev-dependencies.lnd-test-context]
 path = "lnd-test-context"
+
+[dev-dependencies.rcgen]
+version = "0.8.13"
+features = ["x509-parser"]
+
+[dev-dependencies.reqwest]
+version = "0.11.3"
+features = ["blocking", "stream", "rustls-tls"]
+default-features = false
 
 [[test]]
 name = "integration"

@@ -1,16 +1,19 @@
 use crate::{
   environment::Environment,
   error::Error,
-  server::Server,
-  test_utils::{assert_contains, assert_not_contains, test, test_with_environment, TestContext},
+  server::{Server, TestContext},
+  test_utils::{
+    assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
+  },
 };
 use guard::guard_unwrap;
 use hyper::{header, StatusCode};
 use lexiclean::Lexiclean;
 use pretty_assertions::assert_eq;
-use reqwest::{redirect::Policy, Client, Url};
+use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
 use scraper::{ElementRef, Html, Selector};
-use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str};
+use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str, time::Duration};
+use tempfile::TempDir;
 use tokio::{
   io::{AsyncReadExt, AsyncWriteExt},
   net::TcpStream,
@@ -73,7 +76,7 @@ fn configure_port() {
     "agora".into(),
     "--address=localhost".into(),
     "--directory=www".into(),
-    "--port".into(),
+    "--http-port".into(),
     free_port.to_string().into(),
   ];
   let www = environment.working_directory.join("www");
@@ -345,7 +348,7 @@ fn configure_source_directory() {
   environment.arguments = vec![
     "agora".into(),
     "--address=localhost".into(),
-    "--port=0".into(),
+    "--http-port=0".into(),
     "--directory=src".into(),
   ];
 
@@ -940,4 +943,151 @@ fn percent_encodes_unicode() {
     guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
   });
+}
+
+fn set_up_test_certificate() -> (TempDir, Certificate) {
+  use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
+    PKCS_ECDSA_P256_SHA256,
+  };
+
+  let root_certificate = {
+    let mut params: CertificateParams = Default::default();
+    params.key_pair = Some(KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap());
+    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    Certificate::from_params(params).unwrap()
+  };
+
+  let certificate_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
+  let certificate_keys_pem = certificate_keys.serialize_pem();
+  let certificate = {
+    let mut params = CertificateParams::from_ca_cert_pem(
+      &root_certificate.serialize_pem().unwrap(),
+      certificate_keys,
+    )
+    .unwrap();
+    params
+      .subject_alt_names
+      .push(SanType::DnsName("localhost".to_string()));
+    Certificate::from_params(params).unwrap()
+  };
+  let certificate_file = vec![
+    certificate_keys_pem,
+    certificate
+      .serialize_pem_with_signer(&root_certificate)
+      .unwrap(),
+    root_certificate.serialize_pem().unwrap(),
+  ]
+  .join("\r\n");
+  let tempdir = TempDir::new().unwrap();
+  fs::write(
+    tempdir
+      .path()
+      .join("cached_cert_83kei_h4oopqh8sXFFlhGeQJIS_pkJJv-y5XDpnLtyw"),
+    certificate_file,
+  )
+  .unwrap();
+  (
+    tempdir,
+    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
+  )
+}
+
+async fn https_client(context: &TestContext, root_certificate: Certificate) -> Client {
+  let client = ClientBuilder::new()
+    .add_root_certificate(root_certificate)
+    .build()
+    .unwrap();
+
+  let mut error = None;
+  for _ in 0..10 {
+    match client.get(context.https_files_url().clone()).send().await {
+      Ok(_) => return client,
+      Err(err) => {
+        error = Some(err);
+      }
+    }
+    tokio::time::sleep(Duration::from_millis(100)).await;
+  }
+  panic!(
+    "HTTPS server not ready after one second:\n{}",
+    error.unwrap()
+  );
+}
+
+#[test]
+fn serves_https_requests_with_cert_from_cache_directory() {
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      certificate_cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      context.write("file", "encrypted content");
+      let client = https_client(&context, root_certificate).await;
+      let response = client
+        .get(context.https_files_url().join("file").unwrap())
+        .send()
+        .await
+        .unwrap();
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
+  );
+}
+
+#[test]
+fn creates_cert_cache_directory_if_it_doesnt_exist() {
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      "cache-directory",
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      let cache_directory = context.working_directory().join("cache-directory");
+      for _ in 0..100 {
+        if cache_directory.is_dir() {
+          return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+      }
+      panic!("Cache directory not created after ten seconds");
+    },
+  );
+}
+
+#[test]
+fn redirects_requests_from_port_80_to_443() {
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      certificate_cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--https-redirect-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      context.write("file", "encrypted content");
+      let client = https_client(&context, root_certificate).await;
+      let response = client
+        .get(format!(
+          "http://localhost:{}/files/file",
+          context.https_redirect_port()
+        ))
+        .send()
+        .await
+        .unwrap();
+      assert!(response.url().to_string().starts_with("https:"));
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
+  );
 }

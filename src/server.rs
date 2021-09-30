@@ -2,8 +2,11 @@ use crate::{
   arguments::Arguments,
   environment::Environment,
   error::{self, Result},
+  https_redirect_service::HttpsRedirectService,
+  https_request_handler::HttpsRequestHandler,
   request_handler::RequestHandler,
 };
+use futures::{future::OptionFuture, FutureExt};
 use hyper::server::conn::AddrIncoming;
 use openssl::x509::X509;
 use snafu::ResultExt;
@@ -11,7 +14,9 @@ use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {
-  request_handler: hyper::Server<AddrIncoming, Shared<RequestHandler>>,
+  http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
+  https_request_handler: Option<HttpsRequestHandler>,
+  https_redirect_server: Option<hyper::Server<AddrIncoming, Shared<HttpsRedirectService>>>,
   #[cfg(test)]
   directory: std::path::PathBuf,
 }
@@ -21,14 +26,43 @@ impl Server {
     let arguments = environment.arguments()?;
 
     let directory = environment.working_directory.join(&arguments.directory);
-    let _: tokio::fs::ReadDir = tokio::fs::read_dir(&directory)
+    let _ = tokio::fs::read_dir(&directory)
       .await
       .context(error::FilesystemIo { path: &directory })?;
 
-    let request_handler = Self::setup_request_handler(environment, &arguments).await?;
+    let http_request_handler = match arguments.http_port {
+      Some(http_port) => {
+        Some(Self::setup_request_handler(environment, &arguments, http_port).await?)
+      }
+      None => None,
+    };
+
+    let (https_request_handler, https_redirect_server) =
+      if let Some(https_port) = arguments.https_port {
+        let acme_cache_directory = arguments
+          .acme_cache_directory
+          .as_ref()
+          .expect("<https-port> requires <acme-cache-directory>");
+        let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+        let https_request_handler = HttpsRequestHandler::new(
+          environment,
+          &arguments,
+          acme_cache_directory,
+          https_port,
+          lnd_client,
+        )
+        .await?;
+        let https_redirect_server =
+          HttpsRedirectService::new_server(environment, &arguments, &https_request_handler)?;
+        (Some(https_request_handler), https_redirect_server)
+      } else {
+        (None, None)
+      };
 
     Ok(Self {
-      request_handler,
+      http_request_handler,
+      https_request_handler,
+      https_redirect_server,
       #[cfg(test)]
       directory,
     })
@@ -37,10 +71,11 @@ impl Server {
   async fn setup_request_handler(
     environment: &mut Environment,
     arguments: &Arguments,
+    http_port: u16,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
     let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
 
-    let socket_addr = (arguments.address.as_str(), arguments.port)
+    let socket_addr = (arguments.address.as_str(), http_port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {
         input: &arguments.address,
@@ -59,7 +94,7 @@ impl Server {
 
     writeln!(
       environment.stderr,
-      "Listening on {}",
+      "Listening for HTTP connections on `{}`",
       request_handler.local_addr()
     )
     .context(error::StderrWrite)?;
@@ -122,17 +157,93 @@ impl Server {
   }
 
   pub(crate) async fn run(self) -> Result<()> {
-    self.request_handler.await.context(error::ServerRun)
+    futures::try_join!(
+      OptionFuture::from(self.http_request_handler)
+        .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
+      OptionFuture::from(self.https_request_handler.map(|x| x.run())).map(Ok),
+      OptionFuture::from(self.https_redirect_server)
+        .map(|option| option.unwrap_or(Ok(())).context(error::ServerRun)),
+    )?;
+
+    Ok(())
   }
 
   #[cfg(test)]
-  pub(crate) fn port(&self) -> u16 {
-    self.request_handler.local_addr().port()
+  pub(crate) fn test_context(&self, environment: &Environment) -> TestContext {
+    let http_url = reqwest::Url::parse(&format!(
+      "http://localhost:{}",
+      self
+        .http_request_handler
+        .as_ref()
+        .map(|handler| handler.local_addr().port())
+        .unwrap()
+    ))
+    .unwrap();
+    let working_directory = environment.working_directory.clone();
+    TestContext {
+      base_url: http_url.clone(),
+      files_url: http_url.join("files/").unwrap(),
+      https_files_url: self
+        .https_request_handler
+        .as_ref()
+        .map(|handler| handler.https_port())
+        .map(|https_port| {
+          let mut url = http_url.join("files/").unwrap();
+          url.set_scheme("https").unwrap();
+          url.set_port(Some(https_port)).unwrap();
+          url
+        }),
+      https_redirect_port: self
+        .https_redirect_server
+        .as_ref()
+        .map(|server| server.local_addr().port()),
+      working_directory,
+      files_directory: self.directory.to_owned(),
+    }
+  }
+}
+
+#[cfg(test)]
+pub(crate) struct TestContext {
+  base_url: reqwest::Url,
+  files_directory: std::path::PathBuf,
+  files_url: reqwest::Url,
+  https_files_url: Option<reqwest::Url>,
+  https_redirect_port: Option<u16>,
+  working_directory: std::path::PathBuf,
+}
+
+#[cfg(test)]
+impl TestContext {
+  pub(crate) fn files_url(&self) -> &reqwest::Url {
+    &self.files_url
   }
 
-  #[cfg(test)]
-  pub(crate) fn directory(&self) -> &std::path::Path {
-    &self.directory
+  pub(crate) fn https_files_url(&self) -> &reqwest::Url {
+    self.https_files_url.as_ref().unwrap()
+  }
+
+  pub(crate) fn https_redirect_port(&self) -> u16 {
+    self.https_redirect_port.unwrap()
+  }
+
+  pub(crate) fn files_directory(&self) -> &std::path::Path {
+    &self.files_directory
+  }
+
+  pub(crate) fn base_url(&self) -> &reqwest::Url {
+    &self.base_url
+  }
+
+  pub(crate) fn working_directory(&self) -> &std::path::Path {
+    &self.working_directory
+  }
+
+  pub(crate) fn write(&self, path: &str, content: &str) -> std::path::PathBuf {
+    let path = self.files_directory.join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, content).unwrap();
+    path
   }
 }
 
@@ -155,7 +266,7 @@ mod tests {
       .unwrap()
       .block_on(async {
         let server = Server::setup(&mut environment).await.unwrap();
-        let ip = server.request_handler.local_addr().ip();
+        let ip = server.http_request_handler.unwrap().local_addr().ip();
         assert!(
           ip == IpAddr::from([127, 0, 0, 1])
             || ip == IpAddr::from([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
@@ -171,7 +282,7 @@ mod tests {
     environment.arguments = vec![
       "agora".into(),
       "--address=host.invalid".into(),
-      "--port=0".into(),
+      "--http-port=0".into(),
       "--directory=www".into(),
     ];
 

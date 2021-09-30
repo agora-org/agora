@@ -392,3 +392,37 @@ fn filenames_with_percent_encoding() {
     assert_eq!(contents, "contents");
   });
 }
+
+#[test]
+fn serves_multiple_clients_through_https() {
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      certificate_cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      context.write("file", "encrypted content");
+      let mut clients = Vec::new();
+      for _ in 0..20 {
+        clients.push(https_client(&context, root_certificate.clone()).await)
+      }
+      let mut handles = Vec::new();
+      for client in clients {
+        let url = context.https_files_url().join("file").unwrap();
+        handles.push(tokio::spawn(async move {
+          assert_eq!(
+            client.get(url).send().await.unwrap().text().await.unwrap(),
+            "encrypted content"
+          );
+        }));
+      }
+      for handle in handles {
+        handle.await.unwrap();
+      }
+    },
+  );
+}

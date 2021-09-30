@@ -1,14 +1,10 @@
-use crate::{environment::Environment, server::Server};
+use crate::{
+  environment::Environment,
+  server::{Server, TestContext},
+};
 #[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;
-use reqwest::Url;
-use std::{
-  ffi::OsString,
-  fs,
-  future::Future,
-  panic,
-  path::{Path, PathBuf},
-};
+use std::{ffi::OsString, future::Future, panic};
 use tokio::task;
 
 macro_rules! assert_matches {
@@ -28,7 +24,7 @@ macro_rules! assert_matches {
 pub(crate) fn assert_contains(haystack: &str, needle: &str) {
   assert!(
     haystack.contains(needle),
-    "\n{:?} does not contain {:?}\n",
+    "assert_contains:\n---\n{}\n---\ndoes not contain:\n---\n{:?}\n---\n",
     haystack,
     needle
   );
@@ -89,31 +85,23 @@ where
 
 pub(crate) fn test_with_environment<Function, F>(
   environment: &mut Environment,
-  f: Function,
+  test_function: Function,
 ) -> String
 where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
 {
+  env_logger::builder().is_test(true).try_init().ok();
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()
     .block_on(async {
       let server = Server::setup(environment).await.unwrap();
-      let files_directory = server.directory().to_owned();
-      let port = server.port();
+      let test_context = server.test_context(environment);
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
-      let url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
       let test_result = task::LocalSet::new()
-        .run_until(async move {
-          task::spawn_local(f(TestContext {
-            base_url: url.clone(),
-            files_url: url.join("files/").unwrap(),
-            files_directory,
-          }))
-          .await
-        })
+        .run_until(async move { task::spawn_local(test_function(test_context)).await })
         .await;
       if let Err(test_join_error) = test_result {
         eprintln!("stderr from server: {}", environment.stderr.contents());
@@ -133,31 +121,4 @@ where
       }
       environment.stderr.contents()
     })
-}
-
-pub(crate) struct TestContext {
-  base_url: Url,
-  files_directory: PathBuf,
-  files_url: Url,
-}
-
-impl TestContext {
-  pub(crate) fn files_url(&self) -> &Url {
-    &self.files_url
-  }
-
-  pub(crate) fn files_directory(&self) -> &Path {
-    &self.files_directory
-  }
-
-  pub(crate) fn base_url(&self) -> &Url {
-    &self.base_url
-  }
-
-  pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
-    let path = self.files_directory.join(path);
-    fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(&path, content).unwrap();
-    path
-  }
 }
