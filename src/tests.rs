@@ -8,7 +8,7 @@ use crate::{
 };
 use guard::guard_unwrap;
 use pretty_assertions::assert_eq;
-use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
+use reqwest::{redirect::Policy, Client, Url};
 use scraper::{ElementRef, Html, Selector};
 use std::{net::TcpListener, path::MAIN_SEPARATOR};
 use tokio::net::TcpStream;
