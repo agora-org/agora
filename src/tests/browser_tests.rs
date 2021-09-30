@@ -1,6 +1,6 @@
 use crate::{
   common::*,
-  {set_up_test_certificate, test_with_arguments, test_with_lnd, test_with_lnd},
+  test_utils::{set_up_test_certificate, test_with_arguments, test_with_lnd},
 };
 use chromiumoxide::{
   browser::BrowserConfig,

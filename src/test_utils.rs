@@ -4,9 +4,6 @@ use crate::server::TestContext;
 use lnd_test_context::LndTestContext;
 use reqwest::{Certificate, Client, ClientBuilder};
 use std::panic;
-use std::{ffi::OsString, fs, future::Future, panic, time::Duration};
-use tempfile::TempDir;
-use tokio::task;
 
 macro_rules! assert_matches {
   ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {

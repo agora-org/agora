@@ -164,9 +164,9 @@ impl Server {
       self
         .http_request_handler
         .as_ref()
-        // FIXME: unwrap first?
-        .map(|handler| handler.local_addr().port())
         .unwrap()
+        .local_addr()
+        .port()
     ))
     .unwrap();
     let working_directory = environment.working_directory.clone();
