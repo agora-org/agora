@@ -6,19 +6,16 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   base_directory: InputPath,
-  is_https: bool,
   lnd_client: Option<agora_lnd_client::Client>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
-    is_https: bool,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
       base_directory,
-      is_https,
       lnd_client,
     }
   }

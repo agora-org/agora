@@ -12,7 +12,7 @@ pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
           "agora"
         }
         link rel="stylesheet" href="/static/index.css";
-        script defer src="/static/index.js" {}
+        script type="module" src="/static/index.js" {}
       }
       body {
         (body)

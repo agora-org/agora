@@ -27,7 +27,7 @@ impl HttpsRequestHandler {
     https_port: u16,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Result<HttpsRequestHandler> {
-    let request_handler = RequestHandler::new(environment, &arguments.directory, true, lnd_client);
+    let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     let socket_addr = (arguments.address.as_str(), https_port)
       .to_socket_addrs()
       .context(error::AddressResolutionIo {

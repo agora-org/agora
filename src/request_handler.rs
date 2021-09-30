@@ -10,16 +10,11 @@ impl RequestHandler {
   pub(crate) fn new(
     environment: &Environment,
     base_directory: &Path,
-    is_https: bool,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      files: Files::new(
-        InputPath::new(environment, base_directory),
-        is_https,
-        lnd_client,
-      ),
+      files: Files::new(InputPath::new(environment, base_directory), lnd_client),
     }
   }
 

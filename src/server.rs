@@ -78,7 +78,7 @@ impl Server {
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(environment, &arguments.directory, false, lnd_client),
+      RequestHandler::new(environment, &arguments.directory, lnd_client),
     ));
 
     writeln!(
