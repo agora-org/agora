@@ -6,16 +6,19 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   base_directory: InputPath,
+  is_https: bool,
   lnd_client: Option<agora_lnd_client::Client>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
+    is_https: bool,
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
       base_directory,
+      is_https,
       lnd_client,
     }
   }
@@ -319,10 +322,12 @@ impl Files {
               ":"
             }
             div class="payment-request"{
-              button class="clipboard-copy" onclick=(
-                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
-              ) {
-                (Files::icon("clipboard"))
+              @if self.is_https {
+                button class="clipboard-copy" onclick=(
+                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+                ) {
+                  (Files::icon("clipboard"))
+                }
               }
               (invoice.payment_request)
             }

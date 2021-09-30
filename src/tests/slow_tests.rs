@@ -425,3 +425,50 @@ fn serves_multiple_clients_through_https() {
     },
   );
 }
+
+#[test]
+fn clipboard_button_is_present_over_https() {
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
+
+  let lnd_test_context = LndTestContext::new_blocking();
+
+  test_with_arguments(
+    &[
+      "--lnd-rpc-authority",
+      &lnd_test_context.lnd_rpc_authority(),
+      "--lnd-rpc-cert-path",
+      lnd_test_context.cert_path().to_str().unwrap(),
+      "--lnd-rpc-macaroon-path",
+      lnd_test_context.invoice_macaroon_path().to_str().unwrap(),
+      "--acme-cache-directory",
+      certificate_cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+      context.write("file", "encrypted content");
+      let client = https_client(&context, root_certificate).await;
+      let text = client
+        .get(context.https_files_url().join("file").unwrap())
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+      let html = Html::parse_document(&text);
+      guard_unwrap!(let &[_button] = css_select(&html, ".clipboard-copy").as_slice());
+    },
+  );
+}
+
+#[test]
+fn clipboard_button_is_not_present_over_http() {
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("file", "encrypted content");
+    let html = html(&context.files_url().join("file").unwrap()).await;
+    guard_unwrap!(let &[] = css_select(&html, ".clipboard-copy").as_slice());
+  });
+}

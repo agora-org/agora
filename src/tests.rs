@@ -2,7 +2,8 @@ use crate::{
   common::*,
   server::TestContext,
   test_utils::{
-    assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
+    assert_contains, assert_not_contains, https_client, set_up_test_certificate, test,
+    test_with_arguments, test_with_environment,
   },
 };
 use guard::guard_unwrap;
@@ -936,76 +937,6 @@ fn percent_encodes_unicode() {
     guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
   });
-}
-
-fn set_up_test_certificate() -> (TempDir, Certificate) {
-  use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
-    PKCS_ECDSA_P256_SHA256,
-  };
-
-  let root_certificate = {
-    let mut params: CertificateParams = Default::default();
-    params.key_pair = Some(KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap());
-    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    Certificate::from_params(params).unwrap()
-  };
-
-  let certificate_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
-  let certificate_keys_pem = certificate_keys.serialize_pem();
-  let certificate = {
-    let mut params = CertificateParams::from_ca_cert_pem(
-      &root_certificate.serialize_pem().unwrap(),
-      certificate_keys,
-    )
-    .unwrap();
-    params
-      .subject_alt_names
-      .push(SanType::DnsName("localhost".to_string()));
-    Certificate::from_params(params).unwrap()
-  };
-  let certificate_file = vec![
-    certificate_keys_pem,
-    certificate
-      .serialize_pem_with_signer(&root_certificate)
-      .unwrap(),
-    root_certificate.serialize_pem().unwrap(),
-  ]
-  .join("\r\n");
-  let tempdir = TempDir::new().unwrap();
-  fs::write(
-    tempdir
-      .path()
-      .join("cached_cert_83kei_h4oopqh8sXFFlhGeQJIS_pkJJv-y5XDpnLtyw"),
-    certificate_file,
-  )
-  .unwrap();
-  (
-    tempdir,
-    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
-  )
-}
-
-async fn https_client(context: &TestContext, root_certificate: Certificate) -> Client {
-  let client = ClientBuilder::new()
-    .add_root_certificate(root_certificate)
-    .build()
-    .unwrap();
-
-  let mut error = None;
-  for _ in 0..10 {
-    match client.get(context.https_files_url().clone()).send().await {
-      Ok(_) => return client,
-      Err(err) => {
-        error = Some(err);
-      }
-    }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-  }
-  panic!(
-    "HTTPS server not ready after one second:\n{}",
-    error.unwrap()
-  );
 }
 
 #[test]
