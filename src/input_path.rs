@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use mime_guess::MimeGuess;
 use std::path::Component;
 

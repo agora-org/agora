@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use openssl::x509::X509;
 use tower::make::Shared;
 

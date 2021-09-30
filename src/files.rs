@@ -1,6 +1,4 @@
-use crate::common::*;
-
-use crate::file_stream::FileStream;
+use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};

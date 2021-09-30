@@ -1,6 +1,4 @@
-use crate::common::*;
-
-use crate::{error_page, files::Files, static_assets::StaticAssets};
+use crate::{common::*, error_page, files::Files, static_assets::StaticAssets};
 
 #[derive(Clone)]
 pub(crate) struct RequestHandler {

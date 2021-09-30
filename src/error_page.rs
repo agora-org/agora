@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use maud::html;
 
 pub(crate) fn map_error(

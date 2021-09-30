@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use crate::server::TestContext;
 #[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;

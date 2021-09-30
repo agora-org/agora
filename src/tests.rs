@@ -1,6 +1,5 @@
-use crate::common::*;
-
 use crate::{
+  common::*,
   server::TestContext,
   test_utils::{
     assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,

@@ -1,6 +1,4 @@
-use crate::common::*;
-
-use crate::test_utils::test_with_lnd;
+use crate::{common::*, test_utils::test_with_lnd};
 use chromiumoxide::{
   browser::BrowserConfig,
   cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},

@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use termcolor::{ColorSpec, WriteColor};
 
 #[cfg(test)]

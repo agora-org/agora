@@ -1,5 +1,4 @@
 use crate::common::*;
-
 use maud::{html, DOCTYPE};
 
 pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
