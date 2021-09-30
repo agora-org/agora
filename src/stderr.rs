@@ -1,8 +1,8 @@
-use std::io::{self, Write};
+use crate::common::*;
 use termcolor::{ColorSpec, WriteColor};
 
 #[cfg(test)]
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 #[derive(Clone)]
 pub(crate) enum Stderr {

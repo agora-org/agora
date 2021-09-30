@@ -1,16 +1,5 @@
-use crate::{
-  arguments::Arguments,
-  environment::Environment,
-  error::{self, Result},
-  https_redirect_service::HttpsRedirectService,
-  https_request_handler::HttpsRequestHandler,
-  request_handler::RequestHandler,
-};
-use futures::{future::OptionFuture, FutureExt};
-use hyper::server::conn::AddrIncoming;
+use crate::common::*;
 use openssl::x509::X509;
-use snafu::ResultExt;
-use std::{io::Write, net::ToSocketAddrs};
 use tower::make::Shared;
 
 pub(crate) struct Server {

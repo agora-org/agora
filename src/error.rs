@@ -1,14 +1,7 @@
-use crate::input_path::InputPath;
+use crate::common::*;
 use color_backtrace::BacktracePrinter;
-use hyper::StatusCode;
 use snafu::{ErrorCompat, Snafu};
-use std::{
-  fmt::Debug,
-  io,
-  net::SocketAddr,
-  path::{PathBuf, MAIN_SEPARATOR},
-  str::Utf8Error,
-};
+use std::{path::MAIN_SEPARATOR, str::Utf8Error};
 use structopt::clap;
 use termcolor::WriteColor;
 use tokio::task::JoinError;

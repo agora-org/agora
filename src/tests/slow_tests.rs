@@ -1,7 +1,6 @@
 use super::*;
 use crate::test_utils::{assert_contains, test_with_arguments, test_with_lnd};
 use guard::guard_unwrap;
-use hyper::{header, StatusCode};
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
 use regex::Regex;

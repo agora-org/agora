@@ -1,12 +1,10 @@
-use crate::test_utils::test_with_lnd;
+use crate::{common::*, test_utils::test_with_lnd};
 use chromiumoxide::{
   browser::BrowserConfig,
   cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},
 };
-use futures::StreamExt;
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
-use tokio::task;
 
 struct Browser {
   inner: chromiumoxide::Browser,

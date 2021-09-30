@@ -1,23 +1,16 @@
 use crate::{
-  environment::Environment,
-  error::Error,
-  server::{Server, TestContext},
+  common::*,
+  server::TestContext,
   test_utils::{
     assert_contains, assert_not_contains, test, test_with_arguments, test_with_environment,
   },
 };
 use guard::guard_unwrap;
-use hyper::{header, StatusCode};
-use lexiclean::Lexiclean;
 use pretty_assertions::assert_eq;
 use reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url};
 use scraper::{ElementRef, Html, Selector};
-use std::{fs, net::TcpListener, path::Path, path::MAIN_SEPARATOR, str, time::Duration};
-use tempfile::TempDir;
-use tokio::{
-  io::{AsyncReadExt, AsyncWriteExt},
-  net::TcpStream,
-};
+use std::{net::TcpListener, path::MAIN_SEPARATOR};
+use tokio::net::TcpStream;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;

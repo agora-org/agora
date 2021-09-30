@@ -1,14 +1,4 @@
-use crate::{
-  arguments::Arguments,
-  error::{self, Result},
-  stderr::Stderr,
-};
-use snafu::ResultExt;
-use std::{env, ffi::OsString, path::PathBuf};
-use structopt::StructOpt;
-
-#[cfg(test)]
-use tempfile::TempDir;
+use crate::common::*;
 
 pub(crate) struct Environment {
   pub(crate) arguments: Vec<OsString>,

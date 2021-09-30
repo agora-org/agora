@@ -1,25 +1,4 @@
-use crate::{
-  environment::Environment,
-  error::{self, Error, Result},
-  error_page,
-  files::Files,
-  input_path::InputPath,
-  redirect::redirect,
-  static_assets::StaticAssets,
-  stderr::Stderr,
-};
-use futures::{future::BoxFuture, FutureExt};
-use hyper::{
-  header::{self, HeaderValue},
-  service::Service,
-  Body, Request, Response,
-};
-use snafu::ResultExt;
-use std::{
-  convert::Infallible,
-  path::Path,
-  task::{self, Poll},
-};
+use crate::{common::*, error_page, files::Files, static_assets::StaticAssets};
 
 #[derive(Clone)]
 pub(crate) struct RequestHandler {
@@ -104,7 +83,7 @@ impl Service<Request<Body>> for RequestHandler {
   type Error = Infallible;
   type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
 
-  fn poll_ready(&mut self, _cx: &mut task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+  fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
     Ok(()).into()
   }
 

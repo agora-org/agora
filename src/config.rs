@@ -1,8 +1,4 @@
-use crate::error::{self, Error, Result};
-use agora_lnd_client::Millisatoshi;
-use serde::Deserialize;
-use snafu::{IntoError, ResultExt};
-use std::{fs, io, path::Path};
+use crate::common::*;
 
 #[derive(PartialEq, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
@@ -55,9 +51,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::error::Error;
   use pretty_assertions::assert_eq;
-  use tempfile::TempDir;
   use unindent::Unindent;
 
   #[test]

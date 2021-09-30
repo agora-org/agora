@@ -1,11 +1,11 @@
-use crate::{error::Result, server::Server};
-use environment::Environment;
+use crate::common::*;
 
 #[cfg(test)]
 #[macro_use]
 mod test_utils;
 
 mod arguments;
+mod common;
 mod config;
 mod environment;
 mod error;

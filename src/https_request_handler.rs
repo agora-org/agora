@@ -1,23 +1,10 @@
-use crate::{
-  arguments::Arguments,
-  environment::Environment,
-  error::{self, Result},
-  request_handler::RequestHandler,
-};
-use futures::StreamExt;
+use crate::common::*;
+
 use hyper::server::conn::Http;
 use rustls_acme::{
   acme::{ACME_TLS_ALPN_NAME, LETS_ENCRYPT_PRODUCTION_DIRECTORY, LETS_ENCRYPT_STAGING_DIRECTORY},
   ResolvesServerCertUsingAcme,
 };
-use snafu::ResultExt;
-use std::{
-  io::Write,
-  net::ToSocketAddrs,
-  path::{Path, PathBuf},
-  sync::Arc,
-};
-use tokio::task;
 use tokio_rustls::{
   rustls::{NoClientAuth, ServerConfig, Session},
   server::TlsStream,
