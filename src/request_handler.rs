@@ -55,6 +55,7 @@ impl RequestHandler {
 
     match components.as_slice() {
       ["/"] => redirect(String::from(request.uri().path()) + "files/"),
+      ["/", "favicon.ico"] => StaticAssets::serve(&["favicon.ico"]),
       ["/", "static/", tail @ ..] => StaticAssets::serve(tail),
       ["/", "files"] => redirect(String::from(request.uri().path()) + "/"),
       ["/", "files/", tail @ ..] if invoice_parameter.is_some() => {
