@@ -57,12 +57,12 @@ body {
 }
 
 .invoice > .payment-request {
-  font-family: monospace;
-  overflow-wrap: anywhere;
-  position: relative;
   background-color: #ddd;
   border-radius: 0.4375rem;
+  font-family: monospace;
+  overflow-wrap: break-word;
   padding: 0.25rem;
+  position: relative;
 }
 
 .invoice > .links {
