@@ -21,7 +21,7 @@ impl Server {
 
     let http_request_handler = match arguments.http_port {
       Some(http_port) => {
-        Some(Self::setup_request_handler(environment, &arguments, http_port).await?)
+        Some(Self::setup_http_request_handler(environment, &arguments, http_port).await?)
       }
       None => None,
     };
@@ -57,7 +57,7 @@ impl Server {
     })
   }
 
-  async fn setup_request_handler(
+  async fn setup_http_request_handler(
     environment: &mut Environment,
     arguments: &Arguments,
     http_port: u16,
@@ -164,8 +164,9 @@ impl Server {
       self
         .http_request_handler
         .as_ref()
-        .map(|handler| handler.local_addr().port())
         .unwrap()
+        .local_addr()
+        .port()
     ))
     .unwrap();
     let working_directory = environment.working_directory.clone();
