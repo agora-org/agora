@@ -164,6 +164,8 @@ fn clipboard_copy_button_does_not_appear_over_http() {
       .await
       .unwrap();
 
+    assert_eq!(get_clipboard_copy_display_property(&page).await, "none");
+
     eprintln!("Hover over payment request…");
     page
       .find_element(".payment-request")
