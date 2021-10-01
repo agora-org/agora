@@ -5,6 +5,7 @@ use crate::{
 use chromiumoxide::{
   browser::BrowserConfig,
   cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},
+  Page,
 };
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
@@ -57,6 +58,17 @@ impl Drop for Browser {
   }
 }
 
+async fn get_clipboard_copy_display_property(page: &Page) -> String {
+  page
+    .evaluate(
+      "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display",
+    )
+    .await
+    .unwrap()
+    .into_value()
+    .unwrap()
+}
+
 #[test]
 fn copy_payment_request_to_clipboard() {
   let (certificate_cache, _) = set_up_test_certificate();
@@ -95,17 +107,7 @@ fn copy_payment_request_to_clipboard() {
         .await
         .unwrap();
 
-      assert_eq!(
-        page
-          .evaluate(
-            "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
-          )
-          .await
-          .unwrap()
-          .into_value::<String>()
-          .unwrap(),
-        "none"
-      );
+      assert_eq!(get_clipboard_copy_display_property(&page).await, "none");
 
       eprintln!("Clicking clipboard copy button…");
       page
@@ -116,17 +118,7 @@ fn copy_payment_request_to_clipboard() {
         .await
         .unwrap();
 
-      assert_eq!(
-        page
-          .evaluate(
-            "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
-          )
-          .await
-          .unwrap()
-          .into_value::<String>()
-          .unwrap(),
-        "block"
-      );
+      assert_eq!(get_clipboard_copy_display_property(&page).await, "block");
 
       page
         .find_element(".clipboard-copy")
@@ -181,16 +173,6 @@ fn clipboard_copy_button_does_not_appear_over_http() {
       .await
       .unwrap();
 
-    assert_eq!(
-      page
-        .evaluate(
-          "window.getComputedStyle(document.getElementsByClassName('clipboard-copy')[0]).display"
-        )
-        .await
-        .unwrap()
-        .into_value::<String>()
-        .unwrap(),
-      "none"
-    );
+    assert_eq!(get_clipboard_copy_display_property(&page).await, "none");
   });
 }
