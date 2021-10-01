@@ -26,7 +26,11 @@ our Bitcoin donation address is:
 bc1qpyg4schsrglnunrcc74rkd7xam22xvf9v0yk0y
 ```
 
-For feedback, support requests, and general discussion, please [open an issue](https://github.com/agora-org/agora/issues/new) or [join our Telegram group](https://t.me/agoradiscussion).
+## Support, Feedback, and Discussion
+
+If you have a question, want to request a feature, or find a bug, please feel free to [open an issue](https://github.com/agora-org/agora/issues/new), or [join our Telegram group](https://t.me/agoradiscussion).
+
+The developers, Casey and Sönke, can also be reached [via email](mailto:casey@rodarmor.com,soenkehahn@gmail.com?subject=Agora).
 
 ## Running
 
