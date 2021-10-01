@@ -3,7 +3,7 @@
 <div align="center">
   <a href="https://crates.io/crates/agora"><img src="https://img.shields.io/crates/v/agora.svg?logo=rust" alt="crate"/></a>
   <a href="https://github.com/agora-org/agora/actions"><img src="https://github.com/agora-org/agora/workflows/Build/badge.svg" alt="build" /></a>
-  <a href="https://t.me/agorific"><img src="https://img.shields.io/static/v1?label=chat&message=Telegram&color=blue&logo=telegram" alt="chat on telegram"/></a>
+  <a href="https://t.me/agoradiscussion"><img src="https://img.shields.io/static/v1?label=chat&message=Telegram&color=blue&logo=telegram" alt="chat on telegram"/></a>
 </div>
 <br />
 
@@ -25,6 +25,8 @@ our Bitcoin donation address is:
 ```
 bc1qpyg4schsrglnunrcc74rkd7xam22xvf9v0yk0y
 ```
+
+For feedback, support requests, and general discussion, please [open an issue](https://github.com/agora-org/agora/issues/new) or [join our Telegram group](https://t.me/agoradiscussion).
 
 ## Running
 
