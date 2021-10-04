@@ -1015,3 +1015,14 @@ fn redirects_requests_from_port_80_to_443() {
     },
   );
 }
+
+#[test]
+fn favicon_is_served_at_favicon_ico() {
+  test(|context| async move {
+    let response = get(&context.base_url().join("favicon.ico").unwrap()).await;
+    assert_eq!(
+      response.headers().get(header::CONTENT_TYPE).unwrap(),
+      "image/x-icon"
+    );
+  });
+}
