@@ -206,7 +206,7 @@ fn listing_is_sorted_alphabetically() {
     context.write("c", "");
     context.write("a", "");
     let html = html(context.base_url()).await;
-    let haystack: Vec<&str> = css_select(&html, "a:not([download])")
+    let haystack: Vec<&str> = css_select(&html, ".listing a:not([download])")
       .into_iter()
       .map(|x| x.text())
       .flatten()
@@ -220,7 +220,7 @@ fn listed_files_can_be_played_in_browser() {
   test(|context| async move {
     context.write("some-test-file.txt", "contents");
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "some-test-file.txt");
     let file_url = a.value().attr("href").unwrap();
     let file_url = context.files_url().join(file_url).unwrap();
@@ -248,7 +248,7 @@ fn listed_files_have_percent_encoded_hrefs() {
   test(|context| async move {
     context.write("filename with special chäracters", "");
     let html = html(context.base_url()).await;
-    let links = css_select(&html, "a");
+    let links = css_select(&html, ".listing a");
     assert_eq!(links.len(), 2);
     for link in links {
       assert_eq!(
@@ -434,14 +434,14 @@ fn subdirectories_appear_in_listings() {
   test(|context| async move {
     context.write("foo/bar.txt", "hello");
     let root_listing = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&root_listing, "a").as_slice());
+    guard_unwrap!(let &[a] = css_select(&root_listing, ".listing a").as_slice());
     assert_eq!(a.inner_html(), "foo/");
     let subdir_url = context
       .files_url()
       .join(a.value().attr("href").unwrap())
       .unwrap();
     let subdir_listing = html(&subdir_url).await;
-    guard_unwrap!(let &[a] = css_select(&subdir_listing, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&subdir_listing, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "bar.txt");
     let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
     assert_eq!(text(&file_url).await, "hello");
@@ -462,7 +462,7 @@ fn redirects_correctly_for_two_layers_of_subdirectories() {
   test(|context| async move {
     context.write("foo/bar/baz.txt", "");
     let listing = html(&context.files_url().join("foo/bar").unwrap()).await;
-    guard_unwrap!(let &[a] = css_select(&listing, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&listing, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "baz.txt")
   });
 }
@@ -706,7 +706,7 @@ fn show_local_symlinks_in_listings() {
     context.write("file", "");
     symlink("file", context.files_directory().join("link"));
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a, b] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a, b] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "file");
     assert_eq!(b.inner_html(), "link");
   });
@@ -719,7 +719,7 @@ fn remove_escaping_symlinks_from_listings() {
     context.write("local", "");
     symlink("../escaping", context.files_directory().join("link"));
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "local");
   });
 }
@@ -869,8 +869,8 @@ fn paid_files_dont_have_download_button() {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("foo", "foo");
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[] = css_select(&html, "a[download]").as_slice());
-    guard_unwrap!(let &[link] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[] = css_select(&html, ".listing a[download]").as_slice());
+    guard_unwrap!(let &[link] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(link.inner_html(), "foo");
   });
 }
@@ -909,7 +909,7 @@ fn space_is_percent_encoded() {
   test(|context| async move {
     context.write("foo bar", "contents");
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "foo%20bar");
   });
 }
@@ -924,7 +924,7 @@ fn doesnt_percent_encode_allowed_ascii_characters() {
     };
     context.write(allowed_ascii_characters, "contents");
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), allowed_ascii_characters);
   });
 }
@@ -934,7 +934,7 @@ fn percent_encodes_unicode() {
   test(|context| async move {
     context.write("Å", "contents");
     let html = html(context.files_url()).await;
-    guard_unwrap!(let &[a] = css_select(&html, "a:not([download])").as_slice());
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
   });
 }
