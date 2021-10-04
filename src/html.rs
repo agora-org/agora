@@ -15,7 +15,20 @@ pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
         script type="module" src="/static/index.js" {}
       }
       body {
-        (body)
+        main {
+          (body)
+        }
+        footer {
+          "Powered by "
+          a href="https://github.com/agora-org/agora" {
+            "Agora"
+          }
+          ". Have questions? Join us on "
+          a href="https://t.me/agoradiscussion" {
+            "Telegram"
+          }
+          "."
+        }
       }
     }
   };
