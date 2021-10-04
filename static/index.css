@@ -5,6 +5,16 @@ body {
   width: 50rem;
 }
 
+footer {
+  font-style: italic;
+  text-align: center;
+}
+
+main {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
 .listing {
   border-top: 0.0625rem solid black;
   list-style: none;
