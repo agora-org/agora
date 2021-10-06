@@ -21,6 +21,7 @@ integration *args:
 
 clippy:
   cargo lclippy --all-targets --all-features
+  cargo lclippy --all-targets --all-features --tests
 
 fmt-check:
   cargo fmt --all -- --check
