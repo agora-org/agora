@@ -95,7 +95,9 @@ jobs:
         cargo test --test integration
 
     - name: Clippy
-      run: cargo clippy --all-targets --all-features
+      run: |
+        cargo clippy --all-targets --all-features
+        cargo clippy --all-targets --all-features --tests
 
     - name: Check Formatting
       run: cargo fmt --all -- --check
