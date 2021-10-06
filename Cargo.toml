@@ -1,6 +1,6 @@
 [package]
 name = "agora"
-version = "0.0.7"
+version = "0.1.0"
 description = "File server that accepts Lightning Network payments for downloads"
 authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
 license = "CC0-1.0"
