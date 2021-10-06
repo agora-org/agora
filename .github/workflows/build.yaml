@@ -109,11 +109,6 @@ jobs:
         sudo apt-get install ripgrep
         ./bin/forbid
 
-    - name: Install
-      run: |
-        cargo install --path .
-        agora --version
-
     - name: Package
       id: package
       if: startsWith(github.ref, 'refs/tags/')

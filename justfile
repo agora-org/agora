@@ -1,6 +1,6 @@
 set positional-arguments
 
-all: build test integration clippy fmt-check forbid check-install check-lockfile
+all: build test integration clippy fmt-check forbid check-lockfile
 
 build:
   cargo lcheck --all
@@ -29,12 +29,6 @@ fmt-check:
 
 forbid:
   ./bin/forbid
-
-check-install:
-  #!/usr/bin/env bash
-  tmp=`mktemp -d`
-  cargo install --path . --root $tmp
-  $tmp/bin/agora --version
 
 check-lockfile:
   cargo update --locked --package agora
