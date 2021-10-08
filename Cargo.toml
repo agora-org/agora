@@ -108,6 +108,3 @@ test = false
 
 [features]
 slow-tests = []
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["--codegen", "target-feature=+crt-static"]
