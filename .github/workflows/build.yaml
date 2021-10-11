@@ -72,6 +72,15 @@ jobs:
         rustup target add ${{ matrix.target }}
         rustup default `cat rust-toolchain`-${{ matrix.target }}
 
+    - name: Package
+      id: package
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        TARGET: ${{ matrix.target }}
+        REF: ${{ github.ref }}
+        OS: ${{ matrix.os }}
+      run: ./bin/package
+
     - name: Info
       run: |
         rustup --version
@@ -108,15 +117,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install ripgrep
         ./bin/forbid
-
-    - name: Package
-      id: package
-      if: startsWith(github.ref, 'refs/tags/')
-      env:
-        TARGET: ${{ matrix.target }}
-        REF: ${{ github.ref }}
-        OS: ${{ matrix.os }}
-      run: ./bin/package
 
     - name: Prerelease Check
       id: is_prerelease
