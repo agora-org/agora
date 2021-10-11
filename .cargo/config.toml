@@ -1,2 +1,2 @@
-[target.x86_64-pc-windows-msvc]
+[build]
 rustflags = ["--codegen", "target-feature=+crt-static"]
