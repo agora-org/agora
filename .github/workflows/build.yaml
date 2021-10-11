@@ -31,15 +31,18 @@ jobs:
         include:
         - target: x86_64-apple-darwin
           os: macos-latest
+          rustflags: --deny warnings
         - target: x86_64-pc-windows-msvc
           os: windows-latest
+          rustflags: --deny warnings --codegen=target-feature=+crt-static
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-latest
+          rustflags: --deny warnings
 
     runs-on: ${{ matrix.os }}
 
     env:
-      RUSTFLAGS: "--deny warnings"
+      RUSTFLAGS: ${{ matrix.rustflags }}
 
     steps:
     - uses: actions/checkout@v2
