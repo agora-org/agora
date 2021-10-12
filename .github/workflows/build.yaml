@@ -47,12 +47,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Run Info
-      run: |
-        echo 'github.ref: ${{ github.ref }}'
-        echo 'github.base_ref: ${{ github.base_ref }}'
-        echo 'github.head_ref: ${{ github.head_ref }}'
-
     # An issue with BSD Tar causes sporadic failures on macOS.
     # c.f https://github.com/actions/cache/issues/403
     - name: Install GNU Tar
@@ -120,7 +114,7 @@ jobs:
 
     - name: Package
       id: package
-      if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/package-on-master'
+      if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/master'
       env:
         TARGET: ${{ matrix.target }}
         REF: ${{ github.ref }}
