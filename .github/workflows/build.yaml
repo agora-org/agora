@@ -47,6 +47,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Run Info
+      run: echo ${{ github.ref }}
+
     # An issue with BSD Tar causes sporadic failures on macOS.
     # c.f https://github.com/actions/cache/issues/403
     - name: Install GNU Tar
@@ -75,7 +78,7 @@ jobs:
         rustup target add ${{ matrix.target }}
         rustup default `cat rust-toolchain`-${{ matrix.target }}
 
-    - name: Info
+    - name: Rust Info
       run: |
         rustup --version
         cargo --version
