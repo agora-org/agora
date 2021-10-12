@@ -48,7 +48,7 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Run Info
-      run: echo ${{ github.ref }}
+      run: echo ${{ github }}
 
     # An issue with BSD Tar causes sporadic failures on macOS.
     # c.f https://github.com/actions/cache/issues/403
