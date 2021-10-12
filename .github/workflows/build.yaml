@@ -75,7 +75,7 @@ jobs:
         rustup target add ${{ matrix.target }}
         rustup default `cat rust-toolchain`-${{ matrix.target }}
 
-    - name: Rust Info
+    - name: Info
       run: |
         rustup --version
         cargo --version
