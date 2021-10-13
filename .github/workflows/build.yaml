@@ -15,8 +15,12 @@ defaults:
     shell: bash
 
 env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   # Increment this key to invalidate the cache.
   CACHE_KEY: 0
+  RUSTC_WRAPPER: sccache
+  SCCACHE_BUCKET: agora-sccache
 
 jobs:
   all:
@@ -55,19 +59,34 @@ jobs:
         brew install gnu-tar
         echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
 
+    - name: Install sccache Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        snap install sccache --candidate --classic
+
+    - name: Install sccache macOS
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install sccache
+
+    - name: Install sccache Windows
+      if: matrix.os == 'windows-latest'
+      run: |
+        scoop install sccache
+
     - name: Make openssl-src Use Strawberry Perl
       if: matrix.os == 'windows-latest'
       run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
 
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ env.CACHE_KEY }}-${{ runner.os }}-${{ github.sha }}
-        restore-keys: ${{ env.CACHE_KEY }}-${{ runner.os }}-
+    # - name: Cache
+    #   uses: actions/cache@v2
+    #   with:
+    #     path: |
+    #       ~/.cargo/registry
+    #       ~/.cargo/git
+    #       target
+    #     key: ${{ env.CACHE_KEY }}-${{ runner.os }}-${{ github.sha }}
+    #     restore-keys: ${{ env.CACHE_KEY }}-${{ runner.os }}-
 
     - name: Install Rust Toolchain Components
       run: |
