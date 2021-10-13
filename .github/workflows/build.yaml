@@ -15,7 +15,7 @@ defaults:
     shell: bash
 
 env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_ACCESS_KEY_ID: AKIAWSTEMOQ24QZSPP6Z
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   # Increment this key to invalidate the cache.
   CACHE_KEY: 0
@@ -62,6 +62,7 @@ jobs:
     - name: Install sccache Linux
       if: matrix.os == 'ubuntu-latest'
       run: |
+        sudo snap install sccache --candidate --classic || true
         sudo snap install sccache --candidate --classic
 
     - name: Install sccache macOS
