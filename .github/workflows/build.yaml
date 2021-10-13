@@ -62,7 +62,7 @@ jobs:
     - name: Install sccache Linux
       if: matrix.os == 'ubuntu-latest'
       run: |
-        snap install sccache --candidate --classic
+        sudo snap install sccache --candidate --classic
 
     - name: Install sccache macOS
       if: matrix.os == 'macos-latest'
