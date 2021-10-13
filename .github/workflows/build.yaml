@@ -65,6 +65,7 @@ jobs:
 
     - name: Info
       run: |
+        set -x
         rustup --version
         cargo --version
         cargo clippy --version
