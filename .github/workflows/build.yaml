@@ -72,7 +72,7 @@ jobs:
     - name: Install sccache Windows
       if: matrix.os == 'windows-latest'
       run: |
-        scoop install sccache
+        choco install sccache
 
     - name: Make openssl-src Use Strawberry Perl
       if: matrix.os == 'windows-latest'
