@@ -4,7 +4,7 @@ use std::path::Component;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {
-  pub(crate) full_path: PathBuf,
+  full_path: PathBuf,
   display_path: PathBuf,
 }
 
