@@ -4,15 +4,15 @@ use std::path::Component;
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {
-  full_path: PathBuf,
+  pub(crate) full_path: PathBuf,
   display_path: PathBuf,
 }
 
 impl InputPath {
   pub(crate) fn new(environment: &Environment, display_path: &Path) -> Self {
     Self {
-      full_path: Self::canonicalize(&environment.working_directory.join(display_path)),
-      display_path: Self::canonicalize(display_path),
+      full_path: environment.working_directory.join(display_path).lexiclean(),
+      display_path: display_path.lexiclean(),
     }
   }
 
@@ -24,8 +24,8 @@ impl InputPath {
       )));
     }
     Ok(Self {
-      full_path: Self::canonicalize(&self.full_path.join(path)),
-      display_path: Self::canonicalize(&self.display_path.join(path)),
+      full_path: self.full_path.join(path).lexiclean(),
+      display_path: self.display_path.join(path).lexiclean(),
     })
   }
 
@@ -54,10 +54,6 @@ impl InputPath {
     }
 
     Some(self.join_relative(Path::new(&uri_path)))
-  }
-
-  fn canonicalize(path: &Path) -> PathBuf {
-    path.components().collect()
   }
 
   pub(crate) fn display_path(&self) -> &Path {
