@@ -43,14 +43,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    # An issue with BSD Tar causes sporadic failures on macOS.
-    # c.f https://github.com/actions/cache/issues/403
-    - name: Install GNU Tar
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install gnu-tar
-        echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
-
     - name: Make openssl-src Use Strawberry Perl
       if: matrix.os == 'windows-latest'
       run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
