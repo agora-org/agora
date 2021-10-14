@@ -14,10 +14,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  # Increment this key to invalidate the cache.
-  CACHE_KEY: 0
-
 jobs:
   all:
     name: All
@@ -47,27 +43,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    # An issue with BSD Tar causes sporadic failures on macOS.
-    # c.f https://github.com/actions/cache/issues/403
-    - name: Install GNU Tar
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install gnu-tar
-        echo /usr/local/opt/gnu-tar/libexec/gnubin > $GITHUB_PATH
-
     - name: Make openssl-src Use Strawberry Perl
       if: matrix.os == 'windows-latest'
       run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
-
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ env.CACHE_KEY }}-${{ runner.os }}-${{ github.sha }}
-        restore-keys: ${{ env.CACHE_KEY }}-${{ runner.os }}-
 
     - name: Install Rust Toolchain Components
       run: |
@@ -75,8 +53,11 @@ jobs:
         rustup target add ${{ matrix.target }}
         rustup default `cat rust-toolchain`-${{ matrix.target }}
 
+    - uses: Swatinem/rust-cache@v1
+
     - name: Info
       run: |
+        set -x
         rustup --version
         cargo --version
         cargo clippy --version
@@ -134,3 +115,9 @@ jobs:
         prerelease: ${{ steps.is_prerelease.outputs.value }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Remove Intermediate Artifacts
+      run: |
+        rm -rf target/bitcoin-*.tar.gz
+        rm -rf target/bitcoin-*.zip
+        rm -rf target/lnd-source*
