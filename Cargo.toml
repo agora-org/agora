@@ -5,7 +5,6 @@ description = "File server that accepts Lightning Network payments for downloads
 authors = ["Casey Rodarmor <casey@rodarmor.com>", "Sönke Hahn <soenkehahn@gmail.com>"]
 license = "CC0-1.0"
 edition = "2018"
-resolver = "2"
 repository = "https://github.com/agora-org/agora"
 homepage = "https://github.com/agora-org/agora"
 
