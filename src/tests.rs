@@ -1037,7 +1037,7 @@ fn bugfix_symlink_with_relative_base_directory() {
   let working_directory = environment.working_directory.join("working_directory");
   std::fs::create_dir(&working_directory).unwrap();
 
-  environment.working_directory = environment.working_directory.join("working_directory");
+  environment.working_directory = working_directory;
 
   environment.arguments = vec![
     "agora".into(),
