@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-VERSION=${REF#"refs/tags/"}
+VERSION=`basename $REF`
 DIST=`pwd`/dist
 BIN=agora
 
@@ -17,7 +17,7 @@ if [[ $OS == windows-latest ]]; then
 fi
 
 echo "Copying release files..."
-mkdir dist
+mkdir $DIST
 cp \
   $EXECUTABLE \
   Cargo.lock \
