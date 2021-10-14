@@ -62,8 +62,6 @@ jobs:
         cargo --version
         cargo clippy --version
         cargo fmt --version
-        mkdir -p target
-        ls -l target
 
     - name: Check Lockfile
       run: |
