@@ -125,3 +125,9 @@ jobs:
         prerelease: ${{ steps.is_prerelease.outputs.value }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Remove Intermediate Artifacts
+      run: |
+        rm -rf target/bitcoin-*.tar.gz
+        rm -rf target/bitcoin-*.zip
+        rm -rf target/lnd-source*
