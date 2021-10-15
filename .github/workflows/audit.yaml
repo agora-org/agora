@@ -1,5 +1,8 @@
 name: Cargo Audit
 on:
+  pull_request:
+    branches:
+    - master
   push:
     paths:
       - '**/Cargo.lock'
