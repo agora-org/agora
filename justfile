@@ -1,6 +1,9 @@
 set positional-arguments
 
-all: build test integration clippy fmt-check forbid check-lockfile
+all: build audit test integration clippy fmt-check forbid check-lockfile
+
+audit:
+  cargo audit
 
 build:
   cargo lcheck --all
