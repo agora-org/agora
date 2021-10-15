@@ -1,4 +1,4 @@
-name: Cargo Audit
+name: Audit
 on:
   pull_request:
     branches:
