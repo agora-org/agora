@@ -34,7 +34,7 @@ check-lockfile:
   cargo update --locked --package agora
 
 watch +command='ltest':
-  cargo watch --exec '{{command}}'
+  cargo watch --clear --exec '{{command}}'
 
 push: all
   git push

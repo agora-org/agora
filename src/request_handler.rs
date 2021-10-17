@@ -38,13 +38,28 @@ impl RequestHandler {
     Ok(invoice_id)
   }
 
+  fn split_path_inclusive(input: &str) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut start = 0;
+    for (i, c) in input.char_indices() {
+      if c == '/' {
+        result.push(&input[start..i + 1]);
+        start = i + 1;
+      }
+    }
+    if start < input.len() {
+      result.push(&input[start..]);
+    }
+    result
+  }
+
   async fn dispatch(&mut self, request: Request<Body>) -> Result<Response<Body>> {
     let path = percent_encoding::percent_decode_str(request.uri().path())
       .decode_utf8()
       .context(error::InvalidUriPath {
         uri_path: request.uri().path(),
       })?;
-    let components = path.split_inclusive('/').collect::<Vec<&str>>();
+    let components = Self::split_path_inclusive(&path);
 
     let invoice_parameter = request.uri().query().and_then(|query| {
       form_urlencoded::parse(query.as_bytes())
@@ -95,5 +110,32 @@ impl Service<Request<Body>> for RequestHandler {
       .response(request)
       .map(move |result| error_page::map_error(stderr, result))
       .boxed()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn split_path_inclusive() {
+    assert_eq!(
+      RequestHandler::split_path_inclusive("foo/bar"),
+      vec!["foo/", "bar"]
+    );
+    assert_eq!(
+      RequestHandler::split_path_inclusive("foo/bar/baz"),
+      vec!["foo/", "bar/", "baz"]
+    );
+    assert_eq!(
+      RequestHandler::split_path_inclusive("foo/bar/"),
+      vec!["foo/", "bar/"]
+    );
+    assert_eq!(
+      RequestHandler::split_path_inclusive("/foo"),
+      vec!["/", "foo"]
+    );
+    assert_eq!(RequestHandler::split_path_inclusive(""), Vec::<&str>::new());
+    assert_eq!(RequestHandler::split_path_inclusive("foo"), vec!["foo"]);
   }
 }
