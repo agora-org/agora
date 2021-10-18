@@ -1,17 +1,13 @@
 name: Audit
 on:
-  pull_request:
-    branches:
-    - master
-    paths:
-      - '**/Cargo.lock'
-      - '**/Cargo.toml'
+  schedule:
+    - cron: '0 0 * * *'
 jobs:
   all:
     name: All
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v1
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
