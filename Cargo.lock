@@ -505,15 +505,15 @@ checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
 
 [[package]]
 name = "bech32"
-version = "0.7.3"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dabbe35f96fb9507f7330793dc490461b2962659ac5d427181e451a623751d1"
+checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
 name = "bitcoin"
-version = "0.26.2"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6742ec672d3f12506f4ac5c0d853926ff1f94e675f60ffd3224039972bf663f1"
+checksum = "9a41df6ad9642c5c15ae312dd3d074de38fd3eb7cc87ad4ce10f90292a83fe4d"
 dependencies = [
  "bech32",
  "bitcoin_hashes",
@@ -522,9 +522,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin_hashes"
-version = "0.9.7"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ce18265ec2324ad075345d5814fbeed4f41f0a660055dc78840b74d19b874b1"
+checksum = "006cc91e1a1d99819bc5b8214be3555c1f0611b169f527a1fdc54ed1f2b745b0"
 
 [[package]]
 name = "bitflags"
@@ -1850,18 +1850,19 @@ checksum = "7b2f96d100e1cf1929e7719b7edb3b90ab5298072638fccd77be9ce942ecdfce"
 
 [[package]]
 name = "lightning"
-version = "0.0.99"
+version = "0.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96c57b5036ad3428b727c9287b942150759b1c26a3d935b21d619f00ab262a60"
+checksum = "0679c22408337cb4a866a6c9d420b15b996cbc4018ae31a0223ad15699fb1aad"
 dependencies = [
  "bitcoin",
+ "secp256k1",
 ]
 
 [[package]]
 name = "lightning-invoice"
-version = "0.7.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05c41387aa1ef2f9ab6a64420a2bb48c577a0d49198c0748b5c91aa7bae2f700"
+checksum = "b060be861d272988bb4f97eb3e0e11729bf8833ffefb918e0a50375b9d5aac82"
 dependencies = [
  "bech32",
  "bitcoin_hashes",
