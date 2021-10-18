@@ -31,7 +31,7 @@ percent-encoding = "2.1.0"
 pin-project = "1.0.7"
 pulldown-cmark = "0.8.0"
 qrcodegen = "=1.6.0"
-rust-embed = "5.9.0"
+rust-embed = "6.2.0"
 rustls-acme = "0.1.7"
 serde_yaml = "0.8.17"
 termcolor = "1.1.2"
@@ -67,7 +67,7 @@ version = "0.1.7"
 features = ["net"]
 
 [dependencies.tower]
-version = "0.4.6"
+version = "=0.4.8"
 features = ["make"]
 
 [dev-dependencies]
@@ -77,9 +77,9 @@ executable-path = "1.0.0"
 guard = "0.5.1"
 image = "0.22.0"
 libc = "0.2.94"
-lightning-invoice = "0.7.0"
-nix = "0.20.0"
-pretty_assertions = "0.7.2"
+lightning-invoice = "0.10.0"
+nix = "0.23.0"
+pretty_assertions = "1.0.0"
 regex = "1.5.4"
 resvg = "0.15.0"
 scraper = "0.12.0"

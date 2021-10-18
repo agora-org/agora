@@ -60,6 +60,11 @@ run example-files='example-files' domain='test.agora.download' network='testnet'
     --lnd-rpc-cert-path target/tls.cert \
     --lnd-rpc-macaroon-path target/invoice.macaroon
 
+generate-favicon:
+  mkdir -p tmp
+  rsvg-convert logo.svg --output tmp/logo.png
+  convert tmp/logo.png static/favicon.ico
+
 open:
   #!/usr/bin/env bash
   set -euo pipefail

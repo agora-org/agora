@@ -15,7 +15,7 @@ impl StaticAssets {
           builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
         }
         builder
-          .body(bytes.into())
+          .body(bytes.data.into())
           .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
       }
       None => Err(error::StaticAssetNotFound { uri_path: path }.build()),
