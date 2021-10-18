@@ -49,6 +49,7 @@ jobs:
       with:
         override: true
         target: ${{ matrix.target }}
+        toolchain: stable
 
     - name: Test
       run: |
