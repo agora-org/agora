@@ -24,18 +24,12 @@ jobs:
         include:
         - target: x86_64-apple-darwin
           os: macos-latest
-          rustflags: ''
         - target: x86_64-pc-windows-msvc
           os: windows-latest
-          rustflags: --codegen target-feature=+crt-static
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-latest
-          rustflags: ''
 
     runs-on: ${{ matrix.os }}
-
-    env:
-      RUSTFLAGS: ${{ matrix.rustflags }}
 
     steps:
     - uses: actions/checkout@v2
