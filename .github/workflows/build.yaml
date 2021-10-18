@@ -48,20 +48,14 @@ jobs:
       run: echo OPENSSL_SRC_PERL=C:/Strawberry/perl/bin/perl >> $GITHUB_ENV
 
     - name: Install Rust Toolchain Components
-      run: |
-        rustup component add clippy rustfmt
-        rustup target add ${{ matrix.target }}
-        rustup default `cat rust-toolchain`-${{ matrix.target }}
+      uses: actions-rs/toolchain@v1
+      with:
+        components: clippy, rustfmt
+        override: true
+        target: ${{ matrix.target }}
+        toolchain: 1.48.0
 
     - uses: Swatinem/rust-cache@v1
-
-    - name: Info
-      run: |
-        set -x
-        rustup --version
-        cargo --version
-        cargo clippy --version
-        cargo fmt --version
 
     - name: Check Lockfile
       run: |
