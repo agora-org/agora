@@ -1,9 +1,11 @@
-name: Build
+name: Package
 
 on:
-  pull_request:
+  push:
     branches:
     - master
+    tags:
+    - '*'
 
 defaults:
   run:
@@ -22,13 +24,13 @@ jobs:
         include:
         - target: x86_64-apple-darwin
           os: macos-latest
-          rustflags: --deny warnings
+          rustflags: ''
         - target: x86_64-pc-windows-msvc
           os: windows-latest
-          rustflags: --deny warnings --codegen=target-feature=+crt-static
+          rustflags: --codegen target-feature=+crt-static
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-latest
-          rustflags: --deny warnings
+          rustflags: ''
 
     runs-on: ${{ matrix.os }}
 
@@ -48,42 +50,30 @@ jobs:
         components: clippy, rustfmt
         override: true
         target: ${{ matrix.target }}
-        toolchain: 1.48.0
-
-    - uses: Swatinem/rust-cache@v1
-
-    - name: Check Lockfile
-      run: |
-        cargo update --locked --package agora
-
-    - name: Check
-      run: |
-        cargo check --all
-        cargo check --tests
-        cargo check --tests --all-features
 
     - name: Test
       run: |
         cargo test --all --all-features
         cargo test --test integration
 
-    - name: Clippy
-      run: |
-        cargo clippy --all-targets --all-features
-        cargo clippy --all-targets --all-features --tests
+    - name: Package
+      id: package
+      env:
+        TARGET: ${{ matrix.target }}
+        REF: ${{ github.ref }}
+        OS: ${{ matrix.os }}
+      run: ./bin/package
 
-    - name: Check Formatting
-      run: cargo fmt --all -- --check
+    - name: Prerelease Check
+      id: is_prerelease
+      run: cargo run --package prerelease -- --reference ${{ github.ref }}
 
-    - name: Check for Forbidden Words
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install ripgrep
-        ./bin/forbid
-
-    - name: Remove Intermediate Artifacts
-      run: |
-        rm -rf target/bitcoin-*.tar.gz
-        rm -rf target/bitcoin-*.zip
-        rm -rf target/lnd-source*
+    - name: Publish
+      uses: softprops/action-gh-release@v0.1.5
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        draft: false
+        files: ${{ steps.package.outputs.archive }}
+        prerelease: ${{ steps.is_prerelease.outputs.value }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
