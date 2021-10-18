@@ -57,14 +57,6 @@ jobs:
 
     - uses: Swatinem/rust-cache@v1
 
-    - name: Info
-      run: |
-        set -x
-        rustup --version
-        cargo --version
-        cargo clippy --version
-        cargo fmt --version
-
     - name: Check Lockfile
       run: |
         cargo update --locked --package agora
