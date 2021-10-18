@@ -50,7 +50,7 @@ jobs:
     - name: Install Rust Toolchain Components
       uses: actions-rs/toolchain@v1
       with:
-        components: rustfmt, clippy
+        components: clippy, rustfmt
         override: true
         target: ${{ matrix.target }}
         toolchain: 1.48.0
