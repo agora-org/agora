@@ -3975,15 +3975,14 @@ dependencies = [
 
 [[package]]
 name = "tower"
-version = "0.4.9"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d15a6b60cdff0cb039d81d3b37f8bc3d7e53dca09069aae3ef2502ca4834fe30"
+checksum = "f60422bc7fefa2f3ec70359b8ff1caff59d785877eb70595904605bcc412470f"
 dependencies = [
  "futures-core",
  "futures-util",
  "indexmap",
  "pin-project",
- "pin-project-lite",
  "rand 0.8.4",
  "slab",
  "tokio",
