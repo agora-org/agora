@@ -1,12 +1,12 @@
 use http::uri::{Authority, Scheme, Uri};
-use hyper::client::connect::HttpConnector;
+use hyper::{client::connect::HttpConnector, Body, Request, Response};
 use hyper_openssl::HttpsConnector;
 use openssl::ssl::{SslConnector, SslMethod};
 use openssl::x509::X509;
 use std::task::{Context, Poll};
 use tonic::body::BoxBody;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct GrpcService {
   authority: Authority,
   hyper_client: hyper::Client<HttpsConnector<HttpConnector>, BoxBody>,
@@ -39,8 +39,8 @@ impl GrpcService {
   }
 }
 
-impl tonic::client::GrpcService<BoxBody> for GrpcService {
-  type ResponseBody = hyper::Body;
+impl tower::Service<Request<BoxBody>> for GrpcService {
+  type Response = Response<Body>;
   type Error = hyper::Error;
   type Future = hyper::client::ResponseFuture;
 
@@ -48,7 +48,7 @@ impl tonic::client::GrpcService<BoxBody> for GrpcService {
     Ok(()).into()
   }
 
-  fn call(&mut self, mut req: hyper::Request<BoxBody>) -> Self::Future {
+  fn call(&mut self, mut req: Request<BoxBody>) -> Self::Future {
     let mut builder = Uri::builder()
       .scheme(Scheme::HTTPS)
       .authority(self.authority.clone());

@@ -9,7 +9,11 @@ use openssl::x509::X509;
 use std::convert::TryInto;
 #[cfg(test)]
 use std::sync::Arc;
-use tonic::{metadata::AsciiMetadataValue, Code, Interceptor, Status};
+use tonic::{
+  metadata::AsciiMetadataValue,
+  service::interceptor::{InterceptedService, Interceptor},
+  Code, Request, Status,
+};
 
 pub use millisatoshi::Millisatoshi;
 
@@ -34,9 +38,23 @@ pub mod lnrpc {
   }
 }
 
+#[derive(Clone)]
+struct MacaroonInterceptor {
+  macaroon: Option<AsciiMetadataValue>,
+}
+
+impl Interceptor for MacaroonInterceptor {
+  fn call(&mut self, mut request: Request<()>) -> Result<Request<()>, Status> {
+    if let Some(macaroon) = &self.macaroon {
+      request.metadata_mut().insert("macaroon", macaroon.clone());
+    }
+    Ok(request)
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct Client {
-  inner: LightningClient<GrpcService>,
+  inner: LightningClient<InterceptedService<GrpcService, MacaroonInterceptor>>,
   #[cfg(test)]
   lnd_test_context: Arc<LndTestContext>,
 }
@@ -49,21 +67,17 @@ impl Client {
     #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
     let grpc_service = GrpcService::new(authority, certificate)?;
-    let inner = match macaroon {
-      Some(macaroon) => {
-        let macaroon = hex::encode_upper(macaroon)
-          .parse::<AsciiMetadataValue>()
-          .expect("Client::new: hex characters are valid metadata values");
-        LightningClient::with_interceptor(
-          grpc_service,
-          Interceptor::new(move |mut request| {
-            request.metadata_mut().insert("macaroon", macaroon.clone());
-            Ok(request)
-          }),
-        )
-      }
-      None => LightningClient::new(grpc_service),
-    };
+
+    let inner = LightningClient::with_interceptor(
+      grpc_service,
+      MacaroonInterceptor {
+        macaroon: macaroon.map(|macaroon| {
+          hex::encode_upper(macaroon)
+            .parse::<AsciiMetadataValue>()
+            .expect("Client::new: hex characters are valid metadata values")
+        }),
+      },
+    );
 
     Ok(Client {
       inner,
