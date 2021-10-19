@@ -1,4 +1,4 @@
-use crate::grpc_service::GrpcService;
+use crate::https_service::HttpsService;
 use http::uri::Authority;
 #[cfg(test)]
 use lnd_test_context::LndTestContext;
@@ -17,7 +17,7 @@ use tonic::{
 
 pub use millisatoshi::Millisatoshi;
 
-mod grpc_service;
+mod https_service;
 mod millisatoshi;
 
 pub mod lnrpc {
@@ -54,7 +54,7 @@ impl Interceptor for MacaroonInterceptor {
 
 #[derive(Debug, Clone)]
 pub struct Client {
-  inner: LightningClient<InterceptedService<GrpcService, MacaroonInterceptor>>,
+  inner: LightningClient<InterceptedService<HttpsService, MacaroonInterceptor>>,
   #[cfg(test)]
   lnd_test_context: Arc<LndTestContext>,
 }
@@ -66,18 +66,15 @@ impl Client {
     macaroon: Option<Vec<u8>>,
     #[cfg(test)] lnd_test_context: LndTestContext,
   ) -> Result<Client, openssl::error::ErrorStack> {
-    let grpc_service = GrpcService::new(authority, certificate)?;
+    let grpc_service = HttpsService::new(authority, certificate)?;
 
-    let inner = LightningClient::with_interceptor(
-      grpc_service,
-      MacaroonInterceptor {
-        macaroon: macaroon.map(|macaroon| {
-          hex::encode_upper(macaroon)
-            .parse::<AsciiMetadataValue>()
-            .expect("Client::new: hex characters are valid metadata values")
-        }),
-      },
-    );
+    let macaroon = macaroon.map(|macaroon| {
+      hex::encode_upper(macaroon)
+        .parse::<AsciiMetadataValue>()
+        .expect("Client::new: hex characters are valid metadata values")
+    });
+
+    let inner = LightningClient::with_interceptor(grpc_service, MacaroonInterceptor { macaroon });
 
     Ok(Client {
       inner,
