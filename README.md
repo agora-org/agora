@@ -145,7 +145,7 @@ Popular wallets include:
 
 - [Wallet of Satoshi](https://www.walletofsatoshi.com/), a hosted wallet for Android and iOS.
 - [Strike](https://strike.me/), a hosted wallet for Android, iOS, and Google Chrome.
-- [Muun](https://muun.com/), a self-custodial wallet for iOS and Android.
+- [Phoenix](https://phoenix.acinq.co/), a self-custodial wallet for iOS and Android.
 - [Breez](https://breez.technology/), a self-custodial wallet for iOS and Android.
 - [River Financial](https://river.com/), a Bitcoin financial services platform with the ability to buy and sell bitcoin for USD, and make and receive Lightning Payments, for the web, iOS, and Android.
 
