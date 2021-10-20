@@ -67,7 +67,7 @@ version = "0.1.7"
 features = ["net"]
 
 [dependencies.tower]
-version = "=0.4.8"
+version = "=0.4.10"
 features = ["make"]
 
 [dev-dependencies]
