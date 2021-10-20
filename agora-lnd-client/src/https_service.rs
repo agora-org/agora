@@ -1,30 +1,28 @@
 use http::uri::{Authority, Scheme, Uri};
-use hyper::client::connect::HttpConnector;
+use hyper::{client::connect::HttpConnector, Body, Request, Response};
 use hyper_openssl::HttpsConnector;
 use openssl::ssl::{SslConnector, SslMethod};
 use openssl::x509::X509;
 use std::task::{Context, Poll};
 use tonic::body::BoxBody;
 
-#[derive(Clone)]
-pub(crate) struct GrpcService {
+#[derive(Clone, Debug)]
+pub(crate) struct HttpsService {
   authority: Authority,
   hyper_client: hyper::Client<HttpsConnector<HttpConnector>, BoxBody>,
 }
 
-impl GrpcService {
+impl HttpsService {
   pub(crate) fn new(
     authority: Authority,
     certificate: Option<X509>,
-  ) -> Result<GrpcService, openssl::error::ErrorStack> {
+  ) -> Result<Self, openssl::error::ErrorStack> {
     let mut http_connector = HttpConnector::new();
     http_connector.enforce_http(false);
-
     let mut ssl_connector = SslConnector::builder(SslMethod::tls_client())?;
     if let Some(certificate) = certificate {
       ssl_connector.cert_store_mut().add_cert(certificate)?;
     }
-
     let hyper_client =
       hyper::Client::builder()
         .http2_only(true)
@@ -32,15 +30,15 @@ impl GrpcService {
           http_connector,
           ssl_connector,
         )?);
-    Ok(GrpcService {
+    Ok(Self {
       authority,
       hyper_client,
     })
   }
 }
 
-impl tonic::client::GrpcService<BoxBody> for GrpcService {
-  type ResponseBody = hyper::Body;
+impl tower::Service<Request<BoxBody>> for HttpsService {
+  type Response = Response<Body>;
   type Error = hyper::Error;
   type Future = hyper::client::ResponseFuture;
 
@@ -48,7 +46,7 @@ impl tonic::client::GrpcService<BoxBody> for GrpcService {
     Ok(()).into()
   }
 
-  fn call(&mut self, mut req: hyper::Request<BoxBody>) -> Self::Future {
+  fn call(&mut self, mut req: Request<BoxBody>) -> Self::Future {
     let mut builder = Uri::builder()
       .scheme(Scheme::HTTPS)
       .authority(self.authority.clone());
@@ -58,6 +56,6 @@ impl tonic::client::GrpcService<BoxBody> for GrpcService {
     *req.uri_mut() = builder
       .build()
       .expect("GrpcService::call: Uri constructed from valid parts cannot fail");
-    self.hyper_client.request(req)
+    self.hyper_client.call(req)
   }
 }
