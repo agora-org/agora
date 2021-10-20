@@ -54,7 +54,7 @@ You can install Rust with [rustup](https://rustup.rs/).
 
 Inside the checked out repository, running `cargo build --release` will build `agora` and copy the binary to `./target/release/agora`.
 
-From within the repository, you can also run, e.g., `cargo install --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
+From within the repository, you can also run, e.g., `cargo install --locked --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
 ## Releases Notifications
 
