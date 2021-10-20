@@ -99,10 +99,12 @@ impl HttpsRequestHandler {
           tokio::spawn(async move {
             match Self::accept(config, connection).await {
               Ok(Some(tls_stream)) => {
-                Http::new()
+                if let Err(err) = Http::new()
                   .serve_connection(tls_stream, request_handler)
                   .await
-                  .ok();
+                {
+                  log::debug!("Error closing TLS connection: {}", err);
+                }
               }
               Ok(None) => {}
               Err(err) => log::error!("TLS accept error: {:?}", err),
