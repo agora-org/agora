@@ -57,10 +57,18 @@ run example-files='example-files' domain='test.agora.download' network='testnet'
     --lnd-rpc-cert-path target/tls.cert \
     --lnd-rpc-macaroon-path target/invoice.macaroon
 
-generate-favicon:
+render-icons:
   mkdir -p tmp
-  rsvg-convert logo.svg --output tmp/logo.png
-  convert tmp/logo.png static/favicon.ico
+  rsvg-convert \
+    --output tmp/favicon.png \
+    --zoom 32 \
+    logo.svg
+  convert tmp/favicon.png static/favicon.ico
+  rsvg-convert \
+    --background-color '#3457d5' \
+    --output static/apple-touch-icon.png \
+    --zoom 180 \
+    logo.svg
 
 open:
   #!/usr/bin/env bash
