@@ -1028,6 +1028,17 @@ fn favicon_is_served_at_favicon_ico() {
 }
 
 #[test]
+fn apple_touch_icon_is_served_under_root() {
+  test(|context| async move {
+    let response = get(&context.base_url().join("apple-touch-icon.png").unwrap()).await;
+    assert_eq!(
+      response.headers().get(header::CONTENT_TYPE).unwrap(),
+      "image/png"
+    );
+  });
+}
+
+#[test]
 fn bugfix_symlink_with_relative_base_directory() {
   let mut environment = Environment::test();
 
