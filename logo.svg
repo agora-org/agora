@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="16" cy="16" r="16" fill="#3457d5"/>
-  <circle cx="16" cy="16" r="8" fill="#ffffff"/>
-  <circle cx="16" cy="16" r="4" fill="#438ddd"/>
-  <circle cx="16" cy="16" r="2" fill="#000000"/>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <circle cx="50%" cy="50%" r="50%" fill="#3457d5"/>
+  <circle cx="50%" cy="50%" r="25%" fill="#ffffff"/>
+  <circle cx="50%" cy="50%" r="16.5%" fill="#438ddd"/>
+  <circle cx="50%" cy="50%" r="8.25%" fill="#000000"/>
 </svg>
