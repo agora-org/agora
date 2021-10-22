@@ -81,6 +81,6 @@ impl Service<Request<Body>> for HttpsRedirectService {
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
     let result = self.response(request);
-    future::ready(error_page::map_error(self.stderr.clone(), result))
+    future::ready(Ok(error_page::map_error(self.stderr.clone(), result)))
   }
 }
