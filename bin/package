@@ -8,18 +8,18 @@ BIN=agora
 
 echo "Packaging $BIN $VERSION for $TARGET..."
 
-TARGET_RUSTFLAGS=''
+TARGET_RUSTFLAGS=()
 
 if [[ $OS == windows-latest ]]; then
-  TARGET_RUSTFLAGS+=' --codegen target-feature=+crt-static'
+  TARGET_RUSTFLAGS+=('--codegen target-feature=+crt-static')
 fi
 
 if [[ $TARGET == aarch64-unknown-linux-gnu ]]; then
-  TARGET_RUSTFLAGS+=' --codegen linker=aarch64-linux-gnu-gcc'
+  TARGET_RUSTFLAGS+=('--codegen linker=aarch64-linux-gnu-gcc')
 fi
 
 echo "Building $BIN..."
-RUSTFLAGS="$TARGET_RUSTFLAGS" cargo build --bin $BIN --target $TARGET --release
+RUSTFLAGS="${TARGET_RUSTFLAGS[@]}" cargo build --bin $BIN --target $TARGET --release
 EXECUTABLE=target/$TARGET/release/$BIN
 
 if [[ $OS == windows-latest ]]; then
