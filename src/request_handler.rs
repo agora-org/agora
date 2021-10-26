@@ -106,11 +106,16 @@ impl Service<Request<Body>> for RequestHandler {
   }
 
   fn call(&mut self, request: Request<Body>) -> Self::Future {
+    log::debug!("Incoming: {:?}", request);
     let stderr = self.stderr.clone();
     self
       .clone()
       .response(request)
-      .map(move |result| error_page::map_error(stderr, result))
+      .map(move |result| {
+        let response = error_page::map_error(stderr, result);
+        log::debug!("Outgoing: {:?}", response);
+        Ok(response)
+      })
       .boxed()
   }
 }
