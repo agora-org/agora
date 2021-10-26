@@ -1,4 +1,4 @@
-name: Build
+name: CI
 
 on: pull_request
 
@@ -12,19 +12,16 @@ jobs:
 
     strategy:
       matrix:
-        target:
-        - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
-        - x86_64-unknown-linux-gnu
+        os:
+        - macos-latest
+        - windows-latest
+        - ubuntu-latest
         include:
-        - target: x86_64-apple-darwin
-          os: macos-latest
+        - os: macos-latest
           rustflags: --deny warnings
-        - target: x86_64-pc-windows-msvc
-          os: windows-latest
+        - os: windows-latest
           rustflags: --deny warnings --codegen=target-feature=+crt-static
-        - target: x86_64-unknown-linux-gnu
-          os: ubuntu-latest
+        - os: ubuntu-latest
           rustflags: --deny warnings
 
     runs-on: ${{ matrix.os }}
@@ -44,7 +41,6 @@ jobs:
       with:
         components: clippy, rustfmt
         override: true
-        target: ${{ matrix.target }}
         toolchain: 1.48.0
 
     - uses: Swatinem/rust-cache@v1
