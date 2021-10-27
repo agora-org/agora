@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "agora"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "agora-lnd-client",
  "async-rustls",
