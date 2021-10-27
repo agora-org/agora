@@ -16,6 +16,8 @@ fi
 
 if [[ $TARGET == aarch64-unknown-linux-gnu ]]; then
   TARGET_RUSTFLAGS+=('--codegen linker=aarch64-linux-gnu-gcc')
+elif [[ $TARGET == armv7-unknown-linux-gnueabihf ]]; then
+  TARGET_RUSTFLAGS+=('--codegen linker=arm-linux-gnueabihf-gcc')
 fi
 
 echo "Building $BIN..."

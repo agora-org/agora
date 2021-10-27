@@ -19,11 +19,15 @@ jobs:
       matrix:
         target:
         - aarch64-unknown-linux-gnu
+        - armv7-unknown-linux-gnueabihf
         - x86_64-apple-darwin
         - x86_64-pc-windows-msvc
         - x86_64-unknown-linux-gnu
         include:
         - target: aarch64-unknown-linux-gnu
+          os: ubuntu-latest
+          cross_compiling: true
+        - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-latest
           cross_compiling: true
         - target: x86_64-apple-darwin
@@ -55,6 +59,10 @@ jobs:
     - name: Install AArch64 Toolchain
       if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
       run: sudo apt-get install gcc-aarch64-linux-gnu
+
+    - name: Install ARM7 Toolchain
+      if: ${{ matrix.target == 'armv7-unknown-linux-gnueabihf' }}
+      run: sudo apt-get install gcc-arm-linux-gnueabihf
 
     - name: Test
       if: '!matrix.cross_compiling'
