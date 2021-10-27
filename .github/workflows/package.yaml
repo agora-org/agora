@@ -27,18 +27,23 @@ jobs:
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-latest
           cross_compiling: true
+          target_rustflags: '--codegen linker=aarch64-linux-gnu-gcc'
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-latest
           cross_compiling: true
+          target_rustflags: '--codegen linker=arm-linux-gnueabihf-gcc'
         - target: x86_64-apple-darwin
           os: macos-latest
           cross_compiling: false
+          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross_compiling: false
+          target_rustflags: '--codegen target-feature=+crt-static'
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-latest
           cross_compiling: false
+          target_rustflags: ''
 
     runs-on: ${{ matrix.os }}
 
@@ -80,6 +85,7 @@ jobs:
         TARGET: ${{ matrix.target }}
         REF: ${{ github.ref }}
         OS: ${{ matrix.os }}
+        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
       run: ./bin/package
 
     - name: Prerelease Check
