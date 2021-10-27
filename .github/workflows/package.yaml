@@ -58,11 +58,15 @@ jobs:
 
     - name: Install AArch64 Toolchain
       if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
-      run: sudo apt-get install gcc-aarch64-linux-gnu
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc-aarch64-linux-gnu
 
     - name: Install ARM7 Toolchain
       if: ${{ matrix.target == 'armv7-unknown-linux-gnueabihf' }}
-      run: sudo apt-get install gcc-arm-linux-gnueabihf
+      run: |
+        sudo apt-get update
+        sudo apt-get install gcc-arm-linux-gnueabihf
 
     - name: Test
       if: '!matrix.cross_compiling'
