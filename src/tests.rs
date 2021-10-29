@@ -12,6 +12,7 @@ use reqwest::{redirect::Policy, Client, Url};
 use scraper::{ElementRef, Html, Selector};
 use std::{net::TcpListener, path::MAIN_SEPARATOR};
 use tokio::net::TcpStream;
+use unindent::Unindent;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;
@@ -1065,4 +1066,23 @@ fn bugfix_symlink_with_relative_base_directory() {
     let link = text(&context.files_url().join("link").unwrap()).await;
     assert_eq!(link, "precious content");
   });
+}
+
+// fixme: context.write should take AsRef<str>
+
+#[test]
+fn serve_script_output() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: echo precious output
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    // assert_eq!(output, "precious output");
+  });
+  panic!(stderr);
 }

@@ -1,10 +1,17 @@
 use crate::common::*;
+use std::collections::BTreeMap;
+
+#[derive(PartialEq, Debug, Deserialize, Clone)]
+enum VirtualFile {
+  Script { source: String },
+}
 
 #[derive(PartialEq, Debug, Default, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   paid: Option<bool>,
   pub(crate) base_price: Option<Millisatoshi>,
+  files: BTreeMap<String, VirtualFile>,
 }
 
 impl Config {
@@ -44,6 +51,7 @@ impl Config {
     *self = Self {
       paid: self.paid.or(parent.paid),
       base_price: self.base_price.or(parent.base_price),
+      files: self.files.clone(),
     };
   }
 }
@@ -59,7 +67,8 @@ mod tests {
     assert_eq!(
       Config {
         paid: None,
-        base_price: None
+        base_price: None,
+        files: BTreeMap::new()
       },
       Config::default()
     );
@@ -81,7 +90,8 @@ mod tests {
       config,
       Config {
         paid: Some(true),
-        base_price: None
+        base_price: None,
+        files: BTreeMap::new()
       }
     );
   }
@@ -169,7 +179,8 @@ mod tests {
       config,
       Config {
         paid: Some(true),
-        base_price: Some(Millisatoshi::new(42_000))
+        base_price: Some(Millisatoshi::new(42_000)),
+        files: BTreeMap::new()
       }
     );
   }
@@ -189,7 +200,8 @@ mod tests {
       config,
       Config {
         paid: Some(false),
-        base_price: Some(Millisatoshi::new(42_000))
+        base_price: Some(Millisatoshi::new(42_000)),
+        files: BTreeMap::new()
       }
     );
   }
@@ -213,7 +225,8 @@ mod tests {
       config,
       Config {
         paid: Some(true),
-        base_price: Some(Millisatoshi::new(23_000))
+        base_price: Some(Millisatoshi::new(23_000)),
+        files: BTreeMap::new()
       }
     );
   }
@@ -237,7 +250,8 @@ mod tests {
       config,
       Config {
         paid: Some(true),
-        base_price: Some(Millisatoshi::new(42_000))
+        base_price: Some(Millisatoshi::new(42_000)),
+        files: BTreeMap::new()
       }
     );
   }
@@ -262,7 +276,8 @@ mod tests {
       config,
       Config {
         paid: Some(true),
-        base_price: Some(Millisatoshi::new(42_000))
+        base_price: Some(Millisatoshi::new(42_000)),
+        files: BTreeMap::new()
       }
     );
   }
@@ -283,7 +298,8 @@ mod tests {
       config,
       Config {
         paid: None,
-        base_price: None
+        base_price: None,
+        files: BTreeMap::new()
       }
     );
     let config = Config::for_dir(
@@ -295,7 +311,8 @@ mod tests {
       config,
       Config {
         paid: None,
-        base_price: None
+        base_price: None,
+        files: BTreeMap::new()
       }
     );
   }
