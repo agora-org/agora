@@ -1086,3 +1086,7 @@ fn serve_script_output() {
   });
   panic!(stderr);
 }
+
+#[test]
+#[ignore]
+fn what_if_virtual_file_names_contain_slashes() {}

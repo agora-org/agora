@@ -2,8 +2,9 @@ use crate::common::*;
 use std::collections::BTreeMap;
 
 #[derive(PartialEq, Debug, Deserialize, Clone)]
+#[serde(tag = "type", deny_unknown_fields)]
 enum VirtualFile {
-  Script { source: String },
+  script { source: String },
 }
 
 #[derive(PartialEq, Debug, Default, Deserialize)]
@@ -29,16 +30,18 @@ impl Config {
     }
     path.read_dir().context(error::FilesystemIo { path })?;
     let mut config = Self::default();
-    for path in path.ancestors() {
+    let mut ancestors = path.ancestors().collect::<Vec<_>>();
+    ancestors.reverse();
+    for path in ancestors {
       if !path.starts_with(base_directory) {
-        break;
+        continue;
       }
       let file_path = path.join(".agora.yaml");
       match fs::read_to_string(&file_path) {
         Ok(yaml) => {
-          let parent =
+          let child: Config =
             serde_yaml::from_str(&yaml).context(error::ConfigDeserialize { path: file_path })?;
-          config.merge_parent(parent);
+          config.merge_child(child);
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(source) => return Err(error::FilesystemIo { path: file_path }.into_error(source)),
@@ -47,11 +50,11 @@ impl Config {
     Ok(config)
   }
 
-  fn merge_parent(&mut self, parent: Self) {
+  fn merge_child(&mut self, child: Self) {
     *self = Self {
-      paid: self.paid.or(parent.paid),
-      base_price: self.base_price.or(parent.base_price),
-      files: self.files.clone(),
+      paid: child.paid.or(self.paid),
+      base_price: child.base_price.or(self.base_price),
+      files: child.files.clone(),
     };
   }
 }
@@ -313,6 +316,35 @@ mod tests {
         paid: None,
         base_price: None,
         files: BTreeMap::new()
+      }
+    );
+  }
+
+  #[test]
+  fn loads_virtual_file_configuration() {
+    let temp_dir = TempDir::new().unwrap();
+    let yaml = "
+      files:
+        foo:
+          type: script
+          source: test source
+    "
+    .unindent();
+    fs::write(temp_dir.path().join(".agora.yaml"), yaml).unwrap();
+    let config = Config::for_dir(temp_dir.path(), temp_dir.path()).unwrap();
+    let mut expected_files = BTreeMap::new();
+    expected_files.insert(
+      "foo".to_string(),
+      VirtualFile::script {
+        source: "test source".to_string(),
+      },
+    );
+    assert_eq!(
+      config,
+      Config {
+        paid: None,
+        base_price: None,
+        files: expected_files
       }
     );
   }

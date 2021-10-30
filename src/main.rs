@@ -23,6 +23,7 @@ mod static_assets;
 mod stderr;
 #[cfg(test)]
 mod tests;
+mod virtual_file;
 
 #[tokio::main]
 async fn main() {
