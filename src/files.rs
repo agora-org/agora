@@ -79,10 +79,24 @@ impl Files {
   ) -> Result<Response<Body>> {
     let file_path = self.file_path(&tail.join(""))?;
 
-    let config = self.config_for_dir(file_path.as_ref().parent().expect("fixme"));
-    dbg!(config);
-    if let Some(response) = crate::virtual_file::serve() {
-      return Ok(response);
+    if tail.len() > 0 {
+      let config = self
+        .config_for_dir(file_path.as_ref().parent().expect("fixme"))
+        .expect("fixme");
+      dbg!(&config);
+      if let Some(response) = crate::virtual_file::serve(
+        config,
+        file_path
+          .as_ref()
+          .file_name()
+          .expect("fixme")
+          .to_str()
+          .expect("fixme"),
+      )
+      .await
+      {
+        return Ok(response);
+      }
     }
 
     for result in self.base_directory.iter_prefixes(tail) {

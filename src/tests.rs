@@ -1072,19 +1072,20 @@ fn bugfix_symlink_with_relative_base_directory() {
 
 #[test]
 fn serve_script_output() {
-  let stderr = test(|context| async move {
+  test(|context| async move {
     let config = "
       files:
         foo:
           type: script
-          source: echo precious output
+          source: |
+            #!/usr/bin/env bash
+            echo precious output
     "
     .unindent();
     context.write(".agora.yaml", &config);
     let output = text(&context.files_url().join("foo").unwrap()).await;
-    // assert_eq!(output, "precious output");
+    assert_eq!(output, "precious output\n");
   });
-  panic!(stderr);
 }
 
 #[test]

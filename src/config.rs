@@ -3,7 +3,8 @@ use std::collections::BTreeMap;
 
 #[derive(PartialEq, Debug, Deserialize, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
-enum VirtualFile {
+pub(crate) enum VirtualFile {
+  #[allow(non_camel_case_types)]
   script { source: String },
 }
 
@@ -12,7 +13,7 @@ enum VirtualFile {
 pub(crate) struct Config {
   paid: Option<bool>,
   pub(crate) base_price: Option<Millisatoshi>,
-  files: BTreeMap<String, VirtualFile>,
+  pub(crate) files: BTreeMap<String, VirtualFile>,
 }
 
 impl Config {

@@ -1,6 +1,6 @@
 pub(crate) use crate::{
   arguments::Arguments,
-  config::Config,
+  config::{Config, VirtualFile},
   environment::Environment,
   error::{self, Error, Result},
   error_page, html,
