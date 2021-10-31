@@ -1077,9 +1077,7 @@ fn serve_script_output() {
       files:
         foo:
           type: script
-          source: |
-            #!/usr/bin/env bash
-            echo precious output
+          source: echo precious output
     "
     .unindent();
     context.write(".agora.yaml", &config);
@@ -1087,6 +1085,28 @@ fn serve_script_output() {
     assert_eq!(output, "precious output\n");
   });
 }
+
+#[test]
+fn script_execution_honors_hashbangs() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+}
+
+#[test]
+#[ignore]
+fn logs_script_execution_errors() {}
 
 #[test]
 #[ignore]
