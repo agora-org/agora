@@ -1,9 +1,13 @@
 use crate::common::*;
 use crate::config::Filename;
-use cradle::prelude::*;
+use cradle::run;
 use tempfile::TempDir;
 
-pub(crate) async fn serve(config: Config, file_name: &str) -> Option<Response<Body>> {
+pub(crate) async fn serve(
+  config: Config,
+  stderr: &mut Stderr,
+  file_name: &str,
+) -> Option<Response<Body>> {
   match config.files.get(&Filename(file_name.into())) {
     None => None,
     Some(virtual_file) => {
@@ -12,11 +16,18 @@ pub(crate) async fn serve(config: Config, file_name: &str) -> Option<Response<Bo
       let script_file = tempdir.path().join("script");
       tokio::fs::write(&script_file, source).await.expect("fixme");
       run!(%"chmod +x", &script_file);
-      run!(%"cat", &script_file);
       let output = tokio::process::Command::new(script_file)
         .output()
         .await
         .expect("fixme");
+      if !output.stderr.is_empty() {
+        write!(
+          stderr,
+          "script stderr: {}",
+          String::from_utf8_lossy(&output.stderr)
+        )
+        .ok();
+      }
       Some(
         Response::builder()
           .body(output.stdout.into())

@@ -1133,14 +1133,66 @@ fn file_keys_cannot_end_with_slashes() {
 }
 
 #[test]
-#[ignore]
 #[cfg(windows)]
-fn serve_batch_file_output() {}
+fn serve_batch_file_output() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo.bat:
+          type: script
+          source: |
+            @ECHO OFF
+            ECHO HELLO
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo.bat").unwrap()).await;
+    assert_eq!(output, "HELLO\n");
+  });
+}
+
+#[test]
+fn log_script_stderr() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            print('precious python output')
+            sys.stderr.write('python error message\\n')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  assert_contains(&stderr, "python error message");
+}
 
 #[test]
 #[ignore]
-fn logs_script_execution_errors() {}
+fn log_script_exit_code() {}
 
 #[test]
-#[ignore]
-fn what_if_virtual_file_names_contain_slashes() {}
+fn dont_print_script_stderr_if_empty() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  if stderr.contains("script stderr") {
+    panic!("Stderr should not contain script stderr: {}", stderr);
+  }
+}

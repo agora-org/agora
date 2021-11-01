@@ -74,6 +74,7 @@ impl Files {
 
   pub(crate) async fn serve(
     &mut self,
+    stderr: &mut Stderr,
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
@@ -83,9 +84,9 @@ impl Files {
       let config = self
         .config_for_dir(file_path.as_ref().parent().expect("fixme"))
         .expect("fixme");
-      dbg!(&config);
       if let Some(response) = crate::virtual_file::serve(
         config,
+        stderr,
         file_path
           .as_ref()
           .file_name()

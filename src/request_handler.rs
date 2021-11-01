@@ -80,7 +80,7 @@ impl RequestHandler {
         let invoice_id = Self::decode_invoice_id(&invoice_id)?;
         self.files.serve_invoice(&request, tail, invoice_id).await
       }
-      ["/", "files/", tail @ ..] => self.files.serve(&request, tail).await,
+      ["/", "files/", tail @ ..] => self.files.serve(&mut self.stderr, &request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
         let invoice_id = Self::decode_invoice_id(
           file_name
