@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 #[derive(PartialEq, Debug, Deserialize, Clone)]
 #[serde(tag = "type", deny_unknown_fields)]
 pub(crate) enum VirtualFile {
-  #[allow(non_camel_case_types)]
-  script { source: String },
+  #[serde(rename_all = "snake_case")]
+  Script { source: String },
 }
 
 #[derive(PartialEq, Debug, Default, Deserialize)]
