@@ -2,9 +2,8 @@ use crate::common::*;
 use std::collections::BTreeMap;
 
 #[derive(PartialEq, Debug, Deserialize, Clone)]
-#[serde(tag = "type", deny_unknown_fields)]
+#[serde(tag = "type", deny_unknown_fields, rename_all = "snake_case")]
 pub(crate) enum VirtualFile {
-  #[serde(rename_all = "snake_case")]
   Script { source: String },
 }
 
@@ -13,7 +12,53 @@ pub(crate) enum VirtualFile {
 pub(crate) struct Config {
   paid: Option<bool>,
   pub(crate) base_price: Option<Millisatoshi>,
-  pub(crate) files: BTreeMap<String, VirtualFile>,
+  pub(crate) files: BTreeMap<Filename, VirtualFile>,
+}
+
+use serde::{
+  de::{self, Unexpected, Visitor},
+  Deserializer,
+};
+
+#[derive(Clone, PartialEq, Debug, Eq, Ord, PartialOrd)]
+pub(crate) struct Filename(pub(crate) String);
+
+impl<'de> Deserialize<'de> for Filename {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    deserializer.deserialize_string(FilenameVisitor)
+  }
+}
+
+struct FilenameVisitor;
+
+use std::{
+  fmt::{self, Formatter},
+  path::Component,
+};
+
+impl<'de> Visitor<'de> for FilenameVisitor {
+  type Value = Filename;
+
+  fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+    formatter.write_str("a valid filename")
+  }
+
+  fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+  where
+    E: de::Error,
+  {
+    match Path::new(v)
+      .components()
+      .collect::<Vec<Component>>()
+      .as_slice()
+    {
+      [Component::Normal(filename)] if *filename == v => Ok(Filename(v.to_owned())),
+      _ => Err(E::invalid_value(Unexpected::Str(v), &"a valid filename")),
+    }
+  }
 }
 
 impl Config {
@@ -335,7 +380,7 @@ mod tests {
     let config = Config::for_dir(temp_dir.path(), temp_dir.path()).unwrap();
     let mut expected_files = BTreeMap::new();
     expected_files.insert(
-      "foo".to_string(),
+      Filename("foo".to_string()),
       VirtualFile::Script {
         source: "test source".to_string(),
       },

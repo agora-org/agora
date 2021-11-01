@@ -25,6 +25,10 @@ async fn get(url: &Url) -> reqwest::Response {
   response
 }
 
+async fn status(url: &Url) -> StatusCode {
+  reqwest::get(url.clone()).await.unwrap().status()
+}
+
 async fn text(url: &Url) -> String {
   get(url).await.text().await.unwrap()
 }
@@ -1077,22 +1081,6 @@ fn serve_script_output() {
       files:
         foo:
           type: script
-          source: echo precious output
-    "
-    .unindent();
-    context.write(".agora.yaml", &config);
-    let output = text(&context.files_url().join("foo").unwrap()).await;
-    assert_eq!(output, "precious output\n");
-  });
-}
-
-#[test]
-fn script_execution_honors_hashbangs() {
-  test(|context| async move {
-    let config = "
-      files:
-        foo:
-          type: script
           source: |
             #!/usr/bin/env python3
             print('precious python output')
@@ -1103,6 +1091,51 @@ fn script_execution_honors_hashbangs() {
     assert_eq!(output, "precious python output\n");
   });
 }
+
+#[test]
+fn file_keys_must_be_normal_path_components() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        ..:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    assert_eq!(status(&context.files_url()).await, 500);
+  });
+
+  assert_contains(
+    &stderr,
+    r#"files: invalid value: string "..", expected a valid filename"#,
+  );
+}
+
+#[test]
+fn file_keys_cannot_end_with_slashes() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo/:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    assert_eq!(status(&context.files_url()).await, 500);
+  });
+
+  assert_contains(
+    &stderr,
+    r#"files: invalid value: string "foo/", expected a valid filename"#,
+  );
+}
+
+#[test]
+#[ignore]
+#[cfg(windows)]
+fn serve_batch_file_output() {}
 
 #[test]
 #[ignore]
