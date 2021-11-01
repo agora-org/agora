@@ -1169,12 +1169,29 @@ fn log_script_stderr() {
     let output = text(&context.files_url().join("foo").unwrap()).await;
     assert_eq!(output, "precious python output\n");
   });
-  assert_contains(&stderr, "python error message");
+  assert_contains(&stderr, "script `foo` stderr: python error message");
 }
 
 #[test]
-#[ignore]
-fn log_script_exit_code() {}
+fn log_script_exit_code() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            print('precious python output')
+            sys.exit(42)
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  assert_contains(&stderr, "script `foo` failed: exit status: 42");
+}
 
 #[test]
 fn dont_print_script_stderr_if_empty() {
@@ -1192,7 +1209,27 @@ fn dont_print_script_stderr_if_empty() {
     let output = text(&context.files_url().join("foo").unwrap()).await;
     assert_eq!(output, "precious python output\n");
   });
-  if stderr.contains("script stderr") {
+  if stderr.contains("stderr") {
     panic!("Stderr should not contain script stderr: {}", stderr);
   }
+}
+
+#[test]
+fn script_is_named_after_files_key() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            from pathlib import Path
+            print('script name:', Path(sys.argv[0]).name)
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "script name: foo\n");
+  });
 }
