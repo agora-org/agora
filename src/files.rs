@@ -80,10 +80,33 @@ impl Files {
   ) -> Result<Response<Body>> {
     let file_path = self.file_path(&tail.join(""))?;
 
+    let is_dir = file_path.full_path().is_dir();
+
+    let config = if is_dir {
+      self.config_for_dir(file_path.full_path())?
+    } else {
+      self.config_for_dir(file_path.full_path().parent().expect("fixme"))?
+    };
+
+    // let virtual_file = if !is_dir &&
+
+    // /foo/bar/baz
+    // /
+    // /foo
+    // /foo/bar
+    // /foo/bar/baz
+
+    for result in self.base_directory.iter_prefixes(tail) {
+      let (prefix, last) = result?;
+
+      if last {
+        todo!()
+      } else {
+        self.check_path(&prefix)?;
+      }
+    }
+
     if tail.len() > 0 {
-      let config = self
-        .config_for_dir(file_path.as_ref().parent().expect("fixme"))
-        .expect("fixme");
       if let Some(response) = crate::virtual_file::serve(
         config,
         stderr,
@@ -98,11 +121,6 @@ impl Files {
       {
         return Ok(response);
       }
-    }
-
-    for result in self.base_directory.iter_prefixes(tail) {
-      let prefix = result?;
-      self.check_path(&prefix)?;
     }
 
     let file_type = file_path

@@ -1233,3 +1233,7 @@ fn script_is_named_after_files_key() {
     assert_eq!(output, "script name: foo\n");
   });
 }
+
+#[test]
+#[ignore]
+fn virtual_files_take_precedence_over_real_files() {}

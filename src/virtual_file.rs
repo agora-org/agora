@@ -12,7 +12,10 @@ pub(crate) async fn serve(
     None => None,
     Some(virtual_file) => {
       let VirtualFile::Script { source } = virtual_file;
-      let tempdir = TempDir::new().expect("fixme");
+      let tempdir = tempfile::Builder::new()
+        .prefix("agora-script")
+        .tempdir()
+        .expect("fixme");
       let script_file = tempdir.path().join(file_name);
       tokio::fs::write(&script_file, source).await.expect("fixme");
       run!(%"chmod +x", &script_file);
@@ -29,7 +32,6 @@ pub(crate) async fn serve(
         )
         .ok();
       }
-
       if !output.status.success() {
         write!(stderr, "script `{}` failed: {}", file_name, output.status).ok();
       }
