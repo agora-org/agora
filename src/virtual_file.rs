@@ -6,7 +6,7 @@ pub(crate) async fn serve(config: Config, file_name: &str) -> Option<Response<Bo
   match config.files.get(file_name) {
     None => None,
     Some(virtual_file) => {
-      let VirtualFile::script { source } = virtual_file;
+      let VirtualFile::Script { source } = virtual_file;
       let source = if dbg!(source).starts_with("#!") {
         source.to_string()
       } else {

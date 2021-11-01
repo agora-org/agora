@@ -336,7 +336,7 @@ mod tests {
     let mut expected_files = BTreeMap::new();
     expected_files.insert(
       "foo".to_string(),
-      VirtualFile::script {
+      VirtualFile::Script {
         source: "test source".to_string(),
       },
     );
