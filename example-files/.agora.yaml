@@ -1,8 +1,2 @@
 paid: true
 base-price: 1000 sat
-files:
-  test-script:
-    type: script
-    source: |
-      #!/usr/bin/env bash
-      date
