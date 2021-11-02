@@ -12,6 +12,7 @@ use reqwest::{redirect::Policy, Client, Url};
 use scraper::{ElementRef, Html, Selector};
 use std::{net::TcpListener, path::MAIN_SEPARATOR};
 use tokio::net::TcpStream;
+use unindent::Unindent;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;
@@ -22,6 +23,10 @@ async fn get(url: &Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
   assert_eq!(response.status(), StatusCode::OK);
   response
+}
+
+async fn status(url: &Url) -> StatusCode {
+  reqwest::get(url.clone()).await.unwrap().status()
 }
 
 async fn text(url: &Url) -> String {
@@ -1066,3 +1071,250 @@ fn bugfix_symlink_with_relative_base_directory() {
     assert_eq!(link, "precious content");
   });
 }
+
+// fixme: context.write should take AsRef<str>
+
+#[test]
+fn serve_script_output() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+}
+
+#[test]
+fn file_keys_must_be_normal_path_components() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        ..:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    assert_eq!(status(&context.files_url()).await, 500);
+  });
+
+  assert_contains(
+    &stderr,
+    r#"files: invalid value: string "..", expected a valid filename"#,
+  );
+}
+
+#[test]
+fn file_keys_cannot_end_with_slashes() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo/:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    assert_eq!(status(&context.files_url()).await, 500);
+  });
+
+  assert_contains(
+    &stderr,
+    r#"files: invalid value: string "foo/", expected a valid filename"#,
+  );
+}
+
+#[test]
+#[cfg(windows)]
+fn serve_batch_file_output() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo.bat:
+          type: script
+          source: |
+            @ECHO OFF
+            ECHO HELLO
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo.bat").unwrap()).await;
+    assert_eq!(output, "HELLO\n");
+  });
+}
+
+#[test]
+fn log_script_stderr() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            print('precious python output')
+            sys.stderr.write('python error message\\n')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  assert_contains(&stderr, "script `foo` stderr: python error message");
+}
+
+#[test]
+fn log_script_exit_code() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            print('precious python output')
+            sys.exit(42)
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  assert_contains(&stderr, "script `foo` failed: exit status: 42");
+}
+
+#[test]
+fn dont_print_script_stderr_if_empty() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious python output\n");
+  });
+  if stderr.contains("stderr") {
+    panic!("Stderr should not contain script stderr: {}", stderr);
+  }
+}
+
+#[test]
+fn script_is_named_after_files_key() {
+  let stderr = test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            import sys
+            from pathlib import Path
+            print('script name:', Path(sys.argv[0]).name)
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "script name: foo\n");
+  });
+}
+
+#[test]
+fn virtual_files_are_listed() {
+  test(|context| async move {
+    let config = "
+      files:
+        some-test-script:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let haystack = html(context.base_url()).await.root_element().html();
+    let needle = "some-test-script";
+    assert_contains(&haystack, needle);
+  });
+}
+
+#[test]
+fn virtual_files_are_shadowed_by_real_files() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    context.write("foo", "precious non python output\n");
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious non python output\n");
+  });
+}
+
+#[test]
+#[ignore]
+fn virtual_files_are_shadowed_by_real_directories() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let dir = context.files_directory().join("dir");
+    fs::create_dir(&dir).unwrap();
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious non python output\n");
+  });
+}
+
+#[test]
+#[ignore]
+fn virtual_files_have_no_slash_in_listing() {}
+
+#[test]
+#[ignore]
+fn virtual_files_dont_duplicate_non_virtual_files_in_listings() {}
+
+#[test]
+#[ignore]
+fn virtual_files_with_slash_redirect_to_no_slash() {}
+
+#[test]
+#[ignore]
+fn virtual_files_shadow_directories_without_shadowing_contained_files() {}
+
+#[test]
+#[ignore]
+fn virtual_files_files_shadow_virtual_files() {}
+
+#[test]
+#[ignore]
+fn virtual_files_in_directories() {}
+
+#[test]
+#[ignore]
+fn virtual_files_can_be_paid() {}

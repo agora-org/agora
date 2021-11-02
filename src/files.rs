@@ -1,4 +1,4 @@
-use crate::{common::*, file_stream::FileStream};
+use crate::{common::*, config::Filename, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
@@ -25,29 +25,36 @@ impl Files {
   }
 
   fn check_path(&self, path: &InputPath) -> Result<()> {
-    if path
-      .as_ref()
-      .symlink_metadata()
-      .with_context(|| Error::filesystem_io(path))?
-      .file_type()
-      .is_symlink()
-    {
-      let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
+    match path.as_ref().symlink_metadata() {
+      Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+      Err(source) => {
+        return Err(
+          error::FilesystemIo {
+            path: path.display_path(),
+          }
+          .into_error(source),
+        )
+      }
+      Ok(metadata) => {
+        if metadata.file_type().is_symlink() {
+          let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
 
-      let destination = path
+          let destination = path
         .as_ref()
         .parent()
         .expect("Input paths are always absolute, and thus have parents or are `/`, and `/` cannot be a symlink.")
         .join(link)
         .lexiclean();
 
-      if !destination.starts_with(&self.base_directory) {
-        return Err(
-          error::SymlinkAccess {
-            path: path.display_path().to_owned(),
+          if !destination.starts_with(&self.base_directory) {
+            return Err(
+              error::SymlinkAccess {
+                path: path.display_path().to_owned(),
+              }
+              .build(),
+            );
           }
-          .build(),
-        );
+        }
       }
     }
 
@@ -74,40 +81,69 @@ impl Files {
 
   pub(crate) async fn serve(
     &mut self,
+    stderr: &mut Stderr,
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
     let file_path = self.file_path(&tail.join(""))?;
 
+    let is_dir = file_path.full_path().is_dir();
+
+    let config = if is_dir {
+      self.config_for_dir(file_path.full_path())?
+    } else {
+      self.config_for_dir(file_path.full_path().parent().expect("fixme"))?
+    };
+
     for result in self.base_directory.iter_prefixes(tail) {
-      let prefix = result?;
-      self.check_path(&prefix)?;
+      let (prefix, last) = result?;
+
+      if last {
+        self.check_path(&prefix)?;
+      } else {
+        self.check_path(&prefix)?;
+      }
     }
 
-    let file_type = file_path
-      .as_ref()
-      .metadata()
-      .with_context(|| Error::filesystem_io(&file_path))?
-      .file_type();
+    let virtual_file = if file_path.full_path().exists() {
+      None
+    } else {
+      tail.last().and_then(|last| {
+        config
+          .files
+          .get(&Filename(last.to_string()))
+          .map(|virtual_file| (last, virtual_file))
+      })
+    };
 
-    if !file_type.is_dir() {
+    let is_dir = virtual_file.is_none()
+      && file_path
+        .as_ref()
+        .metadata()
+        .with_context(|| Error::filesystem_io(&file_path))?
+        .file_type()
+        .is_dir();
+
+    if !is_dir {
       if let Some(stripped) = request.uri().path().strip_suffix('/') {
         return redirect(stripped.to_owned());
       }
     }
 
-    if file_type.is_dir() && !request.uri().path().ends_with('/') {
+    if is_dir && !request.uri().path().ends_with('/') {
       return redirect(String::from(request.uri().path()) + "/");
     }
 
-    if file_type.is_dir() {
-      self.serve_dir(&file_path).await
+    if is_dir {
+      self.serve_dir(&config, &file_path).await
     } else {
-      self.access_file(request, tail, &file_path).await
+      self
+        .access_file(stderr, request, tail, &file_path, virtual_file)
+        .await
     }
   }
 
-  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
+  async fn read_dir(&self, config: &Config, path: &InputPath) -> Result<Vec<(OsString, bool)>> {
     let mut read_dir = tokio::fs::read_dir(path)
       .await
       .with_context(|| Error::filesystem_io(path))?;
@@ -125,8 +161,14 @@ impl Files {
         .file_type()
         .await
         .with_context(|| Error::filesystem_io(&input_path))?;
-      entries.push((entry.file_name(), file_type));
+      entries.push((entry.file_name(), file_type.is_dir()));
     }
+    entries.extend(
+      config
+        .files
+        .keys()
+        .map(|filename| (OsString::from(filename.0.clone()), false)),
+    );
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
   }
@@ -176,14 +218,13 @@ impl Files {
     Ok(Some(maud::PreEscaped(html)))
   }
 
-  async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
-    let config = self.config_for_dir(dir.as_ref())?;
+  async fn serve_dir(&self, config: &Config, dir: &InputPath) -> Result<Response<Body>> {
     let body = html! {
       ul class="listing" {
-        @for (file_name, file_type) in self.read_dir(dir).await? {
+        @for (file_name, is_dir) in self.read_dir(config, dir).await? {
           @let file_name = {
             let mut file_name = file_name.to_string_lossy().into_owned();
-            if file_type.is_dir() {
+            if is_dir {
               file_name.push('/');
             }
             file_name
@@ -193,7 +234,7 @@ impl Files {
             a href=(encoded) class="view" {
               (file_name)
             }
-            @if file_type.is_file() && !config.paid() {
+            @if !is_dir && !config.paid() {
               a download href=(encoded) {
                 (Files::icon("download"))
               }
@@ -218,11 +259,14 @@ impl Files {
     }
   }
 
+  // fixme: pass config in?
   async fn access_file(
     &mut self,
+    stderr: &mut Stderr,
     request: &Request<Body>,
     tail: &[&str],
     path: &InputPath,
+    virtual_file: Option<(&&str, &VirtualFile)>,
   ) -> Result<Response<Body>> {
     let config = self.config_for_dir(
       path
@@ -232,7 +276,7 @@ impl Files {
     )?;
 
     if !config.paid() {
-      return Self::serve_file(path).await;
+      return Self::serve_file(stderr, path, virtual_file).await;
     }
 
     let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
@@ -260,18 +304,29 @@ impl Files {
     ))
   }
 
-  async fn serve_file(path: &InputPath) -> Result<Response<Body>> {
+  async fn serve_file(
+    stderr: &mut Stderr,
+    path: &InputPath,
+    virtual_file: Option<(&&str, &VirtualFile)>,
+  ) -> Result<Response<Body>> {
     let mut builder = Response::builder().status(StatusCode::OK);
     if let Some(guess) = path.mime_guess().first() {
       builder = builder.header(header::CONTENT_TYPE, guess.essence_str());
     }
-    builder
-      .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
-      .map_err(|error| Error::internal(format!("Failed to construct response: {}", error)))
+    match virtual_file {
+      None => builder
+        .body(Body::wrap_stream(FileStream::new(path.clone()).await?))
+        .map_err(|error| Error::internal(format!("Failed to construct response: {}", error))),
+      Some((filename, virtual_file)) => {
+        let response = crate::virtual_file::serve(stderr, filename, virtual_file).await;
+        return Ok(response);
+      }
+    }
   }
 
   pub(crate) async fn serve_invoice(
     &mut self,
+    stderr: &mut Stderr,
     request: &Request<Body>,
     request_tail: &[&str],
     r_hash: [u8; 32],
@@ -304,7 +359,7 @@ impl Files {
     match invoice.state() {
       InvoiceState::Settled => {
         let path = self.file_path(&invoice.memo)?;
-        Self::serve_file(&path).await
+        Self::serve_file(stderr, &path, None).await // fixme: allow paid virtual files
       }
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));

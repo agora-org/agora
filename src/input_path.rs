@@ -60,6 +60,10 @@ impl InputPath {
     &self.display_path
   }
 
+  pub(crate) fn full_path(&self) -> &Path {
+    &self.full_path
+  }
+
   pub(crate) fn mime_guess(&self) -> MimeGuess {
     mime_guess::from_path(&self.display_path)
   }
@@ -75,8 +79,12 @@ impl InputPath {
   pub(crate) fn iter_prefixes<'a>(
     &'a self,
     tail: &'a [&str],
-  ) -> impl Iterator<Item = Result<InputPath>> + 'a {
-    (0..tail.len()).map(move |i| self.join_file_path(&tail[..i + 1].join("")))
+  ) -> impl Iterator<Item = Result<(InputPath, bool)>> + 'a {
+    (0..tail.len()).map(move |i| {
+      self
+        .join_file_path(&tail[..i + 1].join(""))
+        .map(|path| (path, i == tail.len() - 1))
+    })
   }
 }
 
@@ -136,12 +144,13 @@ mod tests {
   fn iter_prefixes_iterates_from_base_dir_to_file() {
     let environment = Environment::test();
     let base = InputPath::new(&environment, Path::new("www"));
-    let dirs: Result<Vec<InputPath>> = base.iter_prefixes(&["foo/", "bar/", "baz"]).collect();
+    let dirs: Result<Vec<(InputPath, bool)>> =
+      base.iter_prefixes(&["foo/", "bar/", "baz"]).collect();
     assert_eq!(
       dirs.unwrap(),
-      ["foo", "foo/bar", "foo/bar/baz"]
+      [("foo", false), ("foo/bar", false), ("foo/bar/baz", true)]
         .iter()
-        .map(|x| base.join_file_path(x).unwrap())
+        .map(|(x, last)| (base.join_file_path(x).unwrap(), *last))
         .collect::<Vec<_>>()
     );
   }

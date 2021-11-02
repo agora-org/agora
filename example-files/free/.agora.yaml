@@ -1,1 +1,7 @@
 paid: false
+files:
+  test-script:
+    type: script
+    source: |
+      #!/usr/bin/env bash
+      date
