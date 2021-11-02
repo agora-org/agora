@@ -1235,5 +1235,86 @@ fn script_is_named_after_files_key() {
 }
 
 #[test]
+fn virtual_files_are_listed() {
+  test(|context| async move {
+    let config = "
+      files:
+        some-test-script:
+          type: script
+          source: ''
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let haystack = html(context.base_url()).await.root_element().html();
+    let needle = "some-test-script";
+    assert_contains(&haystack, needle);
+  });
+}
+
+#[test]
+fn virtual_files_are_shadowed_by_real_files() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    context.write("foo", "precious non python output\n");
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious non python output\n");
+  });
+}
+
+#[test]
 #[ignore]
-fn virtual_files_take_precedence_over_real_files() {}
+fn virtual_files_are_shadowed_by_real_directories() {
+  test(|context| async move {
+    let config = "
+      files:
+        foo:
+          type: script
+          source: |
+            #!/usr/bin/env python3
+            print('precious python output')
+    "
+    .unindent();
+    context.write(".agora.yaml", &config);
+    let dir = context.files_directory().join("dir");
+    fs::create_dir(&dir).unwrap();
+    let output = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(output, "precious non python output\n");
+  });
+}
+
+#[test]
+#[ignore]
+fn virtual_files_have_no_slash_in_listing() {}
+
+#[test]
+#[ignore]
+fn virtual_files_dont_duplicate_non_virtual_files_in_listings() {}
+
+#[test]
+#[ignore]
+fn virtual_files_with_slash_redirect_to_no_slash() {}
+
+#[test]
+#[ignore]
+fn virtual_files_shadow_directories_without_shadowing_contained_files() {}
+
+#[test]
+#[ignore]
+fn virtual_files_files_shadow_virtual_files() {}
+
+#[test]
+#[ignore]
+fn virtual_files_in_directories() {}
+
+#[test]
+#[ignore]
+fn virtual_files_can_be_paid() {}

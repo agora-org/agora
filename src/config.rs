@@ -7,7 +7,7 @@ pub(crate) enum VirtualFile {
   Script { source: String },
 }
 
-#[derive(PartialEq, Debug, Default, Deserialize)]
+#[derive(PartialEq, Debug, Default, Deserialize, Clone)]
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   paid: Option<bool>,

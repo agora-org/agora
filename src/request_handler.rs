@@ -78,7 +78,10 @@ impl RequestHandler {
       ["/", "files/", tail @ ..] if invoice_parameter.is_some() => {
         let invoice_id = invoice_parameter.expect("invoice_parameter is some");
         let invoice_id = Self::decode_invoice_id(&invoice_id)?;
-        self.files.serve_invoice(&request, tail, invoice_id).await
+        self
+          .files
+          .serve_invoice(&mut self.stderr, &request, tail, invoice_id)
+          .await
       }
       ["/", "files/", tail @ ..] => self.files.serve(&mut self.stderr, &request, tail).await,
       ["/", "invoice/", file_name] if file_name.ends_with(".svg") => {
