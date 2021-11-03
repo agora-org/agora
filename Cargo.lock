@@ -82,6 +82,7 @@ name = "agora"
 version = "0.1.1"
 dependencies = [
  "agora-lnd-client",
+ "agora-test-context",
  "bardecoder",
  "chromiumoxide",
  "color-backtrace",
@@ -150,6 +151,15 @@ dependencies = [
  "tonic",
  "tonic-build",
  "tower",
+]
+
+[[package]]
+name = "agora-test-context"
+version = "0.0.0"
+dependencies = [
+ "executable-path",
+ "reqwest",
+ "tempfile",
 ]
 
 [[package]]
