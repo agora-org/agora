@@ -104,19 +104,6 @@ fn files_route_without_trailing_slash_redirects_to_files() {
 }
 
 #[test]
-fn index_route_status_code_is_200() {
-  test(|context| async move {
-    assert_eq!(
-      reqwest::get(context.base_url().clone())
-        .await
-        .unwrap()
-        .status(),
-      200
-    )
-  });
-}
-
-#[test]
 fn unknown_route_status_code_is_404() {
   test(|context| async move {
     assert_eq!(

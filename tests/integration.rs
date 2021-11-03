@@ -3,6 +3,7 @@ use hyper::StatusCode;
 use reqwest::Url;
 use std::{
   fs,
+  future::Future,
   io::{BufRead, BufReader, Read},
   process::{Child, ChildStderr, Command, Stdio},
 };
@@ -21,6 +22,7 @@ impl AgoraInstance {
     let mut child = Command::new(executable_path("agora"))
       .args(additional_flags)
       .arg("--directory=.")
+      .arg("--address=localhost")
       .current_dir(&tempdir)
       .stderr(Stdio::piped())
       .spawn()
@@ -32,11 +34,11 @@ impl AgoraInstance {
     child_stderr.read_line(&mut first_line).unwrap();
     eprintln!("First line: {}", first_line);
     let port: u16 = first_line
-      .chars()
-      .skip_while(|c| *c != ':')
-      .skip(1)
-      .take_while(|c| *c != '`')
-      .collect::<String>()
+      .strip_suffix("`\n")
+      .unwrap()
+      .split(':')
+      .last()
+      .unwrap()
       .parse()
       .unwrap();
 
@@ -75,7 +77,7 @@ fn server_listens_on_all_ip_addresses_http() {
   );
   let stderr = agora.kill();
   assert!(stderr.contains(&format!(
-    "Listening for HTTP connections on `0.0.0.0:{}`",
+    "Listening for HTTP connections on `[::1]:{}`",
     port
   )));
 }
@@ -94,7 +96,7 @@ fn server_listens_on_all_ip_addresses_https() {
   let port = agora.port;
   let stderr = agora.kill();
   assert!(stderr.contains(&format!(
-    "Listening for HTTPS connections on `0.0.0.0:{}`",
+    "Listening for HTTPS connections on `[::1]:{}`",
     port
   )));
 }
@@ -110,4 +112,41 @@ fn errors_contain_backtraces() {
   assert_eq!(status, StatusCode::NOT_FOUND);
   let stderr = agora.kill();
   assert!(stderr.contains("agora::files::Files::check_path"));
+}
+
+struct TestContext {
+  base_url: reqwest::Url,
+}
+
+impl TestContext {
+  pub(crate) fn base_url(&self) -> &reqwest::Url {
+    &self.base_url
+  }
+}
+
+fn test<Function, F>(f: Function)
+where
+  Function: FnOnce(TestContext) -> F,
+  F: Future<Output = ()> + 'static,
+{
+  let tempdir = tempfile::tempdir().unwrap();
+
+  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"]);
+
+  f(TestContext {
+    base_url: agora.base_url().clone(),
+  });
+}
+
+#[test]
+fn index_route_status_code_is_200() {
+  test(|context| async move {
+    assert_eq!(
+      reqwest::get(context.base_url().clone())
+        .await
+        .unwrap()
+        .status(),
+      200
+    )
+  });
 }
