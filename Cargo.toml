@@ -98,7 +98,6 @@ default-features = false
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
-test = false
 
 [features]
 slow-tests = []
