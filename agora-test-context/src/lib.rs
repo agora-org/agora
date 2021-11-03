@@ -2,6 +2,7 @@ use ::{
   executable_path::executable_path,
   reqwest::{StatusCode, Url},
   std::{
+    fs,
     io::{BufRead, BufReader, Read},
     process::{Child, ChildStderr, Command, Stdio},
   },
@@ -26,9 +27,11 @@ impl AgoraInstance {
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
+    fs::create_dir(tempdir.path().join("www")).unwrap();
+
     command
       .args(additional_flags)
-      .arg("--directory=.")
+      .arg("--directory=www")
       .current_dir(&tempdir)
       .stderr(Stdio::piped());
 

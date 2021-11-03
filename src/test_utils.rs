@@ -98,14 +98,6 @@ pub(crate) async fn https_client(context: &TestContext, root_certificate: Certif
   );
 }
 
-pub(crate) fn test<Function, F>(f: Function) -> String
-where
-  Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()> + 'static,
-{
-  test_with_arguments(&[], f)
-}
-
 #[cfg(feature = "slow-tests")]
 pub(crate) fn test_with_lnd<Function, Fut>(lnd_test_context: &LndTestContext, f: Function) -> String
 where

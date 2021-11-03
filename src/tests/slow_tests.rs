@@ -7,8 +7,17 @@ use guard::guard_unwrap;
 use lnd_test_context::LndTestContext;
 use pretty_assertions::assert_eq;
 use regex::Regex;
-use scraper::Html;
+use scraper::{ElementRef, Html, Selector};
 use std::path::MAIN_SEPARATOR;
+
+async fn html(url: &Url) -> Html {
+  Html::parse_document(&text(url).await)
+}
+
+fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
+  let selector = Selector::parse(selector).unwrap();
+  html.select(&selector).collect::<Vec<_>>()
+}
 
 #[test]
 fn serves_files_for_free_by_default() {

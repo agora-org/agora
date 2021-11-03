@@ -2,14 +2,19 @@ use ::{
   agora_test_context::{get, AgoraInstance},
   guard::guard_unwrap,
   hyper::{header, StatusCode},
+  lexiclean::Lexiclean,
   reqwest::{redirect::Policy, Client, Url},
   scraper::{ElementRef, Html, Selector},
   std::{
     fs,
     future::Future,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf, MAIN_SEPARATOR},
+    str,
   },
-  tokio::io::AsyncWriteExt,
+  tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+  },
 };
 
 #[test]
@@ -75,7 +80,7 @@ impl TestContext {
   }
 }
 
-fn test<Function, F>(f: Function)
+fn test<Function, F>(f: Function) -> String
 where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
@@ -92,12 +97,12 @@ where
       f(TestContext {
         base_url: agora.base_url().clone(),
         files_url: agora.base_url().join("files/").unwrap(),
-        files_directory: agora.tempdir.path().to_owned(),
+        files_directory: agora.tempdir.path().join("www"),
       })
       .await;
     });
 
-  agora.kill();
+  agora.kill()
 }
 
 async fn redirect_url(context: &TestContext, url: &Url) -> Url {
@@ -635,4 +640,353 @@ fn favicon_is_served_at_favicon_ico() {
       "image/x-icon"
     );
   });
+}
+
+#[test]
+#[cfg(unix)]
+fn errors_in_request_handling_cause_500_status_codes() {
+  use std::os::unix::fs::PermissionsExt;
+
+  let stderr = test(|context| async move {
+    let file = context.write("foo", "");
+    let mut permissions = file.metadata().unwrap().permissions();
+    permissions.set_mode(0o000);
+    fs::set_permissions(file, permissions).unwrap();
+    let status = reqwest::get(context.files_url().join("foo").unwrap())
+      .await
+      .unwrap()
+      .status();
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+  });
+
+  assert_contains(
+    &stderr,
+    "IO error accessing filesystem at `www/foo`: Permission denied (os error 13)",
+  );
+}
+
+#[test]
+fn disallow_parent_path_component() {
+  let stderr = test(|context| async move {
+    let mut stream =
+      TcpStream::connect(format!("localhost:{}", context.base_url().port().unwrap()))
+        .await
+        .unwrap();
+    stream
+      .write_all(b"GET /files/foo/../bar.txt HTTP/1.1\n\n")
+      .await
+      .unwrap();
+    let response = &mut [0; 1024];
+    let bytes = stream.read(response).await.unwrap();
+    let response = str::from_utf8(&response[..bytes]).unwrap();
+    assert_contains(response, "HTTP/1.1 400 Bad Request");
+  });
+  assert_contains(&stderr, "Invalid URI file path: foo/../bar.txt");
+}
+
+#[test]
+fn disallow_empty_path_component() {
+  let stderr = test(|context| async move {
+    assert_eq!(
+      reqwest::get(format!("{}foo//bar.txt", context.files_url()))
+        .await
+        .unwrap()
+        .status(),
+      StatusCode::BAD_REQUEST
+    )
+  });
+  assert_contains(&stderr, "Invalid URI file path: foo//bar.txt");
+}
+
+#[test]
+fn disallow_absolute_path() {
+  let stderr = test(|context| async move {
+    assert_eq!(
+      reqwest::get(format!("{}/foo.txt", context.files_url()))
+        .await
+        .unwrap()
+        .status(),
+      StatusCode::BAD_REQUEST
+    )
+  });
+  assert_contains(&stderr, "Invalid URI file path: /foo.txt");
+}
+
+#[test]
+fn return_404_for_missing_files() {
+  let stderr = test(|context| async move {
+    assert_eq!(
+      reqwest::get(context.files_url().join("foo.txt").unwrap())
+        .await
+        .unwrap()
+        .status(),
+      StatusCode::NOT_FOUND
+    )
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "IO error accessing filesystem at `www{}foo.txt`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn returns_error_if_index_is_unusable() {
+  let stderr = test(|context| async move {
+    fs::create_dir(context.files_directory().join(".index.md")).unwrap();
+    let status = reqwest::get(context.files_url().clone())
+      .await
+      .unwrap()
+      .status();
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+  });
+
+  assert_contains(
+    &stderr,
+    &format!(
+      "IO error accessing filesystem at `www{}.index.md`: ",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn ignores_access_config_outside_of_base_directory() {
+  test(|context| async move {
+    context.write("../.agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo", "foo");
+    let body = text(&context.files_url().join("foo").unwrap()).await;
+    assert_eq!(body, "foo");
+  });
+}
+
+#[test]
+fn paid_files_dont_have_download_button() {
+  #![allow(clippy::unused_unit)]
+  test(|context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("foo", "foo");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[] = css_select(&html, ".listing a[download]").as_slice());
+    guard_unwrap!(let &[link] = css_select(&html, ".listing a:not([download])").as_slice());
+    assert_eq!(link.inner_html(), "foo");
+  });
+}
+
+#[test]
+fn filenames_with_percent_encoded_characters() {
+  test(|context| async move {
+    context.write("=", "contents");
+    let contents = text(&context.files_url().join("%3D").unwrap()).await;
+    assert_eq!(contents, "contents");
+    let contents = text(&context.files_url().join("=").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}
+
+#[test]
+fn filenames_with_percent_encoding() {
+  test(|context| async move {
+    context.write("foo%20bar", "contents");
+    let contents = text(&context.files_url().join("foo%2520bar").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}
+
+#[test]
+fn filenames_with_invalid_percent_encoding() {
+  test(|context| async move {
+    context.write("%80", "contents");
+    let contents = text(&context.files_url().join("%2580").unwrap()).await;
+    assert_eq!(contents, "contents");
+  });
+}
+
+#[test]
+fn space_is_percent_encoded() {
+  test(|context| async move {
+    context.write("foo bar", "contents");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
+    assert_eq!(a.value().attr("href").unwrap(), "foo%20bar");
+  });
+}
+
+#[test]
+fn doesnt_percent_encode_allowed_ascii_characters() {
+  test(|context| async move {
+    let allowed_ascii_characters = if cfg!(windows) {
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()+,-.;=@_~"
+    } else {
+      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
+    };
+    context.write(allowed_ascii_characters, "contents");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
+    assert_eq!(a.value().attr("href").unwrap(), allowed_ascii_characters);
+  });
+}
+
+#[test]
+fn percent_encodes_unicode() {
+  test(|context| async move {
+    context.write("Å", "contents");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
+    assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
+  });
+}
+
+#[test]
+fn requesting_paid_file_with_no_lnd_returns_internal_error() {
+  let stderr = test(|context| async move {
+    context.write(".agora.yaml", "paid: true");
+    context.write("foo", "precious content");
+    let status = reqwest::get(context.files_url().join("foo").unwrap())
+      .await
+      .unwrap()
+      .status();
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+  });
+
+  assert_contains(
+    &stderr,
+    &format!(
+      "Paid file request requires LND client configuration: `www{}foo`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn displays_index_markdown_files_as_html() {
+  test(|context| async move {
+    context.write(".index.md", "# test header");
+    let html = html(context.files_url()).await;
+    guard_unwrap!(let &[index_header] = css_select(&html, "h1").as_slice());
+    assert_eq!(index_header.inner_html(), "test header");
+  });
+}
+
+#[test]
+fn file_errors_are_associated_with_file_path() {
+  let stderr = test(|context| async move {
+    fs::create_dir(context.files_directory().join("foo")).unwrap();
+    assert_eq!(
+      reqwest::get(context.files_url().join("foo/bar.txt").unwrap())
+        .await
+        .unwrap()
+        .status(),
+      StatusCode::NOT_FOUND
+    )
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "IO error accessing filesystem at `www{}foo{}bar.txt`",
+      MAIN_SEPARATOR, MAIN_SEPARATOR,
+    ),
+  );
+}
+
+#[test]
+fn disallow_file_downloads_via_escaping_symlinks() {
+  let stderr = test(|context| async move {
+    context.write("../file", "contents");
+    symlink("../file", context.files_directory().join("link"));
+    let response = reqwest::get(context.files_url().join("link").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Forbidden access to escaping symlink: `www{}link`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn disallow_file_downloads_via_absolute_escaping_symlinks() {
+  let stderr = test(|context| async move {
+    let file = context.write("../file", "contents");
+    let file = file.lexiclean();
+    assert!(file.is_absolute());
+    symlink(file, context.files_directory().join("link"));
+    let response = reqwest::get(context.files_url().join("link").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Forbidden access to escaping symlink: `www{}link`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn disallow_file_downloads_via_escaping_intermediate_symlinks() {
+  let stderr = test(|context| async move {
+    context.write("../dir/file", "contents");
+    symlink("../dir", context.files_directory().join("link"));
+    let response = reqwest::get(context.files_url().join("link/file").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Forbidden access to escaping symlink: `www{}link`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn disallow_listing_directories_via_escaping_symlinks() {
+  let stderr = test(|context| async move {
+    let dir = context.files_directory().join("../dir");
+    fs::create_dir(&dir).unwrap();
+    symlink("../dir", context.files_directory().join("link"));
+    let response = reqwest::get(context.files_url().join("link").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Forbidden access to escaping symlink: `www{}link`",
+      MAIN_SEPARATOR
+    ),
+  );
+}
+
+#[test]
+fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
+  let stderr = test(|context| async move {
+    let dir = context.files_directory().join("../dir");
+    fs::create_dir(&dir).unwrap();
+    symlink("../dir", context.files_directory().join("link"));
+    fs::create_dir(dir.join("subdir")).unwrap();
+    let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
+      .await
+      .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+  });
+  assert_contains(
+    &stderr,
+    &format!(
+      "Forbidden access to escaping symlink: `www{}link`",
+      MAIN_SEPARATOR
+    ),
+  );
 }
