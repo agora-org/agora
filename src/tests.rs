@@ -1,8 +1,8 @@
 use crate::{
   common::*,
   test_utils::{
-    assert_contains, assert_not_contains, https_client, set_up_test_certificate, test,
-    test_with_arguments, test_with_environment,
+    assert_contains, https_client, set_up_test_certificate, test, test_with_arguments,
+    test_with_environment,
   },
 };
 use guard::guard_unwrap;

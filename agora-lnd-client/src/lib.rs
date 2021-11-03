@@ -56,7 +56,7 @@ impl Interceptor for MacaroonInterceptor {
 pub struct Client {
   inner: LightningClient<InterceptedService<HttpsService, MacaroonInterceptor>>,
   #[cfg(test)]
-  lnd_test_context: Arc<LndTestContext>,
+  _lnd_test_context: Arc<LndTestContext>,
 }
 
 impl Client {
@@ -79,7 +79,7 @@ impl Client {
     Ok(Client {
       inner,
       #[cfg(test)]
-      lnd_test_context: Arc::new(lnd_test_context),
+      _lnd_test_context: Arc::new(lnd_test_context),
     })
   }
 

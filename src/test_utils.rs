@@ -28,16 +28,6 @@ pub(crate) fn assert_contains(haystack: &str, needle: &str) {
   );
 }
 
-#[track_caller]
-pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
-  assert!(
-    !haystack.contains(needle),
-    "\n{:?} contains {:?}\n",
-    haystack,
-    needle
-  );
-}
-
 pub(crate) fn set_up_test_certificate() -> (TempDir, Certificate) {
   use rcgen::{
     BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
