@@ -31,13 +31,9 @@ version = "1.0.127"
 features = ["derive"]
 
 [dev-dependencies]
-cradle = "0.0.21"
-hex-literal = "0.3.1"
 lnd-test-context = { path = "../lnd-test-context" }
 pretty_assertions = "0.7.2"
 serde_yaml = "0.8.17"
-sha2 = "0.9.5"
-tempfile = "3.2.0"
 
 [dev-dependencies.tokio]
 version = "1.7.1"
