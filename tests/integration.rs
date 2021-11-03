@@ -132,9 +132,16 @@ where
 
   let agora = AgoraInstance::new(tempdir, vec!["--address=localhost", "--http-port=0"]);
 
-  f(TestContext {
-    base_url: agora.base_url().clone(),
-  });
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async {
+      f(TestContext {
+        base_url: agora.base_url().clone(),
+      })
+      .await;
+    });
 }
 
 #[test]
