@@ -1,16 +1,17 @@
 use executable_path::executable_path;
-use hyper::StatusCode;
-use reqwest::Url;
+use hyper::{header, StatusCode};
+use reqwest::{redirect::Policy, Client, Url};
 use std::{
   fs,
   future::Future,
   io::{BufRead, BufReader, Read},
+  path::PathBuf,
   process::{Child, ChildStderr, Command, Stdio},
 };
 use tempfile::TempDir;
 
 struct AgoraInstance {
-  _tempdir: TempDir,
+  tempdir: TempDir,
   child: Child,
   port: u16,
   stderr: ChildStderr,
@@ -42,11 +43,11 @@ impl AgoraInstance {
       .unwrap();
 
     AgoraInstance {
-      _tempdir: tempdir,
       child,
-      port,
       collected_stderr: first_line,
+      port,
       stderr: child_stderr.into_inner(),
+      tempdir,
     }
   }
 
@@ -115,11 +116,21 @@ fn errors_contain_backtraces() {
 
 struct TestContext {
   base_url: reqwest::Url,
+  files_url: reqwest::Url,
+  files_directory: PathBuf,
 }
 
 impl TestContext {
   pub(crate) fn base_url(&self) -> &reqwest::Url {
     &self.base_url
+  }
+
+  pub(crate) fn files_url(&self) -> &reqwest::Url {
+    &self.files_url
+  }
+
+  pub(crate) fn files_directory(&self) -> &std::path::Path {
+    &self.files_directory
   }
 }
 
@@ -139,9 +150,29 @@ where
     .block_on(async {
       f(TestContext {
         base_url: agora.base_url().clone(),
+        files_url: agora.base_url().join("files/").unwrap(),
+        files_directory: agora.tempdir.path().to_owned(),
       })
       .await;
     });
+}
+
+async fn redirect_url(context: &TestContext, url: &Url) -> Url {
+  let client = Client::builder().redirect(Policy::none()).build().unwrap();
+  let request = client.get(url.clone()).build().unwrap();
+  let response = client.execute(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::FOUND);
+  context
+    .base_url()
+    .join(
+      response
+        .headers()
+        .get(header::LOCATION)
+        .unwrap()
+        .to_str()
+        .unwrap(),
+    )
+    .unwrap()
 }
 
 #[test]
@@ -154,5 +185,30 @@ fn index_route_status_code_is_200() {
         .status(),
       200
     )
+  });
+}
+
+#[test]
+fn index_route_redirects_to_files() {
+  test(|context| async move {
+    let redirect_url = redirect_url(&context, context.base_url()).await;
+    assert_eq!(&redirect_url, context.files_url());
+  });
+}
+
+#[test]
+fn no_trailing_slash_redirects_to_trailing_slash() {
+  test(|context| async move {
+    fs::create_dir(context.files_directory().join("foo")).unwrap();
+    let redirect_url = redirect_url(&context, &context.files_url().join("foo").unwrap()).await;
+    assert_eq!(redirect_url, context.files_url().join("foo/").unwrap());
+  });
+}
+
+#[test]
+fn files_route_without_trailing_slash_redirects_to_files() {
+  test(|context| async move {
+    let redirect_url = redirect_url(&context, &context.base_url().join("files").unwrap()).await;
+    assert_eq!(&redirect_url, context.files_url());
   });
 }

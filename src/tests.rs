@@ -37,24 +37,6 @@ fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
   html.select(&selector).collect::<Vec<_>>()
 }
 
-async fn redirect_url(context: &TestContext, url: &Url) -> Url {
-  let client = Client::builder().redirect(Policy::none()).build().unwrap();
-  let request = client.get(url.clone()).build().unwrap();
-  let response = client.execute(request).await.unwrap();
-  assert_eq!(response.status(), StatusCode::FOUND);
-  context
-    .base_url()
-    .join(
-      response
-        .headers()
-        .get(header::LOCATION)
-        .unwrap()
-        .to_str()
-        .unwrap(),
-    )
-    .unwrap()
-}
-
 #[test]
 fn configure_port() {
   let free_port = {
@@ -84,22 +66,6 @@ fn configure_port() {
         .status(),
       200
     )
-  });
-}
-
-#[test]
-fn index_route_redirects_to_files() {
-  test(|context| async move {
-    let redirect_url = redirect_url(&context, context.base_url()).await;
-    assert_eq!(&redirect_url, context.files_url());
-  });
-}
-
-#[test]
-fn files_route_without_trailing_slash_redirects_to_files() {
-  test(|context| async move {
-    let redirect_url = redirect_url(&context, &context.base_url().join("files").unwrap()).await;
-    assert_eq!(&redirect_url, context.files_url());
   });
 }
 
@@ -432,15 +398,6 @@ fn subdirectories_appear_in_listings() {
     assert_eq!(a.inner_html(), "bar.txt");
     let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
     assert_eq!(text(&file_url).await, "hello");
-  });
-}
-
-#[test]
-fn no_trailing_slash_redirects_to_trailing_slash() {
-  test(|context| async move {
-    fs::create_dir(context.files_directory().join("foo")).unwrap();
-    let redirect_url = redirect_url(&context, &context.files_url().join("foo").unwrap()).await;
-    assert_eq!(redirect_url, context.files_url().join("foo/").unwrap());
   });
 }
 
