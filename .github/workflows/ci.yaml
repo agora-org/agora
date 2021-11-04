@@ -46,8 +46,7 @@ jobs:
     - uses: Swatinem/rust-cache@v1
 
     - name: Check Lockfile
-      run: |
-        cargo update --locked --package agora
+      run: cargo update --locked --package agora
 
     - name: Check
       run: |
@@ -56,8 +55,7 @@ jobs:
         cargo check --tests --all-features
 
     - name: Test
-      run: |
-        cargo test --all --all-features
+      run: cargo test --all --all-features
 
     - name: Clippy
       run: |
