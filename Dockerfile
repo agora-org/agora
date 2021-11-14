@@ -41,10 +41,9 @@ RUN groupadd $APP_USER \
 COPY --from=builder /usr/src/agora/target/release/agora ${APP}/bin/agora
 COPY static .
 # copy lnd auth files
-COPY ${LND_DIR} ./${APP}/.lnd
+COPY ./.lnd ${APP}/.lnd
 # copy in files
-RUN echo ${AGORA_FILES}
-COPY ./${AGORA_FILES} ./${APP}/files
+COPY ./files ${APP}/files
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
