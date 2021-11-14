@@ -56,6 +56,31 @@ Inside the checked out repository, running `cargo build --release` will build `a
 
 From within the repository, you can also run, e.g., `cargo install --locked --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
+## Running with Docker
+
+The `agora` Docker image can be pulled from `TBD`. 
+
+### Building Agora Docker Image
+
+The Docker image can also be built directly from within the repository. The Dockerfile will copy the `/files` and `/.lnd`directory into the container and serve all files in the `/files` directory and search the `.lnd` directory for the `tls.cert` and `invoices.macaroon` files. The `.lnd` directory is only needed if you plan on connecting an LND instance.
+
+Building the image: 
+```bash
+docker build -t agora:latest .
+```
+
+### Running Agora in Docker
+
+Running Docker Image: 
+```bash
+docker run -p 8080:8080 -e AGORA_PORT=8080 agora:latest
+```
+
+To run `agora` with a Lightning instance connected, you must also pass the RPC authority (the IP and RPC port of your LND instance). 
+```bash
+docker run -p 8080:8080 -e AGORA_PORT=8080 -e LND_RPC_AUTHORITY=10.0.0.20:10009 agora:latest
+```
+
 ## Releases Notifications
 
 To receive release notifications on GitHub, you can watch this repository with [custom notification settings](https://docs.github.com/en/github/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications#configuring-your-watch-settings-for-an-individual-repository).
