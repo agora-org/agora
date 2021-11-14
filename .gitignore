@@ -1,3 +1,6 @@
 /target/
 /tmp/
 /www/
+.lnd
+files
+.env
