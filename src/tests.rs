@@ -142,6 +142,28 @@ fn serves_https_requests_with_cert_from_cache_directory() {
 }
 
 #[test]
+fn creates_cert_cache_directory_if_it_doesnt_exist() {
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      "cache-directory",
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      let cache_directory = context.working_directory().join("cache-directory");
+      for _ in 0..100 {
+        if cache_directory.is_dir() {
+          return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+      }
+      panic!("Cache directory not created after ten seconds");
+    },
+  );
+}
+
+#[test]
 fn redirects_requests_from_port_80_to_443() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 

@@ -6,7 +6,6 @@ use ::{
   reqwest::{redirect::Policy, Client, Url},
   scraper::{ElementRef, Html, Selector},
   std::{
-    ffi::OsString,
     fs,
     future::Future,
     path::{Path, PathBuf, MAIN_SEPARATOR},
@@ -73,10 +72,6 @@ impl TestContext {
     &self.files_directory
   }
 
-  pub(crate) fn working_directory(&self) -> &std::path::Path {
-    self.files_directory.parent().unwrap()
-  }
-
   pub(crate) fn write(&self, path: &str, content: &str) -> std::path::PathBuf {
     let path = self.files_directory.join(path);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -90,34 +85,9 @@ where
   Function: FnOnce(TestContext) -> F,
   F: Future<Output = ()> + 'static,
 {
-  test_with_arguments(&["--address=localhost", "--http-port=0"], f)
-}
-
-struct Environment {
-  arguments: Vec<OsString>,
-}
-
-impl Environment {
-  fn test() -> Self {
-    Self {
-      arguments: Vec::new(),
-    }
-  }
-}
-
-pub(crate) fn test_with_arguments<Function, F>(args: &[&str], f: Function) -> String
-where
-  Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()> + 'static,
-{
-  let mut environment = Environment::test();
-  environment
-    .arguments
-    .extend(args.iter().cloned().map(OsString::from));
-
   let tempdir = tempfile::tempdir().unwrap();
 
-  let agora = AgoraInstance::new(tempdir, args.into(), false);
+  let agora = AgoraInstance::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
@@ -1018,27 +988,5 @@ fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
       "Forbidden access to escaping symlink: `www{}link`",
       MAIN_SEPARATOR
     ),
-  );
-}
-
-#[test]
-fn creates_cert_cache_directory_if_it_doesnt_exist() {
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      "cache-directory",
-      "--https-port=0",
-      "--acme-domain=localhost",
-    ],
-    |context| async move {
-      let cache_directory = context.working_directory().join("cache-directory");
-      for _ in 0..100 {
-        if cache_directory.is_dir() {
-          return;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-      }
-      panic!("Cache directory not created after ten seconds");
-    },
   );
 }
