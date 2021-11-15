@@ -117,31 +117,6 @@ fn configure_source_directory() {
 }
 
 #[test]
-fn serves_https_requests_with_cert_from_cache_directory() {
-  let (certificate_cache, root_certificate) = set_up_test_certificate();
-
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      certificate_cache.path().to_str().unwrap(),
-      "--https-port=0",
-      "--acme-domain=localhost",
-    ],
-    |context| async move {
-      context.write("file", "encrypted content");
-      let client = https_client(&context, root_certificate).await;
-      let response = client
-        .get(context.https_files_url().join("file").unwrap())
-        .send()
-        .await
-        .unwrap();
-      let body = response.text().await.unwrap();
-      assert_eq!(body, "encrypted content");
-    },
-  );
-}
-
-#[test]
 fn redirects_requests_from_port_80_to_443() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 
