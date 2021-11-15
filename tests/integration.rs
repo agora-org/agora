@@ -3,7 +3,7 @@ use ::{
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
-  reqwest::{redirect::Policy, Certificate, Client, ClientBuilder, Url},
+  reqwest::{redirect::Policy, Client, Url},
   scraper::{ElementRef, Html, Selector},
   std::{
     ffi::OsString,
@@ -11,9 +11,7 @@ use ::{
     future::Future,
     path::{Path, PathBuf, MAIN_SEPARATOR},
     str,
-    time::Duration,
   },
-  tempfile::TempDir,
   tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -59,7 +57,6 @@ fn server_listens_on_all_ip_addresses_https() {
 struct TestContext {
   base_url: reqwest::Url,
   files_url: reqwest::Url,
-  https_files_url: reqwest::Url,
   files_directory: PathBuf,
 }
 
@@ -70,10 +67,6 @@ impl TestContext {
 
   pub(crate) fn files_url(&self) -> &reqwest::Url {
     &self.files_url
-  }
-
-  pub(crate) fn https_files_url(&self) -> &reqwest::Url {
-    &self.https_files_url
   }
 
   pub(crate) fn files_directory(&self) -> &std::path::Path {
@@ -126,13 +119,6 @@ where
 
   let agora = AgoraInstance::new(tempdir, args.into(), false);
 
-  let files_url = agora.base_url().join("files/").unwrap();
-  let https_files_url = {
-    let mut https_files_url = files_url.clone();
-    https_files_url.set_scheme("https");
-    https_files_url
-  };
-
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
@@ -140,9 +126,8 @@ where
     .block_on(async {
       f(TestContext {
         base_url: agora.base_url().clone(),
+        files_url: agora.base_url().join("files/").unwrap(),
         files_directory: agora.tempdir.path().join("www"),
-        files_url,
-        https_files_url,
       })
       .await;
     });
@@ -1055,100 +1040,5 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
       }
       panic!("Cache directory not created after ten seconds");
     },
-  );
-}
-
-#[test]
-fn serves_https_requests_with_cert_from_cache_directory() {
-  let (certificate_cache, root_certificate) = set_up_test_certificate();
-
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      certificate_cache.path().to_str().unwrap(),
-      "--https-port=0",
-      "--acme-domain=localhost",
-    ],
-    |context| async move {
-      context.write("file", "encrypted content");
-      let client = https_client(&context, root_certificate).await;
-      let response = client
-        .get(context.https_files_url().join("file").unwrap())
-        .send()
-        .await
-        .unwrap();
-      let body = response.text().await.unwrap();
-      assert_eq!(body, "encrypted content");
-    },
-  );
-}
-
-pub(crate) fn set_up_test_certificate() -> (TempDir, Certificate) {
-  use rcgen::{
-    BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
-    PKCS_ECDSA_P256_SHA256,
-  };
-
-  let root_certificate = {
-    let mut params: CertificateParams = Default::default();
-    params.key_pair = Some(KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap());
-    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    Certificate::from_params(params).unwrap()
-  };
-
-  let certificate_keys = KeyPair::generate(&PKCS_ECDSA_P256_SHA256).unwrap();
-  let certificate_keys_pem = certificate_keys.serialize_pem();
-  let certificate = {
-    let mut params = CertificateParams::from_ca_cert_pem(
-      &root_certificate.serialize_pem().unwrap(),
-      certificate_keys,
-    )
-    .unwrap();
-    params
-      .subject_alt_names
-      .push(SanType::DnsName("localhost".to_string()));
-    Certificate::from_params(params).unwrap()
-  };
-  let certificate_file = vec![
-    certificate_keys_pem,
-    certificate
-      .serialize_pem_with_signer(&root_certificate)
-      .unwrap(),
-    root_certificate.serialize_pem().unwrap(),
-  ]
-  .join("\r\n");
-  let tempdir = TempDir::new().unwrap();
-  fs::write(
-    tempdir
-      .path()
-      .join("cached_cert_83kei_h4oopqh8sXFFlhGeQJIS_pkJJv-y5XDpnLtyw"),
-    certificate_file,
-  )
-  .unwrap();
-  (
-    tempdir,
-    reqwest::Certificate::from_pem(root_certificate.serialize_pem().unwrap().as_bytes()).unwrap(),
-  )
-}
-
-pub(crate) async fn https_client(context: &TestContext, root_certificate: Certificate) -> Client {
-  let client = ClientBuilder::new()
-    .add_root_certificate(root_certificate)
-    .build()
-    .unwrap();
-
-  let mut error = None;
-  for _ in 0..10 {
-    match client.get(context.https_files_url().clone()).send().await {
-      Ok(_) => return client,
-      Err(err) => {
-        error = Some(err);
-      }
-    }
-    tokio::time::sleep(Duration::from_millis(100)).await;
-  }
-  panic!(
-    "HTTPS server not ready after one second:\n{}",
-    error.unwrap()
   );
 }
