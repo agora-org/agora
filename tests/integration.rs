@@ -17,50 +17,6 @@ use ::{
   },
 };
 
-async fn get(url: &Url) -> reqwest::Response {
-  let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
-  response
-}
-
-#[test]
-fn server_listens_on_all_ip_addresses_http() {
-  let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"], false);
-  let port = agora.port();
-  assert_eq!(
-    reqwest::blocking::get(agora.base_url().clone())
-      .unwrap()
-      .status(),
-    StatusCode::OK
-  );
-  let stderr = agora.kill();
-  assert!(stderr.contains(&format!(
-    "Listening for HTTP connections on `0.0.0.0:{}`",
-    port
-  )));
-}
-
-#[test]
-fn server_listens_on_all_ip_addresses_https() {
-  let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraInstance::new(
-    tempdir,
-    vec![
-      "--https-port=0",
-      "--acme-cache-directory=cache",
-      "--acme-domain=foo",
-    ],
-    false,
-  );
-  let port = agora.port();
-  let stderr = agora.kill();
-  assert!(stderr.contains(&format!(
-    "Listening for HTTPS connections on `0.0.0.0:{}`",
-    port
-  )));
-}
-
 struct TestContext {
   base_url: reqwest::Url,
   files_url: reqwest::Url,
@@ -113,6 +69,12 @@ where
   agora.kill()
 }
 
+async fn get(url: &Url) -> reqwest::Response {
+  let response = reqwest::get(url.clone()).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  response
+}
+
 async fn redirect_url(context: &TestContext, url: &Url) -> Url {
   let client = Client::builder().redirect(Policy::none()).build().unwrap();
   let request = client.get(url.clone()).build().unwrap();
@@ -162,6 +124,44 @@ pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
     haystack,
     needle
   );
+}
+
+#[test]
+fn server_listens_on_all_ip_addresses_http() {
+  let tempdir = tempfile::tempdir().unwrap();
+  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"], false);
+  let port = agora.port();
+  assert_eq!(
+    reqwest::blocking::get(agora.base_url().clone())
+      .unwrap()
+      .status(),
+    StatusCode::OK
+  );
+  let stderr = agora.kill();
+  assert!(stderr.contains(&format!(
+    "Listening for HTTP connections on `0.0.0.0:{}`",
+    port
+  )));
+}
+
+#[test]
+fn server_listens_on_all_ip_addresses_https() {
+  let tempdir = tempfile::tempdir().unwrap();
+  let agora = AgoraInstance::new(
+    tempdir,
+    vec![
+      "--https-port=0",
+      "--acme-cache-directory=cache",
+      "--acme-domain=foo",
+    ],
+    false,
+  );
+  let port = agora.port();
+  let stderr = agora.kill();
+  assert!(stderr.contains(&format!(
+    "Listening for HTTPS connections on `0.0.0.0:{}`",
+    port
+  )));
 }
 
 #[test]
