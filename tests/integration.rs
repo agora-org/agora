@@ -1,5 +1,5 @@
 use ::{
-  agora_test_context::{get, AgoraInstance},
+  agora_test_context::AgoraInstance,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
@@ -17,13 +17,21 @@ use ::{
   },
 };
 
+async fn get(url: &Url) -> reqwest::Response {
+  let response = reqwest::get(url.clone()).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  response
+}
+
 #[test]
 fn server_listens_on_all_ip_addresses_http() {
   let tempdir = tempfile::tempdir().unwrap();
   let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"], false);
-  let port = agora.port;
+  let port = agora.port();
   assert_eq!(
-    reqwest::blocking::get(agora.base_url()).unwrap().status(),
+    reqwest::blocking::get(agora.base_url().clone())
+      .unwrap()
+      .status(),
     StatusCode::OK
   );
   let stderr = agora.kill();
@@ -45,7 +53,7 @@ fn server_listens_on_all_ip_addresses_https() {
     ],
     false,
   );
-  let port = agora.port;
+  let port = agora.port();
   let stderr = agora.kill();
   assert!(stderr.contains(&format!(
     "Listening for HTTPS connections on `0.0.0.0:{}`",
@@ -96,8 +104,8 @@ where
     .block_on(async {
       f(TestContext {
         base_url: agora.base_url().clone(),
-        files_url: agora.base_url().join("files/").unwrap(),
-        files_directory: agora.tempdir.path().join("www"),
+        files_url: agora.files_url().clone(),
+        files_directory: agora.files_directory().to_owned(),
       })
       .await;
     });

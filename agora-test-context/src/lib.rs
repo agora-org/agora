@@ -1,33 +1,33 @@
 use ::{
   executable_path::executable_path,
-  reqwest::{StatusCode, Url},
+  reqwest::Url,
   std::{
     fs,
     io::{BufRead, BufReader, Read},
+    path::{Path, PathBuf},
     process::{Child, ChildStderr, Command, Stdio},
   },
   tempfile::TempDir,
 };
 
-pub async fn get(url: &Url) -> reqwest::Response {
-  let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
-  response
-}
-
 pub struct AgoraInstance {
-  pub tempdir: TempDir,
+  _tempdir: TempDir,
   child: Child,
-  pub port: u16,
+  port: u16,
   stderr: ChildStderr,
   collected_stderr: String,
+  files_directory: PathBuf,
+  base_url: Url,
+  files_url: Url,
 }
 
 impl AgoraInstance {
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
-    fs::create_dir(tempdir.path().join("www")).unwrap();
+    let files_directory = tempdir.path().join("www");
+
+    fs::create_dir(&files_directory).unwrap();
 
     command
       .args(additional_flags)
@@ -55,17 +55,36 @@ impl AgoraInstance {
       .parse()
       .unwrap();
 
+    let base_url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+
+    let files_url = base_url.join("files/").unwrap();
+
     AgoraInstance {
+      base_url,
       child,
       collected_stderr: first_line,
+      files_directory,
+      files_url,
       port,
       stderr: child_stderr.into_inner(),
-      tempdir,
+      _tempdir: tempdir,
     }
   }
 
-  pub fn base_url(&self) -> Url {
-    Url::parse(&format!("http://localhost:{}", self.port)).unwrap()
+  pub fn port(&self) -> u16 {
+    self.port
+  }
+
+  pub fn files_directory(&self) -> &Path {
+    &self.files_directory
+  }
+
+  pub fn base_url(&self) -> &Url {
+    &self.base_url
+  }
+
+  pub fn files_url(&self) -> &Url {
+    &self.files_url
   }
 
   pub fn kill(mut self) -> String {
