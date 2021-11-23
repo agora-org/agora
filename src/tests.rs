@@ -1066,3 +1066,29 @@ fn bugfix_symlink_with_relative_base_directory() {
     assert_eq!(link, "precious content");
   });
 }
+
+#[test]
+fn listing_renders_file_sizes() {
+  test(|context| async move {
+    context.write("some-test-file.txt", "abc");
+    let html = html(&context.files_url()).await;
+    guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
+    assert_contains(&li.inner_html(), "some-test-file.txt");
+    assert_contains(&li.inner_html(), "3 bytes");
+    //guard_unwrap!(let &[a] = css_select(&li, "a").as_slice());
+
+  });
+}
+
+#[test]
+fn listing_does_not_render_directory_file_sizes() {
+  test(|context| async move {
+    context.create_dir_all("some-directory");
+    let html = html(&context.files_url()).await;
+    guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
+    assert_contains(&li.inner_html(), "some-directory");
+    assert_not_contains(&li.inner_html(), "bytes");
+
+  });
+}
+
