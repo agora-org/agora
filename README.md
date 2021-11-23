@@ -76,7 +76,7 @@ Running Docker Image:
 docker run -p 8080:8080 -e AGORA_PORT=8080 agora:latest
 ```
 
-To run `agora` with a Lightning instance connected, you must also pass the RPC authority (the IP and RPC port of your LND instance). 
+To run `agora` with a Lightning instance connected, you must also pass the RPC authority (the IP and RPC port of your LND instance).
 ```bash
 docker run -p 8080:8080 -e AGORA_PORT=8080 -e LND_RPC_AUTHORITY=10.0.0.20:10009 agora:latest
 ```

@@ -2,3 +2,6 @@
 /.git/
 .github/
 .gitignore
+/tests/
+README.md
+/example-files/
