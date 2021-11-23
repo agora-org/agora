@@ -196,15 +196,16 @@ impl Files {
             a href=(encoded) class="view" {
               (file_name)
             }
+
             @if let Some(file_size) = file_size {
                 span class="filesize" {
                     (file_size) " bytes"
                 }
             }
             @if file_type.is_file() && !config.paid() {
-              a download href=(encoded) {
-                (Files::icon("download"))
-              }
+                a download href=(encoded) {
+                    (Files::icon("download"))
+                }
             }
           }
         }

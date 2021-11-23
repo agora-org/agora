@@ -1088,7 +1088,6 @@ fn listing_does_not_render_directory_file_sizes() {
     guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
     assert_contains(&li.inner_html(), "some-directory");
     assert_not_contains(&li.inner_html(), "bytes");
-
   });
 }
 
