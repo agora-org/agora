@@ -1092,4 +1092,3 @@ fn listing_does_not_render_directory_file_sizes() {
     assert_not_contains(&li.inner_html(), "B");
   });
 }
-

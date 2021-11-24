@@ -1,8 +1,8 @@
 use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
+use humansize::{file_size_opts, FileSize};
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
-use humansize::{FileSize, file_size_opts};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
@@ -127,7 +127,11 @@ impl Files {
         .await
         .with_context(|| Error::filesystem_io(&input_path))?;
       let file_type = metadata.file_type();
-      let file_size = if metadata.is_dir() { None } else { Some(metadata.len()) };
+      let file_size = if metadata.is_dir() {
+        None
+      } else {
+        Some(metadata.len())
+      };
       entries.push((entry.file_name(), file_type, file_size));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
@@ -184,7 +188,7 @@ impl Files {
     let body = html! {
       ul class="listing" {
         @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
-          
+
           @let file_name = {
             let mut file_name = file_name.to_string_lossy().into_owned();
             if file_type.is_dir() {
@@ -200,7 +204,7 @@ impl Files {
 
             @if let Some(bytes) = bytes {
               span class="filesize" {
-                (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes))) 
+                (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes)))
               }
             }
             @if file_type.is_file() && !config.paid() {
