@@ -183,7 +183,7 @@ impl Files {
     let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
-        @for (file_name, file_type, file_size) in self.read_dir(dir).await? {
+        @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
           
           @let file_name = {
             let mut file_name = file_name.to_string_lossy().into_owned();
@@ -198,10 +198,9 @@ impl Files {
               (file_name)
             }
 
-            @if let Some(bytes) = file_size {
+            @if let Some(bytes) = bytes {
                 span class="filesize" {
-                    @let opts = file_size_opts::FileSizeOpts { long_units: false, ..file_size_opts::BINARY };
-                    (bytes.file_size(opts).unwrap())
+                    (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes))) 
                 }
             }
             @if file_type.is_file() && !config.paid() {
