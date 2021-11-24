@@ -1071,12 +1071,14 @@ fn bugfix_symlink_with_relative_base_directory() {
 fn listing_renders_file_sizes() {
   test(|context| async move {
     context.write("some-test-file.txt", "abc");
+    context.write("large-file.txt", &"A".repeat(4096));
     let html = html(&context.files_url()).await;
-    guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
-    assert_contains(&li.inner_html(), "some-test-file.txt");
-    assert_contains(&li.inner_html(), "3 bytes");
-    //guard_unwrap!(let &[a] = css_select(&li, "a").as_slice());
+    guard_unwrap!(let &[li1, li2] =  css_select(&html, ".listing li").as_slice());
+    assert_contains(&li1.inner_html(), "large-file.txt");
+    assert_contains(&li1.inner_html(), "4 KiB");
 
+    assert_contains(&li2.inner_html(), "some-test-file.txt");
+    assert_contains(&li2.inner_html(), "3 B");
   });
 }
 
@@ -1087,7 +1089,7 @@ fn listing_does_not_render_directory_file_sizes() {
     let html = html(&context.files_url()).await;
     guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
     assert_contains(&li.inner_html(), "some-directory");
-    assert_not_contains(&li.inner_html(), "bytes");
+    assert_not_contains(&li.inner_html(), "B");
   });
 }
 

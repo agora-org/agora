@@ -2,6 +2,7 @@ use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
+use humansize::{FileSize, file_size_opts};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
@@ -197,9 +198,10 @@ impl Files {
               (file_name)
             }
 
-            @if let Some(file_size) = file_size {
+            @if let Some(bytes) = file_size {
                 span class="filesize" {
-                    (file_size) " bytes"
+                    @let opts = file_size_opts::FileSizeOpts { long_units: false, ..file_size_opts::BINARY };
+                    (bytes.file_size(opts).unwrap())
                 }
             }
             @if file_type.is_file() && !config.paid() {
