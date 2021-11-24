@@ -199,14 +199,14 @@ impl Files {
             }
 
             @if let Some(bytes) = bytes {
-                span class="filesize" {
-                    (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes))) 
-                }
+              span class="filesize" {
+                (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes))) 
+              }
             }
             @if file_type.is_file() && !config.paid() {
-                a download href=(encoded) {
-                    (Files::icon("download"))
-                }
+              a download href=(encoded) {
+                (Files::icon("download"))
+              }
             }
           }
         }
