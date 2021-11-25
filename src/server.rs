@@ -171,6 +171,7 @@ impl Server {
     .unwrap();
     let working_directory = environment.working_directory.clone();
     TestContext {
+      #[cfg(feature = "slow-tests")]
       base_url: http_url.clone(),
       files_url: http_url.join("files/").unwrap(),
       https_files_url: self
@@ -195,6 +196,7 @@ impl Server {
 
 #[cfg(test)]
 pub(crate) struct TestContext {
+  #[cfg(feature = "slow-tests")]
   base_url: reqwest::Url,
   files_directory: std::path::PathBuf,
   files_url: reqwest::Url,
@@ -221,6 +223,7 @@ impl TestContext {
     &self.files_directory
   }
 
+  #[cfg(feature = "slow-tests")]
   pub(crate) fn base_url(&self) -> &reqwest::Url {
     &self.base_url
   }

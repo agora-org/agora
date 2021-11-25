@@ -236,7 +236,7 @@ pub(crate) struct Backtrace {
 impl snafu::GenerateBacktrace for Backtrace {
   fn generate() -> Self {
     Self {
-      inner: if cfg!(test) {
+      inner: if cfg!(test) || env::var_os("AGORA_SUPPRESS_BACKTRACE").is_some() {
         None
       } else {
         Some(snafu::Backtrace::generate())
