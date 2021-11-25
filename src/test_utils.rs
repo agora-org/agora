@@ -28,16 +28,6 @@ pub(crate) fn assert_contains(haystack: &str, needle: &str) {
   );
 }
 
-#[track_caller]
-pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
-  assert!(
-    !haystack.contains(needle),
-    "\n{:?} contains {:?}\n",
-    haystack,
-    needle
-  );
-}
-
 pub(crate) fn set_up_test_certificate() -> (TempDir, Certificate) {
   use rcgen::{
     BasicConstraints, Certificate, CertificateParams, IsCa, KeyPair, SanType,
@@ -106,14 +96,6 @@ pub(crate) async fn https_client(context: &TestContext, root_certificate: Certif
     "HTTPS server not ready after one second:\n{}",
     error.unwrap()
   );
-}
-
-pub(crate) fn test<Function, F>(f: Function) -> String
-where
-  Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()> + 'static,
-{
-  test_with_arguments(&[], f)
 }
 
 #[cfg(feature = "slow-tests")]

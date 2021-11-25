@@ -1,6 +1,6 @@
 set positional-arguments
 
-all: build test integration clippy fmt-check forbid check-lockfile
+all: build test clippy fmt-check forbid check-lockfile
 
 build:
   cargo lcheck --all
@@ -15,9 +15,6 @@ fast-tests *args="":
 
 slow-tests *args="slow_tests":
   cargo ltest --features slow-tests "$@"
-
-integration *args:
-  cargo ltest --test integration "$@"
 
 clippy:
   cargo lclippy --all-targets --all-features
