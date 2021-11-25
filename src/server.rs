@@ -238,12 +238,6 @@ impl TestContext {
     std::fs::write(&path, content).unwrap();
     path
   }
-
-  pub(crate) fn create_dir_all(&self, path: &str) -> std::path::PathBuf {
-    let path = self.files_directory.join(path);
-    std::fs::create_dir_all(&path).unwrap();
-    path
-  }
 }
 
 #[cfg(test)]
