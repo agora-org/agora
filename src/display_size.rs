@@ -51,12 +51,17 @@ mod tests {
   }
 
   #[test]
+  fn halfway_to_1kib() {
+    assert_eq!(512.display_size().to_string(), "512 B");
+  }
+
+  #[test]
   fn kib() {
     assert_eq!(2u64.pow(10).display_size().to_string(), "1 KiB");
   }
 
   #[test]
-  fn half() {
+  fn halfway_to_2kib() {
     assert_eq!((1024 + 512).display_size().to_string(), "1.5 KiB");
   }
 
