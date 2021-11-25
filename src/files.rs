@@ -1,5 +1,6 @@
 use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
+use humansize::{file_size_opts, FileSize};
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 
@@ -107,7 +108,7 @@ impl Files {
     }
   }
 
-  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType)>> {
+  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType, Option<u64>)>> {
     let mut read_dir = tokio::fs::read_dir(path)
       .await
       .with_context(|| Error::filesystem_io(path))?;
@@ -121,11 +122,17 @@ impl Files {
       if self.check_path(&input_path).is_err() {
         continue;
       }
-      let file_type = entry
-        .file_type()
+      let metadata = entry
+        .metadata()
         .await
         .with_context(|| Error::filesystem_io(&input_path))?;
-      entries.push((entry.file_name(), file_type));
+      let file_type = metadata.file_type();
+      let file_size = if metadata.is_dir() {
+        None
+      } else {
+        Some(metadata.len())
+      };
+      entries.push((entry.file_name(), file_type, file_size));
     }
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(entries)
@@ -180,7 +187,8 @@ impl Files {
     let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
-        @for (file_name, file_type) in self.read_dir(dir).await? {
+        @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
+
           @let file_name = {
             let mut file_name = file_name.to_string_lossy().into_owned();
             if file_type.is_dir() {
@@ -192,6 +200,12 @@ impl Files {
           li {
             a href=(encoded) class="view" {
               (file_name)
+            }
+
+            @if let Some(bytes) = bytes {
+              span class="filesize" {
+                (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes)))
+              }
             }
             @if file_type.is_file() && !config.paid() {
               a download href=(encoded) {

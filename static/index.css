@@ -57,10 +57,18 @@ main {
   justify-content: space-between;
 }
 
-.view {
-  color: black;
+.listing > li > * {
   margin-bottom: auto;
   margin-top: auto;
+}
+
+.filesize {
+    margin-right: 1rem;
+    margin-left: auto;
+}
+
+.view {
+  color: black;
   overflow: hidden;
   text-decoration: none;
   text-overflow: ellipsis;

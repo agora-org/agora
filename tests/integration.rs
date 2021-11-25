@@ -42,6 +42,10 @@ impl TestContext {
     std::fs::write(&path, content).unwrap();
     path
   }
+
+  fn create_dir_all(&self, path: &str) {
+    std::fs::create_dir_all(self.files_directory.join(path)).unwrap();
+  }
 }
 
 fn test<Function, F>(f: Function) -> String
@@ -997,4 +1001,30 @@ fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
       MAIN_SEPARATOR
     ),
   );
+}
+
+#[test]
+fn listing_renders_file_sizes() {
+  test(|context| async move {
+    context.write("some-test-file.txt", "abc");
+    context.write("large-file.txt", &"A".repeat(4096));
+    let html = html(&context.files_url()).await;
+    guard_unwrap!(let &[li1, li2] =  css_select(&html, ".listing li").as_slice());
+    assert_contains(&li1.inner_html(), "large-file.txt");
+    assert_contains(&li1.inner_html(), "4 KiB");
+
+    assert_contains(&li2.inner_html(), "some-test-file.txt");
+    assert_contains(&li2.inner_html(), "3 B");
+  });
+}
+
+#[test]
+fn listing_does_not_render_directory_file_sizes() {
+  test(|context| async move {
+    context.create_dir_all("some-directory");
+    let html = html(&context.files_url()).await;
+    guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
+    assert_contains(&li.inner_html(), "some-directory");
+    assert_not_contains(&li.inner_html(), "B");
+  });
 }
