@@ -26,16 +26,11 @@ impl Display for Wrapper {
       .last()
       .unwrap();
 
-    let quotient = self.0 / power;
-    let remainder = self.0 % power;
-
-    write!(f, "{}", quotient)?;
-
-    if remainder > 0 {
-      write!(f, ".{}", (remainder * 10 / power * 10) / 10)?;
+    if self.0 % power == 0 {
+      write!(f, "{} {}", self.0 / power, suffix)?;
+    } else {
+      write!(f, "{:.1} {}", self.0 as f64 / power as f64, suffix)?;
     }
-
-    write!(f, " {}", suffix)?;
 
     Ok(())
   }
@@ -72,6 +67,6 @@ mod tests {
 
   #[test]
   fn max() {
-    assert_eq!(u64::MAX.display_size().to_string(), "15.9 EiB");
+    assert_eq!(u64::MAX.display_size().to_string(), "16.0 EiB");
   }
 }
