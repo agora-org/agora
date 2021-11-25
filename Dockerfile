@@ -1,5 +1,5 @@
 # 1: Build the exe
-FROM rust:1.56 as builder
+FROM rust:1.56 AS builder
 
 # WORKDIR /usr/src
 
@@ -12,7 +12,7 @@ WORKDIR /usr/src/agora
 COPY . ./
 RUN cargo build --release
 
-FROM ubuntu as final
+FROM ubuntu AS final
 
 ARG APP=/usr/src/app
 ENV APP_USER=agora
