@@ -46,14 +46,18 @@ impl AgoraInstance {
     let mut child_stderr = BufReader::new(child_stderr);
     child_stderr.read_line(&mut first_line).unwrap();
     eprintln!("First line: {}", first_line);
-    let port: u16 = first_line
+    let port_string = first_line
       .trim()
       .trim_end_matches('`')
       .split(':')
       .last()
-      .unwrap()
+      .expect(&format!(
+        "first line to stderr does not contain `:` and port: {}",
+        first_line
+      ));
+    let port: u16 = port_string
       .parse()
-      .unwrap();
+      .expect(&format!("port should be an integer: {}", port_string));
 
     let base_url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
 
