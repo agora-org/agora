@@ -66,7 +66,7 @@ The Docker image can also be built directly from within the repository. The Dock
 
 Building the image: 
 ```bash
-docker build -t agora:latest .
+docker build --tag agora:latest .
 ```
 
 ### Running Agora in Docker
