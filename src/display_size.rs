@@ -16,18 +16,16 @@ impl Display for Wrapper {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
     const SUFFIXES: &[&str] = &["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
 
-    let value = self.0;
-
     let (power, suffix) = SUFFIXES
       .iter()
       .enumerate()
-      .map(|(i, suffix)| (2u64.pow(i as u32 * 10), suffix))
-      .filter(|(power, _)| value >= power - 1)
+      .map(|(i, suffix)| (1024u64.pow(i as u32), suffix))
+      .filter(|(power, _)| self.0 >= power - 1)
       .last()
       .unwrap();
 
-    if self.0 % power == 0 {
-      write!(f, "{} {}", self.0 / power, suffix)?;
+    if power == 1 {
+      write!(f, "{} {}", self.0, suffix)?;
     } else {
       write!(f, "{:.1} {}", self.0 as f64 / power as f64, suffix)?;
     }
@@ -52,7 +50,7 @@ mod tests {
 
   #[test]
   fn kib() {
-    assert_eq!(2u64.pow(10).display_size().to_string(), "1 KiB");
+    assert_eq!(2u64.pow(10).display_size().to_string(), "1.0 KiB");
   }
 
   #[test]
