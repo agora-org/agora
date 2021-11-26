@@ -221,7 +221,15 @@ impl Files {
         }
       }
     };
-    Ok(html::wrap_body(body))
+    let title = {
+      let base_path = self.base_directory.display_path();
+      match dir.display_path().strip_prefix(&base_path) {
+        Ok(path) => format!("/{}", path.display()),
+        //TODO this is a non-fatal error that perhaps should be logged as a warning?
+        Err(_e) => "".to_string(),
+      }
+    };
+    Ok(html::wrap_body(title.as_str(), body))
   }
 
   fn icon(name: &str) -> Markup {
@@ -323,59 +331,63 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         let filename = invoice.memo;
-        Ok(html::wrap_body(html! {
-          div class="invoice" {
-            div class="label" {
-              "Lightning Payment Request for " (value) " to access "
+        let title = format!("{} Invoice", filename);
+        Ok(html::wrap_body(
+          title.as_str(),
+          html! {
+            div class="invoice" {
+              div class="label" {
+                "Lightning Payment Request for " (value) " to access "
+                span class="filename" {
+                    (filename)
+                }
+                ":"
+              }
+              div class="payment-request"{
+                button class="clipboard-copy" onclick=(
+                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+                ) {
+                  (Files::icon("clipboard"))
+                }
+                (invoice.payment_request)
+              }
+
+              div class="links" {
+                a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+                  "Open invoice in wallet"
+                }
+                a class="reload-link" href=(request.uri()) {
+                  "Access file"
+                }
+              }
+              img
+                class="qr-code"
+                alt="Lightning Network Invoice QR Code"
+                src=(qr_code_url)
+                width="400"
+                height="400";
+            }
+            div class="instructions" {
+              "To access "
               span class="filename" {
                   (filename)
               }
               ":"
-            }
-            div class="payment-request"{
-              button class="clipboard-copy" onclick=(
-                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
-              ) {
-                (Files::icon("clipboard"))
-              }
-              (invoice.payment_request)
-            }
-
-            div class="links" {
-              a class="payment-link" href={"lightning:" (invoice.payment_request)} {
-                "Open invoice in wallet"
-              }
-              a class="reload-link" href=(request.uri()) {
-                "Access file"
+              ol {
+                li {
+                  "Pay the invoice for " (value) " above "
+                  "with your Lightning Network wallet by "
+                  "scanning the QR code, "
+                  "copying the payment request string, or "
+                  "clicking the \"Open invoice in wallet\" link."
+                }
+                li {
+                  "Click the \"Access file\" link or reload the page."
+                }
               }
             }
-            img
-              class="qr-code"
-              alt="Lightning Network Invoice QR Code"
-              src=(qr_code_url)
-              width="400"
-              height="400";
-          }
-          div class="instructions" {
-            "To access "
-            span class="filename" {
-                (filename)
-            }
-            ":"
-            ol {
-              li {
-                "Pay the invoice for " (value) " above "
-                "with your Lightning Network wallet by "
-                "scanning the QR code, "
-                "copying the payment request string, or "
-                "clicking the \"Open invoice in wallet\" link."
-              }
-              li {
-                "Click the \"Access file\" link or reload the page."
-              }
-            }
-          }
-        }))
+          },
+        ))
       }
     }
   }

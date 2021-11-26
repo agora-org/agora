@@ -1,7 +1,11 @@
 use crate::common::*;
 use maud::{html, DOCTYPE};
 
-pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
+fn generate_title(slug: &str) -> String {
+  format!("{} • Agora", slug)
+}
+
+pub(crate) fn wrap_body(title_slug: &str, body: Markup) -> Response<Body> {
   let html = html! {
     (DOCTYPE)
     html lang="en" {
@@ -9,7 +13,7 @@ pub(crate) fn wrap_body(body: Markup) -> Response<Body> {
         meta charset="utf-8";
         meta name="viewport" content="width=device-width, initial-scale=1";
         title {
-          "agora"
+          (generate_title(title_slug))
         }
         link rel="stylesheet" href="/static/index.css";
         script type="module" src="/static/index.js" {}
