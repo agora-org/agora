@@ -1011,7 +1011,7 @@ fn listing_renders_file_sizes() {
     let html = html(&context.files_url()).await;
     guard_unwrap!(let &[li1, li2] =  css_select(&html, ".listing li").as_slice());
     assert_contains(&li1.inner_html(), "large-file.txt");
-    assert_contains(&li1.inner_html(), "4 KiB");
+    assert_contains(&li1.inner_html(), "4.0 KiB");
 
     assert_contains(&li2.inner_html(), "some-test-file.txt");
     assert_contains(&li2.inner_html(), "3 B");
