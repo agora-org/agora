@@ -4,13 +4,10 @@ set -euxo pipefail
 
 VERSION=`basename $REF`
 DIST=`pwd`/dist
-BIN=agora
 
-echo "Packaging $BIN $VERSION for $TARGET..."
+echo "Packaging agora $VERSION for $TARGET..."
 
-echo "Building $BIN..."
-RUSTFLAGS="$TARGET_RUSTFLAGS" cargo build --bin $BIN --target $TARGET --release
-EXECUTABLE=target/$TARGET/release/$BIN
+EXECUTABLE=target/$TARGET/release/agora
 
 if [[ $OS == windows-latest ]]; then
   EXECUTABLE=$EXECUTABLE.exe
@@ -30,13 +27,13 @@ cd $DIST
 echo "Creating release archive..."
 case $OS in
   ubuntu-latest | macos-latest)
-    ARCHIVE=$DIST/$BIN-$VERSION-$TARGET.tar.gz
+    ARCHIVE=$DIST/agora-$VERSION-$TARGET.tar.gz
     tar czf $ARCHIVE *
     echo "::set-output name=archive::$ARCHIVE"
     ;;
   windows-latest)
-    ARCHIVE=$DIST/$BIN-$VERSION-$TARGET.zip
+    ARCHIVE=$DIST/agora-$VERSION-$TARGET.zip
     7z a $ARCHIVE *
-    echo "::set-output name=archive::`pwd -W`/$BIN-$VERSION-$TARGET.zip"
+    echo "::set-output name=archive::`pwd -W`/agora-$VERSION-$TARGET.zip"
     ;;
 esac
