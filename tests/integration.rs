@@ -1032,6 +1032,7 @@ fn listing_does_not_render_directory_file_sizes() {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn errors_printed_in_red_and_bold() {
   let output = Command::new(executable_path("agora"))
     .arg("--directory=/path/to/dir")
