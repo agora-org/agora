@@ -1,6 +1,5 @@
 use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
-use humansize::{file_size_opts, FileSize};
 use maud::html;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 
@@ -204,7 +203,7 @@ impl Files {
 
             @if let Some(bytes) = bytes {
               span class="filesize" {
-                (bytes.file_size(file_size_opts::BINARY).unwrap_or_else(|_| format!("{} B", bytes)))
+                (bytes.display_size())
               }
             }
             @if file_type.is_file() && !config.paid() {
