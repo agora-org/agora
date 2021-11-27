@@ -1,5 +1,6 @@
 use ::{
   agora_test_context::AgoraInstance,
+  executable_path::executable_path,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
@@ -9,6 +10,7 @@ use ::{
     fs,
     future::Future,
     path::{Path, PathBuf, MAIN_SEPARATOR},
+    process::Command,
     str,
   },
   tokio::{
@@ -1027,4 +1029,17 @@ fn listing_does_not_render_directory_file_sizes() {
     assert_contains(&li.inner_html(), "some-directory");
     assert_not_contains(&li.inner_html(), "B");
   });
+}
+
+#[test]
+fn error_has_proper_format() {
+  let output = Command::new(executable_path("agora"))
+    .arg("--directory=/path/to/dir")
+    .arg("--http-port=8080")
+    .output()
+    .unwrap();
+
+  let stderr = str::from_utf8(&output.stderr).unwrap();
+
+  assert_contains(stderr, "\u{1b}[31merror\u{1b}[0m\u{1b}[1m: ");
 }
