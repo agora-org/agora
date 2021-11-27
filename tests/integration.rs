@@ -1,6 +1,5 @@
 use ::{
   agora_test_context::AgoraInstance,
-  executable_path::executable_path,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
@@ -10,7 +9,6 @@ use ::{
     fs,
     future::Future,
     path::{Path, PathBuf, MAIN_SEPARATOR},
-    process::Command,
     str,
   },
   tokio::{
@@ -1034,6 +1032,8 @@ fn listing_does_not_render_directory_file_sizes() {
 #[test]
 #[cfg(not(windows))]
 fn errors_printed_in_red_and_bold() {
+  use {executable_path::executable_path, std::process::Command};
+
   let output = Command::new(executable_path("agora"))
     .arg("--directory=/path/to/dir")
     .arg("--http-port=8080")
