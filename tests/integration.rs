@@ -1036,6 +1036,7 @@ fn errors_printed_in_red_and_bold() {
   let output = Command::new(executable_path("agora"))
     .arg("--directory=/path/to/dir")
     .arg("--http-port=8080")
+    .env("TERM", "vt100")
     .output()
     .unwrap();
 
