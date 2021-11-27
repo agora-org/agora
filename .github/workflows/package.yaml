@@ -39,7 +39,7 @@ jobs:
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross_compiling: false
-          target_rustflags: '--codegen target-feature=+crt-static'
+          target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-latest
           cross_compiling: false
