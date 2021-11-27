@@ -7,6 +7,7 @@ mod test_utils;
 mod arguments;
 mod common;
 mod config;
+mod display_size;
 mod environment;
 mod error;
 mod error_page;
