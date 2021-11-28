@@ -101,7 +101,7 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      self.serve_dir(&file_path).await
+      self.serve_dir(tail, &file_path).await
     } else {
       self.access_file(request, tail, &file_path).await
     }
@@ -182,7 +182,7 @@ impl Files {
     Ok(Some(maud::PreEscaped(html)))
   }
 
-  async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+  async fn serve_dir(&self, tail: &[&str], dir: &InputPath) -> Result<Response<Body>> {
     let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
@@ -220,7 +220,7 @@ impl Files {
         }
       }
     };
-    Ok(html::wrap_body(body))
+    Ok(html::wrap_body(&format!("/{}", tail.join("")), body))
   }
 
   fn icon(name: &str) -> Markup {
@@ -322,59 +322,63 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         let filename = invoice.memo;
-        Ok(html::wrap_body(html! {
-          div class="invoice" {
-            div class="label" {
-              "Lightning Payment Request for " (value) " to access "
+        Ok(html::wrap_body(
+          &format!("Invoice for {}", filename),
+          html! {
+            div class="invoice" {
+              div class="label" {
+                "Lightning Payment Request for " (value) " to access "
+                span class="filename" {
+                    (filename)
+                }
+
+                ":"
+              }
+              div class="payment-request"{
+                button class="clipboard-copy" onclick=(
+                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+                ) {
+                  (Files::icon("clipboard"))
+                }
+                (invoice.payment_request)
+              }
+
+              div class="links" {
+                a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+                  "Open invoice in wallet"
+                }
+                a class="reload-link" href=(request.uri()) {
+                  "Access file"
+                }
+              }
+              img
+                class="qr-code"
+                alt="Lightning Network Invoice QR Code"
+                src=(qr_code_url)
+                width="400"
+                height="400";
+            }
+            div class="instructions" {
+              "To access "
               span class="filename" {
                   (filename)
               }
               ":"
-            }
-            div class="payment-request"{
-              button class="clipboard-copy" onclick=(
-                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
-              ) {
-                (Files::icon("clipboard"))
-              }
-              (invoice.payment_request)
-            }
-
-            div class="links" {
-              a class="payment-link" href={"lightning:" (invoice.payment_request)} {
-                "Open invoice in wallet"
-              }
-              a class="reload-link" href=(request.uri()) {
-                "Access file"
+              ol {
+                li {
+                  "Pay the invoice for " (value) " above "
+                  "with your Lightning Network wallet by "
+                  "scanning the QR code, "
+                  "copying the payment request string, or "
+                  "clicking the \"Open invoice in wallet\" link."
+                }
+                li {
+                  "Click the \"Access file\" link or reload the page."
+                }
               }
             }
-            img
-              class="qr-code"
-              alt="Lightning Network Invoice QR Code"
-              src=(qr_code_url)
-              width="400"
-              height="400";
-          }
-          div class="instructions" {
-            "To access "
-            span class="filename" {
-                (filename)
-            }
-            ":"
-            ol {
-              li {
-                "Pay the invoice for " (value) " above "
-                "with your Lightning Network wallet by "
-                "scanning the QR code, "
-                "copying the payment request string, or "
-                "clicking the \"Open invoice in wallet\" link."
-              }
-              li {
-                "Click the \"Access file\" link or reload the page."
-              }
-            }
-          }
-        }))
+          },
+        ))
       }
     }
   }
