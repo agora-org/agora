@@ -56,10 +56,6 @@ impl InputPath {
     Some(self.join_relative(Path::new(&uri_path)))
   }
 
-  /// Generates a rust standard library `Path` value representing a file system location within the
-  /// directory agora is serving, starting with that directory itself. E.g. if agora is run with
-  /// `--directory /srv/agora/agora-files`, an `InputPath` for `/srv/agora/agora-files/subdir/`
-  /// will have a `display_path()` of `agora-files/subdir/`.
   pub(crate) fn display_path(&self) -> &Path {
     &self.display_path
   }

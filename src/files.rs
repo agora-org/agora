@@ -101,7 +101,7 @@ impl Files {
     }
 
     if file_type.is_dir() {
-      self.serve_dir(&file_path).await
+      self.serve_dir(tail, &file_path).await
     } else {
       self.access_file(request, tail, &file_path).await
     }
@@ -182,7 +182,7 @@ impl Files {
     Ok(Some(maud::PreEscaped(html)))
   }
 
-  async fn serve_dir(&self, dir: &InputPath) -> Result<Response<Body>> {
+  async fn serve_dir(&self, tail: &[&str], dir: &InputPath) -> Result<Response<Body>> {
     let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
@@ -220,15 +220,7 @@ impl Files {
         }
       }
     };
-    let title = {
-      let base_path = self.base_directory.display_path();
-      match dir.display_path().strip_prefix(&base_path) {
-        Ok(path) => format!("/{}", path.display()),
-        //TODO this is a non-fatal error that perhaps should be logged as a warning?
-        Err(_e) => "".to_string(),
-      }
-    };
-    Ok(html::wrap_body(title.as_str(), body))
+    Ok(html::wrap_body(&format!("/{}", tail.join("")), body))
   }
 
   fn icon(name: &str) -> Markup {
@@ -330,9 +322,8 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         let filename = invoice.memo;
-        let title = format!("{} Invoice", filename);
         Ok(html::wrap_body(
-          title.as_str(),
+          &format!("Invoice for {}", filename),
           html! {
             div class="invoice" {
               div class="label" {
@@ -340,6 +331,7 @@ impl Files {
                 span class="filename" {
                     (filename)
                 }
+
                 ":"
               }
               div class="payment-request"{
