@@ -100,15 +100,12 @@ impl Files {
     .remove(b'_')
     .remove(b'~');
 
-  fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
+  fn render_index(&self, dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
 
-    let file = dir.join_relative(".index.md".as_ref())?;
-
-    let markdown = match fs::read_to_string(&file) {
-      Ok(markdown) => markdown,
-      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+    let markdown = match self.vfs.directory_markdown_file(dir)? {
+      None => return Ok(None),
+      Some(markdown) => markdown,
     };
 
     let options = Options::ENABLE_FOOTNOTES
@@ -153,7 +150,7 @@ impl Files {
           }
         }
       }
-      @if let Some(index) = Self::render_index(dir)? {
+      @if let Some(index) = self.render_index(dir)? {
         div {
           (index)
         }

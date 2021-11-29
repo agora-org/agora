@@ -10,6 +10,16 @@ impl Vfs {
     Self { base_directory }
   }
 
+  /// If an `.index.md` file exists in this directory, return its contents as a string.
+  pub(crate) fn directory_markdown_file(&self, dir_path: &InputPath) -> Result<Option<String>> {
+    let file = dir_path.join_relative(".index.md".as_ref())?;
+    match fs::read_to_string(&file) {
+      Ok(markdown) => Ok(Some(markdown)),
+      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+    }
+  }
+
   pub(crate) fn paid(&self, path: &InputPath) -> bool {
     let config = Config::for_dir(
       self.base_directory.as_ref(),
