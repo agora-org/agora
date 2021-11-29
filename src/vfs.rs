@@ -19,31 +19,30 @@ impl Vfs {
     config.paid()
   }
 
-    pub(crate) fn base_price(&self, path: &InputPath) -> Option<Millisatoshi> {
+  pub(crate) fn base_price(&self, path: &InputPath) -> Option<Millisatoshi> {
     let config = Config::for_dir(
       self.base_directory.as_ref(),
       path.as_ref().parent().unwrap(),
     )
     .unwrap();
 
-        config.base_price
+    config.base_price
+  }
+
+  pub(crate) fn file_type(&self, tail: &[&str]) -> Result<FileType> {
+    for result in self.base_directory.iter_prefixes(tail) {
+      let prefix = result?;
+      self.check_path(&prefix)?;
     }
 
-    pub(crate) fn file_type(&self, tail: &[&str]) -> Result<FileType> {
-
-        for result in self.base_directory.iter_prefixes(tail) {
-            let prefix = result?;
-            self.check_path(&prefix)?;
-        }
-
-        let file_path = self.base_directory.join_file_path(&tail.join(""))?;
-        let file_type = file_path
-            .as_ref()
-            .metadata()
-            .with_context(|| Error::filesystem_io(&file_path))?
-            .file_type();
-        Ok(file_type)
-    }
+    let file_path = self.base_directory.join_file_path(&tail.join(""))?;
+    let file_type = file_path
+      .as_ref()
+      .metadata()
+      .with_context(|| Error::filesystem_io(&file_path))?
+      .file_type();
+    Ok(file_type)
+  }
 
   pub(crate) fn check_path(&self, path: &InputPath) -> Result<()> {
     if path
@@ -87,6 +86,5 @@ impl Vfs {
     }
 
     Ok(())
-
   }
 }
