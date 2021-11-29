@@ -101,4 +101,44 @@ impl Vfs {
 
     Ok(())
   }
+
+  pub(crate) async fn read_dir(&self, path: &InputPath) -> Result<Vec<DirectoryEntry>> {
+    let mut read_dir = tokio::fs::read_dir(path)
+      .await
+      .with_context(|| Error::filesystem_io(path))?;
+    let mut entries = Vec::new();
+    while let Some(entry) = read_dir
+      .next_entry()
+      .await
+      .with_context(|| Error::filesystem_io(path))?
+    {
+      let input_path = path.join_relative(Path::new(&entry.file_name()))?;
+      if self.check_path(&input_path).is_err() {
+        continue;
+      }
+      let metadata = entry
+        .metadata()
+        .await
+        .with_context(|| Error::filesystem_io(&input_path))?;
+      let file_type = metadata.file_type();
+      let file_size = if metadata.is_dir() {
+        None
+      } else {
+        Some(metadata.len())
+      };
+      entries.push(DirectoryEntry {
+        file_name: entry.file_name(),
+        file_type,
+        file_size,
+      });
+    }
+    entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
+    Ok(entries)
+  }
+}
+
+pub(crate) struct DirectoryEntry {
+  pub(crate) file_name: OsString,
+  pub(crate) file_type: FileType,
+  pub(crate) file_size: Option<u64>,
 }

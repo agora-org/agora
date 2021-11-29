@@ -46,36 +46,6 @@ impl Files {
     }
   }
 
-  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType, Option<u64>)>> {
-    let mut read_dir = tokio::fs::read_dir(path)
-      .await
-      .with_context(|| Error::filesystem_io(path))?;
-    let mut entries = Vec::new();
-    while let Some(entry) = read_dir
-      .next_entry()
-      .await
-      .with_context(|| Error::filesystem_io(path))?
-    {
-      let input_path = path.join_relative(Path::new(&entry.file_name()))?;
-      if self.vfs.check_path(&input_path).is_err() {
-        continue;
-      }
-      let metadata = entry
-        .metadata()
-        .await
-        .with_context(|| Error::filesystem_io(&input_path))?;
-      let file_type = metadata.file_type();
-      let file_size = if metadata.is_dir() {
-        None
-      } else {
-        Some(metadata.len())
-      };
-      entries.push((entry.file_name(), file_type, file_size));
-    }
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(entries)
-  }
-
   // Percent encode all unicode codepoints, even though
   // they are allowed by the spec:
   // https://url.spec.whatwg.org/#url-code-points
@@ -121,11 +91,11 @@ impl Files {
   async fn serve_dir(&self, tail: &[&str], dir: &InputPath) -> Result<Response<Body>> {
     let body = html! {
       ul class="listing" {
-        @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
+        @for entry in self.vfs.read_dir(dir).await? {
 
           @let file_name = {
-            let mut file_name = file_name.to_string_lossy().into_owned();
-            if file_type.is_dir() {
+            let mut file_name = entry.file_name.to_string_lossy().into_owned();
+            if entry.file_type.is_dir() {
               file_name.push('/');
             }
             file_name
@@ -136,13 +106,13 @@ impl Files {
               (file_name)
             }
 
-            @if let Some(bytes) = bytes {
+            @if let Some(bytes) = entry.file_size {
               span class="filesize" {
                 (bytes.display_size())
               }
             }
             // if vfs.paid(file)
-            @if file_type.is_file() && !self.vfs.paid(&dir.join_relative(file_name.as_ref()).unwrap()) {
+            @if entry.file_type.is_file() && !self.vfs.paid(&dir.join_relative(entry.file_name.as_ref()).unwrap()) {
               a download href=(encoded) {
                 (Files::icon("download"))
               }
