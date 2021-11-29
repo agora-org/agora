@@ -28,4 +28,14 @@ impl Vfs {
 
         config.base_price
     }
+
+    pub(crate) fn file_type(&self, tail: &[&str]) -> Result<FileType> {
+        let file_path = self.base_directory.join_file_path(&tail.join(""))?;
+        let file_type = file_path
+            .as_ref()
+            .metadata()
+            .with_context(|| Error::filesystem_io(&file_path))?
+            .file_type();
+        Ok(file_type)
+    }
 }

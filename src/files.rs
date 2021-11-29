@@ -83,11 +83,7 @@ impl Files {
       self.check_path(&prefix)?;
     }
 
-    let file_type = file_path
-      .as_ref()
-      .metadata()
-      .with_context(|| Error::filesystem_io(&file_path))?
-      .file_type();
+    let file_type = self.vfs.file_type(tail)?;
 
     if !file_type.is_dir() {
       if let Some(stripped) = request.uri().path().strip_suffix('/') {
