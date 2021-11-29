@@ -6,7 +6,6 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
-  base_directory: InputPath,
   vfs: Vfs,
   lnd_client: Option<agora_lnd_client::Client>,
 }
@@ -17,14 +16,9 @@ impl Files {
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
-      vfs: Vfs::new(base_directory.clone()),
-      base_directory,
+      vfs: Vfs::new(base_directory),
       lnd_client,
     }
-  }
-
-  fn file_path(&self, path: &str) -> Result<InputPath> {
-    self.base_directory.join_file_path(path)
   }
 
   pub(crate) async fn serve(
@@ -32,8 +26,7 @@ impl Files {
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = self.file_path(&tail.join(""))?;
-
+    let file_path = self.vfs.file_path(&tail.join(""))?;
     let file_type = self.vfs.file_type(tail)?;
 
     if !file_type.is_dir() {
@@ -255,7 +248,7 @@ impl Files {
     let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
-        let path = self.file_path(&invoice.memo)?;
+        let path = self.vfs.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
       }
       _ => {

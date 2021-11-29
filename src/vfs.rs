@@ -29,6 +29,10 @@ impl Vfs {
     config.base_price
   }
 
+  pub(crate) fn file_path(&self, path: &str) -> Result<InputPath> {
+    self.base_directory.join_file_path(path)
+  }
+
   pub(crate) fn file_type(&self, tail: &[&str]) -> Result<FileType> {
     for result in self.base_directory.iter_prefixes(tail) {
       let prefix = result?;
