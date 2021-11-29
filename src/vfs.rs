@@ -15,8 +15,8 @@ impl Vfs {
     let file = dir_path.join_relative(".index.md".as_ref())?;
     match fs::read_to_string(&file) {
       Ok(markdown) => Ok(Some(markdown)),
-      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+      Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+      Err(source) => Err(Error::filesystem_io(&file).into_error(source)),
     }
   }
 
@@ -58,7 +58,7 @@ impl Vfs {
     Ok(file_type)
   }
 
-  pub(crate) fn check_path(&self, path: &InputPath) -> Result<()> {
+  fn check_path(&self, path: &InputPath) -> Result<()> {
     if path
       .as_ref()
       .symlink_metadata()
