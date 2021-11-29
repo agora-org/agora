@@ -78,11 +78,6 @@ impl Files {
   ) -> Result<Response<Body>> {
     let file_path = self.file_path(&tail.join(""))?;
 
-    for result in self.base_directory.iter_prefixes(tail) {
-      let prefix = result?;
-      self.check_path(&prefix)?;
-    }
-
     let file_type = self.vfs.file_type(tail)?;
 
     if !file_type.is_dir() {
