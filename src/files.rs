@@ -1,3 +1,4 @@
+use crate::vfs::Vfs;
 use crate::{common::*, file_stream::FileStream};
 use agora_lnd_client::lnrpc::invoice::InvoiceState;
 use maud::html;
@@ -6,6 +7,7 @@ use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   base_directory: InputPath,
+  vfs: Vfs,
   lnd_client: Option<agora_lnd_client::Client>,
 }
 
@@ -15,6 +17,7 @@ impl Files {
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
+      vfs: Vfs::new(base_directory.clone()),
       base_directory,
       lnd_client,
     }
@@ -183,7 +186,6 @@ impl Files {
   }
 
   async fn serve_dir(&self, tail: &[&str], dir: &InputPath) -> Result<Response<Body>> {
-    let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
         @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
@@ -206,7 +208,8 @@ impl Files {
                 (bytes.display_size())
               }
             }
-            @if file_type.is_file() && !config.paid() {
+            // if vfs.paid(file)
+            @if file_type.is_file() && !self.vfs.paid(&dir.join_relative(file_name.as_ref()).unwrap()) {
               a download href=(encoded) {
                 (Files::icon("download"))
               }

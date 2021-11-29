@@ -24,6 +24,7 @@ mod static_assets;
 mod stderr;
 #[cfg(test)]
 mod tests;
+mod vfs;
 
 #[tokio::main]
 async fn main() {
