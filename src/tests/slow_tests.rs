@@ -96,6 +96,16 @@ fn invoice_url_contains_filename() {
   });
 }
 
+#[test]
+fn invoice_title_contains_the_word_invoice() {
+  test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
+    context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
+    context.write("test-filename", "");
+    let text = text(&context.files_url().join("test-filename").unwrap()).await;
+    assert_contains(&text, "<title>Invoice for test-filename · Agora</title>");
+  });
+}
+
 fn decode_qr_code_from_svg(svg: &str) -> String {
   let options = usvg::Options::default();
   let svg = usvg::Tree::from_data(svg.as_bytes(), &options).unwrap();

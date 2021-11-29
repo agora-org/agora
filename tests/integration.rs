@@ -223,7 +223,29 @@ fn unknown_route_status_code_is_404() {
 fn index_route_contains_title() {
   test(|context| async move {
     let haystack = text(context.base_url()).await;
-    let needle = "<title>agora</title>";
+    let needle = "<title>/ · Agora</title>";
+    assert_contains(&haystack, needle);
+  });
+}
+
+#[test]
+fn directory_route_title_contains_directory_name() {
+  test(|context| async move {
+    context.create_dir_all("some-directory");
+    let url = context.files_url().join("some-directory").unwrap();
+    let haystack = text(&url).await;
+    let needle = "<title>/some-directory/ · Agora</title>";
+    assert_contains(&haystack, needle);
+  });
+}
+
+#[test]
+fn error_page_title_contains_error_text() {
+  test(|context| async move {
+    let url = context.base_url().join("nonexistent-file.txt").unwrap();
+    let response = reqwest::get(url).await.unwrap();
+    let haystack = response.text().await.unwrap();
+    let needle = "<title>Not Found · Agora</title>";
     assert_contains(&haystack, needle);
   });
 }
