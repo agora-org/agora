@@ -27,50 +27,6 @@ impl Files {
     self.base_directory.join_file_path(path)
   }
 
-  fn check_path(&self, path: &InputPath) -> Result<()> {
-    if path
-      .as_ref()
-      .symlink_metadata()
-      .with_context(|| Error::filesystem_io(path))?
-      .file_type()
-      .is_symlink()
-    {
-      let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
-
-      let destination = path
-        .as_ref()
-        .parent()
-        .expect("Input paths are always absolute, and thus have parents or are `/`, and `/` cannot be a symlink.")
-        .join(link)
-        .lexiclean();
-
-      if !destination.starts_with(&self.base_directory) {
-        return Err(
-          error::SymlinkAccess {
-            path: path.display_path().to_owned(),
-          }
-          .build(),
-        );
-      }
-    }
-
-    if path
-      .as_ref()
-      .file_name()
-      .map(|file_name| file_name.to_string_lossy().starts_with('.'))
-      .unwrap_or(false)
-    {
-      return Err(
-        error::HiddenFileAccess {
-          path: path.as_ref().to_owned(),
-        }
-        .build(),
-      );
-    }
-
-    Ok(())
-  }
-
   pub(crate) async fn serve(
     &mut self,
     request: &Request<Body>,
@@ -108,7 +64,7 @@ impl Files {
       .with_context(|| Error::filesystem_io(path))?
     {
       let input_path = path.join_relative(Path::new(&entry.file_name()))?;
-      if self.check_path(&input_path).is_err() {
+      if self.vfs.check_path(&input_path).is_err() {
         continue;
       }
       let metadata = entry

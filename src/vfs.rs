@@ -45,7 +45,7 @@ impl Vfs {
         Ok(file_type)
     }
 
-  fn check_path(&self, path: &InputPath) -> Result<()> {
+  pub(crate) fn check_path(&self, path: &InputPath) -> Result<()> {
     if path
       .as_ref()
       .symlink_metadata()
