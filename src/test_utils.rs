@@ -1,9 +1,11 @@
-use crate::common::*;
-use crate::server::TestContext;
+use {
+  crate::{common::*, server::TestContext},
+  reqwest::{Certificate, Client, ClientBuilder},
+  std::panic,
+};
+
 #[cfg(feature = "slow-tests")]
 use lnd_test_context::LndTestContext;
-use reqwest::{Certificate, Client, ClientBuilder};
-use std::panic;
 
 macro_rules! assert_matches {
   ($expression:expr, $( $pattern:pat )|+ $( if $guard:expr )?) => {

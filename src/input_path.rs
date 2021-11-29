@@ -1,6 +1,4 @@
-use crate::common::*;
-use mime_guess::MimeGuess;
-use std::path::Component;
+use {crate::common::*, mime_guess::MimeGuess, std::path::Component};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct InputPath {

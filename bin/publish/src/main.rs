@@ -1,8 +1,7 @@
-use cargo_metadata::MetadataCommand;
-use cradle::prelude::*;
-use std::env;
-use structopt::StructOpt;
-use tempfile::tempdir;
+use {
+  cargo_metadata::MetadataCommand, cradle::prelude::*, std::env, structopt::StructOpt,
+  tempfile::tempdir,
+};
 
 #[derive(StructOpt)]
 struct Arguments {

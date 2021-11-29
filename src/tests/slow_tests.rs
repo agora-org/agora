@@ -1,14 +1,16 @@
-use super::*;
-use crate::{
-  server::TestContext,
-  test_utils::{assert_contains, test_with_arguments, test_with_lnd},
+use {
+  super::*,
+  crate::{
+    server::TestContext,
+    test_utils::{assert_contains, test_with_arguments, test_with_lnd},
+  },
+  guard::guard_unwrap,
+  lnd_test_context::LndTestContext,
+  pretty_assertions::assert_eq,
+  regex::Regex,
+  scraper::{ElementRef, Html, Selector},
+  std::path::MAIN_SEPARATOR,
 };
-use guard::guard_unwrap;
-use lnd_test_context::LndTestContext;
-use pretty_assertions::assert_eq;
-use regex::Regex;
-use scraper::{ElementRef, Html, Selector};
-use std::path::MAIN_SEPARATOR;
 
 async fn html(url: &Url) -> Html {
   Html::parse_document(&text(url).await)

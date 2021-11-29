@@ -1,5 +1,4 @@
-use crate::common::*;
-use rust_embed::RustEmbed;
+use {crate::common::*, rust_embed::RustEmbed};
 
 #[derive(RustEmbed)]
 #[folder = "static/"]
