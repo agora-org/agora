@@ -45,7 +45,7 @@ async fn main() {
       write!(&mut stderr, "error").ok();
 
       stderr.set_color(ColorSpec::new().set_bold(true)).ok();
-      write!(&mut stderr, ": {}", error).ok();
+      writeln!(&mut stderr, ": {}", error).ok();
 
       std::process::exit(1);
     }
