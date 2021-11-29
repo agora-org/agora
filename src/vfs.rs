@@ -18,4 +18,14 @@ impl Vfs {
     .unwrap();
     config.paid()
   }
+
+    pub(crate) fn base_price(&self, path: &InputPath) -> Option<Millisatoshi> {
+    let config = Config::for_dir(
+      self.base_directory.as_ref(),
+      path.as_ref().parent().unwrap(),
+    )
+    .unwrap();
+
+        config.base_price
+    }
 }

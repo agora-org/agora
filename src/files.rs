@@ -71,10 +71,6 @@ impl Files {
     Ok(())
   }
 
-  fn config_for_dir(&self, dir: &Path) -> Result<Config> {
-    Config::for_dir(self.base_directory.as_ref(), dir)
-  }
-
   pub(crate) async fn serve(
     &mut self,
     request: &Request<Body>,
@@ -240,14 +236,7 @@ impl Files {
     tail: &[&str],
     path: &InputPath,
   ) -> Result<Response<Body>> {
-    let config = self.config_for_dir(
-      path
-        .as_ref()
-        .parent()
-        .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
-    )?;
-
-    if !config.paid() {
+    if !self.vfs.paid(path) {
       return Self::serve_file(path).await;
     }
 
@@ -259,7 +248,7 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
-    let base_price = config.base_price.ok_or_else(|| {
+    let base_price = self.vfs.base_price(path).ok_or_else(|| {
       error::ConfigMissingBasePrice {
         path: path.display_path(),
       }
