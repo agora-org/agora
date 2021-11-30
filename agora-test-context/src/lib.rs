@@ -44,15 +44,67 @@ impl Builder {
   }
 
   pub fn build(self) -> AgoraTestContext {
-    AgoraTestContext::new(
-      self.tempdir,
-      vec![],
-      self.backtraces,
-      &self.directory,
-      self.address,
-      self.http_port,
-      self.args,
-    )
+    let mut command = Command::new(executable_path("agora"));
+
+    let files_directory = self.tempdir.path().join(&self.directory);
+
+    fs::create_dir_all(&files_directory).unwrap();
+
+    if let Some(address) = self.address {
+      command.arg("--address");
+      command.arg(address);
+    }
+
+    if let Some(http_port) = self.http_port {
+      command.arg("--http-port");
+      command.arg(&http_port.to_string());
+    }
+
+    command
+      .args(self.args)
+      .arg("--directory")
+      .arg(self.directory)
+      .current_dir(self.tempdir.path())
+      .stderr(Stdio::piped());
+
+    if !self.backtraces {
+      command.env("AGORA_SUPPRESS_BACKTRACE", "");
+    }
+
+    let mut child = command.spawn().unwrap();
+
+    let mut first_line = String::new();
+    let child_stderr = child.stderr.take().unwrap();
+    let mut child_stderr = BufReader::new(child_stderr);
+    child_stderr.read_line(&mut first_line).unwrap();
+    eprintln!("First line: {}", first_line);
+    let port_string = first_line
+      .trim()
+      .trim_end_matches('`')
+      .split(':')
+      .last()
+      .expect(&format!(
+        "first line to stderr does not contain `:` and port: {}",
+        first_line
+      ));
+    let port: u16 = port_string
+      .parse()
+      .expect(&format!("port should be an integer: {}", port_string));
+
+    let base_url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
+
+    let files_url = base_url.join("files/").unwrap();
+
+    AgoraTestContext {
+      base_url,
+      child,
+      collected_stderr: first_line,
+      files_directory,
+      files_url,
+      port,
+      stderr: child_stderr.into_inner(),
+      _tempdir: self.tempdir,
+    }
   }
 
   pub fn address(self, address: Option<&str>) -> Self {
@@ -99,79 +151,6 @@ pub struct AgoraTestContext {
 impl AgoraTestContext {
   pub fn builder() -> Builder {
     Builder::new()
-  }
-
-  fn new(
-    tempdir: TempDir,
-    additional_flags: Vec<&str>,
-    print_backtraces: bool,
-    directory: &str,
-    address: Option<String>,
-    http_port: Option<u16>,
-    args: Vec<String>,
-  ) -> Self {
-    let mut command = Command::new(executable_path("agora"));
-
-    let files_directory = tempdir.path().join(directory);
-
-    fs::create_dir_all(&files_directory).unwrap();
-
-    if let Some(address) = address {
-      command.arg("--address");
-      command.arg(address);
-    }
-
-    if let Some(http_port) = http_port {
-      command.arg("--http-port");
-      command.arg(&http_port.to_string());
-    }
-
-    command
-      .args(additional_flags)
-      .args(args)
-      .arg("--directory")
-      .arg(directory)
-      .current_dir(&tempdir)
-      .stderr(Stdio::piped());
-
-    if !print_backtraces {
-      command.env("AGORA_SUPPRESS_BACKTRACE", "");
-    }
-
-    let mut child = command.spawn().unwrap();
-
-    let mut first_line = String::new();
-    let child_stderr = child.stderr.take().unwrap();
-    let mut child_stderr = BufReader::new(child_stderr);
-    child_stderr.read_line(&mut first_line).unwrap();
-    eprintln!("First line: {}", first_line);
-    let port_string = first_line
-      .trim()
-      .trim_end_matches('`')
-      .split(':')
-      .last()
-      .expect(&format!(
-        "first line to stderr does not contain `:` and port: {}",
-        first_line
-      ));
-    let port: u16 = port_string
-      .parse()
-      .expect(&format!("port should be an integer: {}", port_string));
-
-    let base_url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
-
-    let files_url = base_url.join("files/").unwrap();
-
-    Self {
-      base_url,
-      child,
-      collected_stderr: first_line,
-      files_directory,
-      files_url,
-      port,
-      stderr: child_stderr.into_inner(),
-      _tempdir: tempdir,
-    }
   }
 
   pub fn port(&self) -> u16 {
