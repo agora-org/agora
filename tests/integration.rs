@@ -1,5 +1,5 @@
 use ::{
-  agora_test_context::AgoraInstance,
+  agora_test_context::AgoraTestContext,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
@@ -55,7 +55,7 @@ where
 {
   let tempdir = tempfile::tempdir().unwrap();
 
-  let agora = AgoraInstance::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
+  let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
@@ -133,7 +133,7 @@ pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
 #[test]
 fn server_listens_on_all_ip_addresses_http() {
   let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraInstance::new(tempdir, vec!["--http-port=0"], false);
+  let agora = AgoraTestContext::new(tempdir, vec!["--http-port=0"], false);
   let port = agora.port();
   assert_eq!(
     reqwest::blocking::get(agora.base_url().clone())
@@ -151,7 +151,7 @@ fn server_listens_on_all_ip_addresses_http() {
 #[test]
 fn server_listens_on_all_ip_addresses_https() {
   let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraInstance::new(
+  let agora = AgoraTestContext::new(
     tempdir,
     vec![
       "--https-port=0",

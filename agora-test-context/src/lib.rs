@@ -10,7 +10,7 @@ use ::{
   tempfile::TempDir,
 };
 
-pub struct AgoraInstance {
+pub struct AgoraTestContext {
   _tempdir: TempDir,
   child: Child,
   port: u16,
@@ -21,7 +21,7 @@ pub struct AgoraInstance {
   files_url: Url,
 }
 
-impl AgoraInstance {
+impl AgoraTestContext {
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
@@ -63,7 +63,7 @@ impl AgoraInstance {
 
     let files_url = base_url.join("files/").unwrap();
 
-    AgoraInstance {
+    Self {
       base_url,
       child,
       collected_stderr: first_line,
