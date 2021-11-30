@@ -72,13 +72,7 @@ fn server_listens_on_all_ip_addresses_https() {
 #[test]
 fn index_route_status_code_is_200() {
   let context = AgoraTestContext::builder().build();
-
-  assert_eq!(
-    reqwest::blocking::get(context.base_url().clone())
-      .unwrap()
-      .status(),
-    200
-  );
+  assert_eq!(context.status(""), 200);
 }
 
 #[test]

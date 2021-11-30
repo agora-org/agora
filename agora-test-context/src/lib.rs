@@ -11,16 +11,123 @@ use ::{
   tempfile::TempDir,
 };
 
+pub struct AgoraTestContext {
+  _tempdir: TempDir,
+  base_url: Url,
+  child: Child,
+  collected_stderr: String,
+  files_directory: PathBuf,
+  files_url: Url,
+  port: u16,
+  stderr: ChildStderr,
+}
+
+impl AgoraTestContext {
+  pub fn base_url(&self) -> &Url {
+    &self.base_url
+  }
+
+  pub fn builder() -> Builder {
+    Builder::new()
+  }
+
+  pub fn create_dir_all(&self, path: &str) {
+    std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
+  }
+
+  pub fn files_directory(&self) -> &Path {
+    &self.files_directory
+  }
+
+  pub fn files_url(&self) -> &Url {
+    &self.files_url
+  }
+
+  pub fn get(&self, url: impl AsRef<str>) -> Response {
+    let response = self.response(url);
+    assert_eq!(response.status(), StatusCode::OK);
+    response
+  }
+
+  pub fn html(&self, url: impl AsRef<str>) -> Html {
+    Html::parse_document(&self.text(url))
+  }
+
+  pub fn kill(mut self) -> String {
+    self.child.kill().unwrap();
+    self.child.wait().unwrap();
+    self
+      .stderr
+      .read_to_string(&mut self.collected_stderr)
+      .unwrap();
+    self.collected_stderr
+  }
+
+  pub fn port(&self) -> u16 {
+    self.port
+  }
+
+  pub fn redirect_url(&self, url: &str) -> Url {
+    let client = reqwest::blocking::Client::builder()
+      .redirect(Policy::none())
+      .build()
+      .unwrap();
+    let request = client
+      .get(self.base_url().join(url).unwrap())
+      .build()
+      .unwrap();
+    let response = client.execute(request).unwrap();
+    assert_eq!(response.status(), StatusCode::FOUND);
+    self
+      .base_url()
+      .join(
+        response
+          .headers()
+          .get(header::LOCATION)
+          .unwrap()
+          .to_str()
+          .unwrap(),
+      )
+      .unwrap()
+  }
+
+  pub fn response(&self, url: impl AsRef<str>) -> Response {
+    reqwest::blocking::get(self.base_url.join(url.as_ref()).unwrap()).unwrap()
+  }
+
+  pub fn status(&self, url: impl AsRef<str>) -> StatusCode {
+    self.response(url).status()
+  }
+
+  pub fn text(&self, url: impl AsRef<str>) -> String {
+    self.get(url).text().unwrap()
+  }
+
+  pub fn write(&self, path: &str, content: &str) -> PathBuf {
+    let path = self.files_directory().join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, content).unwrap();
+    path
+  }
+}
+
 pub struct Builder {
-  backtraces: bool,
-  tempdir: TempDir,
-  directory: String,
   address: Option<String>,
-  http_port: Option<u16>,
   args: Vec<String>,
+  backtraces: bool,
+  directory: String,
+  http_port: Option<u16>,
+  tempdir: TempDir,
 }
 
 impl Builder {
+  pub fn address(self, address: Option<&str>) -> Self {
+    Self {
+      address: address.map(str::to_owned),
+      ..self
+    }
+  }
+
   pub fn args(self, args: &[&str]) -> Self {
     Self {
       args: self
@@ -32,15 +139,8 @@ impl Builder {
     }
   }
 
-  fn new() -> Self {
-    Self {
-      address: Some("localhost".to_owned()),
-      args: Vec::new(),
-      backtraces: false,
-      directory: "files".to_owned(),
-      http_port: Some(0),
-      tempdir: tempfile::tempdir().unwrap(),
-    }
+  pub fn backtraces(self, backtraces: bool) -> Self {
+    Self { backtraces, ..self }
   }
 
   pub fn build(self) -> AgoraTestContext {
@@ -107,13 +207,6 @@ impl Builder {
     }
   }
 
-  pub fn address(self, address: Option<&str>) -> Self {
-    Self {
-      address: address.map(str::to_owned),
-      ..self
-    }
-  }
-
   pub fn directory(self, directory: &str) -> Self {
     Self {
       directory: directory.to_owned(),
@@ -125,8 +218,15 @@ impl Builder {
     Self { http_port, ..self }
   }
 
-  pub fn backtraces(self, backtraces: bool) -> Self {
-    Self { backtraces, ..self }
+  fn new() -> Self {
+    Self {
+      address: Some("localhost".to_owned()),
+      args: Vec::new(),
+      backtraces: false,
+      directory: "files".to_owned(),
+      http_port: Some(0),
+      tempdir: tempfile::tempdir().unwrap(),
+    }
   }
 
   pub fn write(self, path: &str, content: &str) -> Self {
@@ -134,105 +234,5 @@ impl Builder {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, content).unwrap();
     self
-  }
-}
-
-pub struct AgoraTestContext {
-  _tempdir: TempDir,
-  child: Child,
-  port: u16,
-  stderr: ChildStderr,
-  collected_stderr: String,
-  files_directory: PathBuf,
-  base_url: Url,
-  files_url: Url,
-}
-
-impl AgoraTestContext {
-  pub fn builder() -> Builder {
-    Builder::new()
-  }
-
-  pub fn port(&self) -> u16 {
-    self.port
-  }
-
-  pub fn files_directory(&self) -> &Path {
-    &self.files_directory
-  }
-
-  pub fn base_url(&self) -> &Url {
-    &self.base_url
-  }
-
-  pub fn files_url(&self) -> &Url {
-    &self.files_url
-  }
-
-  pub fn kill(mut self) -> String {
-    self.child.kill().unwrap();
-    self.child.wait().unwrap();
-    self
-      .stderr
-      .read_to_string(&mut self.collected_stderr)
-      .unwrap();
-    self.collected_stderr
-  }
-
-  pub fn write(&self, path: &str, content: &str) -> PathBuf {
-    let path = self.files_directory().join(path);
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(&path, content).unwrap();
-    path
-  }
-
-  pub fn create_dir_all(&self, path: &str) {
-    std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
-  }
-
-  pub fn status(&self, url: impl AsRef<str>) -> StatusCode {
-    self.response(url).status()
-  }
-
-  pub fn response(&self, url: impl AsRef<str>) -> Response {
-    reqwest::blocking::get(self.base_url.join(url.as_ref()).unwrap()).unwrap()
-  }
-
-  pub fn get(&self, url: impl AsRef<str>) -> Response {
-    let response = self.response(url);
-    assert_eq!(response.status(), StatusCode::OK);
-    response
-  }
-
-  pub fn text(&self, url: impl AsRef<str>) -> String {
-    self.get(url).text().unwrap()
-  }
-
-  pub fn html(&self, url: impl AsRef<str>) -> Html {
-    Html::parse_document(&self.text(url))
-  }
-
-  pub fn redirect_url(&self, url: &str) -> Url {
-    let client = reqwest::blocking::Client::builder()
-      .redirect(Policy::none())
-      .build()
-      .unwrap();
-    let request = client
-      .get(self.base_url().join(url).unwrap())
-      .build()
-      .unwrap();
-    let response = client.execute(request).unwrap();
-    assert_eq!(response.status(), StatusCode::FOUND);
-    self
-      .base_url()
-      .join(
-        response
-          .headers()
-          .get(header::LOCATION)
-          .unwrap()
-          .to_str()
-          .unwrap(),
-      )
-      .unwrap()
   }
 }
