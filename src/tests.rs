@@ -43,38 +43,6 @@ fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
 }
 
 #[test]
-fn configure_port() {
-  let free_port = {
-    TcpListener::bind("127.0.0.1:0")
-      .unwrap()
-      .local_addr()
-      .unwrap()
-      .port()
-  };
-
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--address=localhost".into(),
-    "--directory=www".into(),
-    "--http-port".into(),
-    free_port.to_string().into(),
-  ];
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  test_with_environment(&mut environment, |_| async move {
-    assert_eq!(
-      reqwest::get(format!("http://localhost:{}", free_port))
-        .await
-        .unwrap()
-        .status(),
-      200
-    )
-  });
-}
-
-#[test]
 fn server_aborts_when_directory_does_not_exist() {
   let mut environment = Environment::test();
 

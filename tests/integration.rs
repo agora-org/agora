@@ -8,6 +8,7 @@ use ::{
   std::{
     fs,
     io::{Read, Write},
+    net::TcpListener,
     path::{Path, MAIN_SEPARATOR},
     str,
   },
@@ -881,4 +882,26 @@ fn configure_files_directory() {
   let file_contents = context.text("files/bar.txt");
 
   assert_eq!(file_contents, "hello");
+}
+
+#[test]
+fn configure_port() {
+  let free_port = {
+    TcpListener::bind("127.0.0.1:0")
+      .unwrap()
+      .local_addr()
+      .unwrap()
+      .port()
+  };
+
+  let _context = AgoraTestContext::builder()
+    .http_port(Some(free_port))
+    .build();
+
+  assert_eq!(
+    reqwest::blocking::get(format!("http://localhost:{}", free_port))
+      .unwrap()
+      .status(),
+    200
+  );
 }
