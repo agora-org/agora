@@ -130,6 +130,7 @@ impl Vfs {
         file_name: entry.file_name(),
         file_type,
         file_size,
+        paid: self.paid(&path.join_relative(entry.file_name().as_ref()).unwrap()),
       });
     }
     entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -141,4 +142,5 @@ pub(crate) struct DirectoryEntry {
   pub(crate) file_name: OsString,
   pub(crate) file_type: FileType,
   pub(crate) file_size: Option<u64>,
+  pub(crate) paid: bool,
 }

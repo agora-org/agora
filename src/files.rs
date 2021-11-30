@@ -111,8 +111,7 @@ impl Files {
                 (bytes.display_size())
               }
             }
-            // if vfs.paid(file)
-            @if entry.file_type.is_file() && !self.vfs.paid(&dir.join_relative(entry.file_name.as_ref()).unwrap()) {
+            @if entry.file_type.is_file() && !entry.paid {
               a download href=(encoded) {
                 (Files::icon("download"))
               }
