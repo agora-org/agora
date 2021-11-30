@@ -13,13 +13,14 @@ use ::{
   },
 };
 
-struct TestContext {
+struct TestContext<'a> {
   base_url: Url,
   files_url: Url,
   files_directory: PathBuf,
+  context: &'a AgoraTestContext,
 }
 
-impl TestContext {
+impl<'a> TestContext<'a> {
   pub(crate) fn base_url(&self) -> &Url {
     &self.base_url
   }
@@ -56,6 +57,7 @@ where
     base_url: agora.base_url().clone(),
     files_url: agora.files_url().clone(),
     files_directory: agora.files_directory().to_owned(),
+    context: &agora,
   });
 
   agora.kill()
@@ -344,6 +346,7 @@ fn downloaded_files_are_streamed() {
     base_url: agora.base_url().clone(),
     files_url: agora.files_url().clone(),
     files_directory: agora.files_directory().to_owned(),
+    context: &agora,
   };
 
   async fn get(url: &Url) -> reqwest::Response {
