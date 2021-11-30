@@ -162,7 +162,7 @@ fn error_page_title_contains_error_text() {
 fn listing_contains_file() {
   let context = AgoraTestContext::builder().build();
   context.write("some-test-file.txt", "");
-  let haystack = blocking_html(context.base_url()).root_element().html();
+  let haystack = context.html("").root_element().html();
   let needle = "some-test-file.txt";
   assert_contains(&haystack, needle);
 }
@@ -172,7 +172,7 @@ fn listing_contains_multiple_files() {
   let context = AgoraTestContext::builder().build();
   context.write("a.txt", "");
   context.write("b.txt", "");
-  let haystack = blocking_html(context.base_url()).root_element().html();
+  let haystack = context.html("").root_element().html();
   assert_contains(&haystack, "a.txt");
   assert_contains(&haystack, "b.txt");
 }
@@ -183,7 +183,7 @@ fn listing_is_sorted_alphabetically() {
   context.write("b", "");
   context.write("c", "");
   context.write("a", "");
-  let html = blocking_html(context.base_url());
+  let html = context.html("");
   let haystack: Vec<&str> = css_select(&html, ".listing a:not([download])")
     .into_iter()
     .map(|x| x.text())
@@ -196,12 +196,11 @@ fn listing_is_sorted_alphabetically() {
 fn listed_files_can_be_played_in_browser() {
   let context = AgoraTestContext::builder().build();
   context.write("some-test-file.txt", "contents");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "some-test-file.txt");
   let file_url = a.value().attr("href").unwrap();
-  let file_url = context.files_url().join(file_url).unwrap();
-  let file_contents = blocking_text(&file_url);
+  let file_contents = context.text(&format!("files/{}", file_url));
   assert_eq!(file_contents, "contents");
 }
 
@@ -209,12 +208,11 @@ fn listed_files_can_be_played_in_browser() {
 fn listed_files_have_download_links() {
   let context = AgoraTestContext::builder().build();
   context.write("some-test-file.txt", "contents");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
   assert_contains(&a.inner_html(), "download");
   let file_url = a.value().attr("href").unwrap();
-  let file_url = context.files_url().join(file_url).unwrap();
-  let file_contents = blocking_text(&file_url);
+  let file_contents = context.text(&format!("files/{}", file_url));
   assert_eq!(file_contents, "contents");
 }
 
@@ -222,7 +220,7 @@ fn listed_files_have_download_links() {
 fn listed_files_have_percent_encoded_hrefs() {
   let context = AgoraTestContext::builder().build();
   context.write("filename with special chäracters", "");
-  let html = blocking_html(context.base_url());
+  let html = context.html("");
   let links = css_select(&html, ".listing a");
   assert_eq!(links.len(), 2);
   for link in links {
@@ -322,17 +320,14 @@ fn unknown_files_have_no_content_type() {
 fn filenames_with_spaces() {
   let context = AgoraTestContext::builder().build();
   context.write("foo bar", "hello");
-
-  let response = blocking_text(&context.files_url().join("foo%20bar").unwrap());
-
-  assert_eq!(response, "hello");
+  assert_eq!(context.text("files/foo%20bar"), "hello");
 }
 
 #[test]
 fn subdirectories_appear_in_listings() {
   let context = AgoraTestContext::builder().build();
   context.write("foo/bar.txt", "hello");
-  let root_listing = blocking_html(context.files_url());
+  let root_listing = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&root_listing, ".listing a").as_slice());
   assert_eq!(a.inner_html(), "foo/");
   let subdir_url = context
@@ -350,7 +345,7 @@ fn subdirectories_appear_in_listings() {
 fn redirects_correctly_for_two_layers_of_subdirectories() {
   let context = AgoraTestContext::builder().build();
   context.write("foo/bar/baz.txt", "");
-  let listing = blocking_html(&context.files_url().join("foo/bar").unwrap());
+  let listing = context.html("files/foo/bar");
   guard_unwrap!(let &[a] = css_select(&listing, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "baz.txt")
 }
@@ -453,7 +448,7 @@ fn show_local_symlinks_in_listings() {
   let context = AgoraTestContext::builder().build();
   context.write("file", "");
   symlink("file", context.files_directory().join("link"));
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a, b] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "file");
   assert_eq!(b.inner_html(), "link");
@@ -465,7 +460,7 @@ fn remove_escaping_symlinks_from_listings() {
   context.write("../escaping", "");
   context.write("local", "");
   symlink("../escaping", context.files_directory().join("link"));
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "local");
 }
@@ -500,7 +495,7 @@ fn missing_asset_not_found() {
 fn listing_does_not_contain_hidden_file() {
   let context = AgoraTestContext::builder().build();
   context.write(".some-test-file.txt", "");
-  let haystack = blocking_html(context.base_url()).root_element().html();
+  let haystack = context.html("").root_element().html();
   let needle = ".some-test-file.txt";
   assert_not_contains(&haystack, needle);
 }
@@ -673,7 +668,7 @@ fn paid_files_dont_have_download_button() {
   let context = AgoraTestContext::builder().build();
   context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
   context.write("foo", "foo");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[] = css_select(&html, ".listing a[download]").as_slice());
   guard_unwrap!(let &[link] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(link.inner_html(), "foo");
@@ -709,7 +704,7 @@ fn filenames_with_invalid_percent_encoding() {
 fn space_is_percent_encoded() {
   let context = AgoraTestContext::builder().build();
   context.write("foo bar", "contents");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.value().attr("href").unwrap(), "foo%20bar");
 }
@@ -723,7 +718,7 @@ fn doesnt_percent_encode_allowed_ascii_characters() {
     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
   };
   context.write(allowed_ascii_characters, "contents");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.value().attr("href").unwrap(), allowed_ascii_characters);
 }
@@ -732,7 +727,7 @@ fn doesnt_percent_encode_allowed_ascii_characters() {
 fn percent_encodes_unicode() {
   let context = AgoraTestContext::builder().build();
   context.write("Å", "contents");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
   assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
 }
@@ -761,7 +756,7 @@ fn requesting_paid_file_with_no_lnd_returns_internal_error() {
 fn displays_index_markdown_files_as_html() {
   let context = AgoraTestContext::builder().build();
   context.write(".index.md", "# test header");
-  let html = blocking_html(context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[index_header] = css_select(&html, "h1").as_slice());
   assert_eq!(index_header.inner_html(), "test header");
 }
@@ -881,7 +876,7 @@ fn listing_renders_file_sizes() {
   let context = AgoraTestContext::builder().build();
   context.write("some-test-file.txt", "abc");
   context.write("large-file.txt", &"A".repeat(4096));
-  let html = blocking_html(&context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[li1, li2] =  css_select(&html, ".listing li").as_slice());
   assert_contains(&li1.inner_html(), "large-file.txt");
   assert_contains(&li1.inner_html(), "4.0 KiB");
@@ -894,7 +889,7 @@ fn listing_renders_file_sizes() {
 fn listing_does_not_render_directory_file_sizes() {
   let context = AgoraTestContext::builder().build();
   context.create_dir_all("some-directory");
-  let html = blocking_html(&context.files_url());
+  let html = context.html("files/");
   guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
   assert_contains(&li.inner_html(), "some-directory");
   assert_not_contains(&li.inner_html(), "B");

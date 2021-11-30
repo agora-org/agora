@@ -159,6 +159,7 @@ version = "0.0.0"
 dependencies = [
  "executable-path",
  "reqwest",
+ "scraper",
  "tempfile",
 ]
 

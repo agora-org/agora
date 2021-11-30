@@ -1,6 +1,7 @@
 use ::{
   executable_path::executable_path,
   reqwest::{blocking::Response, header, redirect::Policy, StatusCode, Url},
+  scraper::Html,
   std::{
     fs,
     io::{BufRead, BufReader, Read},
@@ -137,6 +138,10 @@ impl AgoraTestContext {
 
   pub fn text(&self, url: &str) -> String {
     self.get(url).text().unwrap()
+  }
+
+  pub fn html(&self, url: &str) -> Html {
+    Html::parse_document(&self.text(url))
   }
 
   pub fn redirect_url(&self, url: &str) -> Url {
