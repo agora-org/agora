@@ -14,34 +14,28 @@ use ::{
 };
 
 struct TestContext<'a> {
-  base_url: Url,
-  files_url: Url,
-  files_directory: PathBuf,
   context: &'a AgoraTestContext,
 }
 
 impl<'a> TestContext<'a> {
   pub(crate) fn base_url(&self) -> &Url {
-    &self.base_url
+    self.context.base_url()
   }
 
   pub(crate) fn files_url(&self) -> &Url {
-    &self.files_url
+    self.context.files_url()
   }
 
   pub(crate) fn files_directory(&self) -> &Path {
-    &self.files_directory
+    self.context.files_directory()
   }
 
   pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
-    let path = self.files_directory.join(path);
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(&path, content).unwrap();
-    path
+    self.context.write(path, content)
   }
 
   fn create_dir_all(&self, path: &str) {
-    std::fs::create_dir_all(self.files_directory.join(path)).unwrap();
+    self.context.create_dir_all(path);
   }
 }
 
@@ -53,12 +47,7 @@ where
 
   let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
-  f(TestContext {
-    base_url: agora.base_url().clone(),
-    files_url: agora.files_url().clone(),
-    files_directory: agora.files_directory().to_owned(),
-    context: &agora,
-  });
+  f(TestContext { context: &agora });
 
   agora.kill()
 }
@@ -342,12 +331,7 @@ fn downloaded_files_are_streamed() {
 
   let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
-  let test_context = TestContext {
-    base_url: agora.base_url().clone(),
-    files_url: agora.files_url().clone(),
-    files_directory: agora.files_directory().to_owned(),
-    context: &agora,
-  };
+  let test_context = TestContext { context: &agora };
 
   async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();

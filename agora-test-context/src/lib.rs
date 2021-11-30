@@ -100,4 +100,15 @@ impl AgoraTestContext {
       .unwrap();
     self.collected_stderr
   }
+
+  pub fn write(&self, path: &str, content: &str) -> PathBuf {
+    let path = self.files_directory().join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, content).unwrap();
+    path
+  }
+
+  pub fn create_dir_all(&self, path: &str) {
+    std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
+  }
 }
