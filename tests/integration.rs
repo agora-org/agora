@@ -326,7 +326,7 @@ fn downloaded_files_have_correct_content_type() {
   let context = AgoraTestContext::builder().build();
   context.write("foo.mp4", "hello");
 
-  let response = blocking_get(&context.files_url().join("foo.mp4").unwrap());
+  let response = context.get("files/foo.mp4");
 
   assert_eq!(
     response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -339,7 +339,7 @@ fn unknown_files_have_no_content_type() {
   let context = AgoraTestContext::builder().build();
   context.write("foo", "hello");
 
-  let response = blocking_get(&context.files_url().join("foo").unwrap());
+  let response = context.get("files/foo");
 
   assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
 }
@@ -507,7 +507,7 @@ fn serves_static_assets() {
 #[test]
 fn sets_mime_types_for_static_assets() {
   let context = AgoraTestContext::builder().build();
-  let response = blocking_get(&context.base_url().join("static/index.css").unwrap());
+  let response = context.get("static/index.css");
   assert_eq!(
     response.headers().get(header::CONTENT_TYPE).unwrap(),
     "text/css"

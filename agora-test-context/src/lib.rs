@@ -1,6 +1,6 @@
 use ::{
   executable_path::executable_path,
-  reqwest::Url,
+  reqwest::{blocking::Response, StatusCode, Url},
   std::{
     fs,
     io::{BufRead, BufReader, Read},
@@ -123,5 +123,11 @@ impl AgoraTestContext {
 
   pub fn create_dir_all(&self, path: &str) {
     std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
+  }
+
+  pub fn get(&self, url: &str) -> Response {
+    let response = reqwest::blocking::get(self.base_url.join(url).unwrap()).unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response
   }
 }
