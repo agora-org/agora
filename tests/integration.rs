@@ -3,7 +3,6 @@ use ::{
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
-  reqwest::Url,
   scraper::{ElementRef, Html, Selector},
   std::{
     fs,
@@ -221,6 +220,7 @@ fn serves_error_pages() {
 fn downloaded_files_are_streamed() {
   use {
     futures::StreamExt,
+    reqwest::Url,
     tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::oneshot},
   };
 
