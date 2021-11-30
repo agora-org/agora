@@ -39,13 +39,13 @@ impl AgoraTestContext {
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
-    let files_directory = tempdir.path().join("www");
+    let files_directory = tempdir.path().join("files");
 
     fs::create_dir(&files_directory).unwrap();
 
     command
       .args(additional_flags)
-      .arg("--directory=www")
+      .arg("--directory=files")
       .current_dir(&tempdir)
       .stderr(Stdio::piped());
 

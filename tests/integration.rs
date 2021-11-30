@@ -558,7 +558,7 @@ fn errors_in_request_handling_cause_500_status_codes() {
 
   assert_contains(
     &stderr,
-    "IO error accessing filesystem at `www/foo`: Permission denied (os error 13)",
+    "IO error accessing filesystem at `files/foo`: Permission denied (os error 13)",
   );
 }
 
@@ -618,7 +618,7 @@ fn return_404_for_missing_files() {
   assert_contains(
     &stderr,
     &format!(
-      "IO error accessing filesystem at `www{}foo.txt`",
+      "IO error accessing filesystem at `files{}foo.txt`",
       MAIN_SEPARATOR
     ),
   );
@@ -637,7 +637,7 @@ fn returns_error_if_index_is_unusable() {
   assert_contains(
     &stderr,
     &format!(
-      "IO error accessing filesystem at `www{}.index.md`: ",
+      "IO error accessing filesystem at `files{}.index.md`: ",
       MAIN_SEPARATOR
     ),
   );
@@ -736,7 +736,7 @@ fn requesting_paid_file_with_no_lnd_returns_internal_error() {
   assert_contains(
     &stderr,
     &format!(
-      "Paid file request requires LND client configuration: `www{}foo`",
+      "Paid file request requires LND client configuration: `files{}foo`",
       MAIN_SEPARATOR
     ),
   );
@@ -765,7 +765,7 @@ fn file_errors_are_associated_with_file_path() {
   assert_contains(
     &stderr,
     &format!(
-      "IO error accessing filesystem at `www{}foo{}bar.txt`",
+      "IO error accessing filesystem at `files{}foo{}bar.txt`",
       MAIN_SEPARATOR, MAIN_SEPARATOR,
     ),
   );
@@ -782,7 +782,7 @@ fn disallow_file_downloads_via_escaping_symlinks() {
   assert_contains(
     &stderr,
     &format!(
-      "Forbidden access to escaping symlink: `www{}link`",
+      "Forbidden access to escaping symlink: `files{}link`",
       MAIN_SEPARATOR
     ),
   );
@@ -801,7 +801,7 @@ fn disallow_file_downloads_via_absolute_escaping_symlinks() {
   assert_contains(
     &stderr,
     &format!(
-      "Forbidden access to escaping symlink: `www{}link`",
+      "Forbidden access to escaping symlink: `files{}link`",
       MAIN_SEPARATOR
     ),
   );
@@ -818,7 +818,7 @@ fn disallow_file_downloads_via_escaping_intermediate_symlinks() {
   assert_contains(
     &stderr,
     &format!(
-      "Forbidden access to escaping symlink: `www{}link`",
+      "Forbidden access to escaping symlink: `files{}link`",
       MAIN_SEPARATOR
     ),
   );
@@ -836,7 +836,7 @@ fn disallow_listing_directories_via_escaping_symlinks() {
   assert_contains(
     &stderr,
     &format!(
-      "Forbidden access to escaping symlink: `www{}link`",
+      "Forbidden access to escaping symlink: `files{}link`",
       MAIN_SEPARATOR
     ),
   );
@@ -855,7 +855,7 @@ fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
   assert_contains(
     &stderr,
     &format!(
-      "Forbidden access to escaping symlink: `www{}link`",
+      "Forbidden access to escaping symlink: `files{}link`",
       MAIN_SEPARATOR
     ),
   );
