@@ -1,6 +1,6 @@
 use ::{
   executable_path::executable_path,
-  reqwest::{blocking::Response, StatusCode, Url},
+  reqwest::{blocking::Response, header, redirect::Policy, StatusCode, Url},
   std::{
     fs,
     io::{BufRead, BufReader, Read},
@@ -125,9 +125,41 @@ impl AgoraTestContext {
     std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
   }
 
+  pub fn response(&self, url: &str) -> Response {
+    reqwest::blocking::get(self.base_url.join(url).unwrap()).unwrap()
+  }
+
   pub fn get(&self, url: &str) -> Response {
-    let response = reqwest::blocking::get(self.base_url.join(url).unwrap()).unwrap();
+    let response = self.response(url);
     assert_eq!(response.status(), StatusCode::OK);
     response
+  }
+
+  pub fn text(&self, url: &str) -> String {
+    self.get(url).text().unwrap()
+  }
+
+  pub fn redirect_url(&self, url: &str) -> Url {
+    let client = reqwest::blocking::Client::builder()
+      .redirect(Policy::none())
+      .build()
+      .unwrap();
+    let request = client
+      .get(self.base_url().join(url).unwrap())
+      .build()
+      .unwrap();
+    let response = client.execute(request).unwrap();
+    assert_eq!(response.status(), StatusCode::FOUND);
+    self
+      .base_url()
+      .join(
+        response
+          .headers()
+          .get(header::LOCATION)
+          .unwrap()
+          .to_str()
+          .unwrap(),
+      )
+      .unwrap()
   }
 }

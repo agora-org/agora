@@ -3,7 +3,7 @@ use ::{
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
-  reqwest::{redirect::Policy, Url},
+  reqwest::Url,
   scraper::{ElementRef, Html, Selector},
   std::{
     fs,
@@ -12,27 +12,6 @@ use ::{
     str,
   },
 };
-
-fn blocking_redirect_url(context: &AgoraTestContext, url: &Url) -> Url {
-  let client = reqwest::blocking::Client::builder()
-    .redirect(Policy::none())
-    .build()
-    .unwrap();
-  let request = client.get(url.clone()).build().unwrap();
-  let response = client.execute(request).unwrap();
-  assert_eq!(response.status(), StatusCode::FOUND);
-  context
-    .base_url()
-    .join(
-      response
-        .headers()
-        .get(header::LOCATION)
-        .unwrap()
-        .to_str()
-        .unwrap(),
-    )
-    .unwrap()
-}
 
 fn blocking_text(url: &Url) -> String {
   let response = reqwest::blocking::get(url.clone()).unwrap();
@@ -122,7 +101,7 @@ fn index_route_status_code_is_200() {
 #[test]
 fn index_route_redirects_to_files() {
   let context = AgoraTestContext::builder().build();
-  let redirect_url = blocking_redirect_url(&context, context.base_url());
+  let redirect_url = context.redirect_url("");
   assert_eq!(&redirect_url, context.files_url());
 }
 
@@ -130,14 +109,14 @@ fn index_route_redirects_to_files() {
 fn no_trailing_slash_redirects_to_trailing_slash() {
   let context = AgoraTestContext::builder().build();
   fs::create_dir(context.files_directory().join("foo")).unwrap();
-  let redirect_url = blocking_redirect_url(&context, &context.files_url().join("foo").unwrap());
+  let redirect_url = context.redirect_url("files/foo");
   assert_eq!(redirect_url, context.files_url().join("foo/").unwrap());
 }
 
 #[test]
 fn files_route_without_trailing_slash_redirects_to_files() {
   let context = AgoraTestContext::builder().build();
-  let redirect_url = blocking_redirect_url(&context, &context.base_url().join("files").unwrap());
+  let redirect_url = context.redirect_url("files");
   assert_eq!(&redirect_url, context.files_url());
 }
 
@@ -155,7 +134,7 @@ fn unknown_route_status_code_is_404() {
 #[test]
 fn index_route_contains_title() {
   let context = AgoraTestContext::builder().build();
-  let haystack = blocking_text(context.base_url());
+  let haystack = context.text("");
   let needle = "<title>/ · Agora</title>";
   assert_contains(&haystack, needle);
 }
@@ -164,8 +143,7 @@ fn index_route_contains_title() {
 fn directory_route_title_contains_directory_name() {
   let context = AgoraTestContext::builder().build();
   context.create_dir_all("some-directory");
-  let url = context.files_url().join("some-directory").unwrap();
-  let haystack = blocking_text(&url);
+  let haystack = context.text("files/some-directory");
   let needle = "<title>/some-directory/ · Agora</title>";
   assert_contains(&haystack, needle);
 }
