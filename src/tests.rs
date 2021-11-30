@@ -1,9 +1,6 @@
 use crate::{
   common::*,
-  test_utils::{
-    assert_contains, https_client, set_up_test_certificate, test_with_arguments,
-    test_with_environment,
-  },
+  test_utils::{https_client, set_up_test_certificate, test_with_arguments, test_with_environment},
 };
 use guard::guard_unwrap;
 use pretty_assertions::assert_eq;

@@ -16,25 +16,42 @@ pub struct Builder {
   tempdir: TempDir,
   directory: String,
   address: Option<String>,
+  http_port: Option<u16>,
+  args: Vec<String>,
 }
 
 impl Builder {
+  pub fn args(self, args: &[&str]) -> Self {
+    Self {
+      args: self
+        .args
+        .into_iter()
+        .chain(args.iter().cloned().map(str::to_owned))
+        .collect(),
+      ..self
+    }
+  }
+
   fn new() -> Self {
     Self {
-      backtraces: false,
-      tempdir: tempfile::tempdir().unwrap(),
-      directory: "files".to_owned(),
       address: Some("localhost".to_owned()),
+      args: Vec::new(),
+      backtraces: false,
+      directory: "files".to_owned(),
+      http_port: Some(0),
+      tempdir: tempfile::tempdir().unwrap(),
     }
   }
 
   pub fn build(self) -> AgoraTestContext {
     AgoraTestContext::new(
       self.tempdir,
-      vec!["--http-port=0"],
+      vec![],
       self.backtraces,
       &self.directory,
       self.address,
+      self.http_port,
+      self.args,
     )
   }
 
@@ -50,6 +67,10 @@ impl Builder {
       directory: directory.to_owned(),
       ..self
     }
+  }
+
+  pub fn http_port(self, http_port: Option<u16>) -> Self {
+    Self { http_port, ..self }
   }
 
   pub fn backtraces(self, backtraces: bool) -> Self {
@@ -80,12 +101,14 @@ impl AgoraTestContext {
     Builder::new()
   }
 
-  pub fn new(
+  fn new(
     tempdir: TempDir,
     additional_flags: Vec<&str>,
     print_backtraces: bool,
     directory: &str,
     address: Option<String>,
+    http_port: Option<u16>,
+    args: Vec<String>,
   ) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
@@ -98,8 +121,14 @@ impl AgoraTestContext {
       command.arg(address);
     }
 
+    if let Some(http_port) = http_port {
+      command.arg("--http-port");
+      command.arg(&http_port.to_string());
+    }
+
     command
       .args(additional_flags)
+      .args(args)
       .arg("--directory")
       .arg(directory)
       .current_dir(&tempdir)

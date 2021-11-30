@@ -52,20 +52,17 @@ fn server_listens_on_all_ip_addresses_http() {
 
 #[test]
 fn server_listens_on_all_ip_addresses_https() {
-  let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraTestContext::new(
-    tempdir,
-    vec![
+  let context = AgoraTestContext::builder()
+    .http_port(None)
+    .address(None)
+    .args(&[
       "--https-port=0",
       "--acme-cache-directory=cache",
       "--acme-domain=foo",
-    ],
-    false,
-    "files",
-    None,
-  );
-  let port = agora.port();
-  let stderr = agora.kill();
+    ])
+    .build();
+  let port = context.port();
+  let stderr = context.kill();
   assert!(stderr.contains(&format!(
     "Listening for HTTPS connections on `0.0.0.0:{}`",
     port
@@ -232,15 +229,7 @@ fn downloaded_files_are_streamed() {
     tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::oneshot},
   };
 
-  let tempdir = tempfile::tempdir().unwrap();
-
-  let test_context = AgoraTestContext::new(
-    tempdir,
-    vec!["--http-port=0"],
-    false,
-    "files",
-    Some("localhost".to_owned()),
-  );
+  let context = AgoraTestContext::builder().build();
 
   async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
@@ -248,8 +237,8 @@ fn downloaded_files_are_streamed() {
     response
   }
 
-  let files_url = test_context.files_url();
-  let files_directory = test_context.files_directory();
+  let files_url = context.files_url();
+  let files_directory = context.files_directory();
 
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
@@ -281,7 +270,7 @@ fn downloaded_files_are_streamed() {
       writer.await.unwrap();
     });
 
-  test_context.kill();
+  context.kill();
 }
 
 #[test]
