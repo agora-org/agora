@@ -5,7 +5,6 @@ use crate::{
 use guard::guard_unwrap;
 use pretty_assertions::assert_eq;
 use reqwest::Url;
-use std::net::TcpListener;
 
 #[cfg(feature = "slow-tests")]
 mod browser_tests;
