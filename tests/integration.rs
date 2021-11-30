@@ -3,7 +3,7 @@ use ::{
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
-  reqwest::{redirect::Policy, Client, Url},
+  reqwest::{redirect::Policy, Url},
   scraper::{ElementRef, Html, Selector},
   std::{
     fs,
@@ -96,10 +96,19 @@ async fn get(url: &Url) -> reqwest::Response {
   response
 }
 
-async fn redirect_url(context: &TestContext, url: &Url) -> Url {
-  let client = Client::builder().redirect(Policy::none()).build().unwrap();
+fn blocking_get(url: &Url) -> reqwest::blocking::Response {
+  let response = reqwest::blocking::get(url.clone()).unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  response
+}
+
+fn blocking_redirect_url(context: &TestContext, url: &Url) -> Url {
+  let client = reqwest::blocking::Client::builder()
+    .redirect(Policy::none())
+    .build()
+    .unwrap();
   let request = client.get(url.clone()).build().unwrap();
-  let response = client.execute(request).await.unwrap();
+  let response = client.execute(request).unwrap();
   assert_eq!(response.status(), StatusCode::FOUND);
   context
     .base_url()
@@ -116,6 +125,10 @@ async fn redirect_url(context: &TestContext, url: &Url) -> Url {
 
 async fn text(url: &Url) -> String {
   get(url).await.text().await.unwrap()
+}
+
+fn blocking_text(url: &Url) -> String {
+  blocking_get(url).text().unwrap()
 }
 
 async fn html(url: &Url) -> Html {
@@ -199,35 +212,34 @@ fn index_route_status_code_is_200() {
 
 #[test]
 fn index_route_redirects_to_files() {
-  async_test(|context| async move {
-    let redirect_url = redirect_url(&context, context.base_url()).await;
+  blocking_test(|context| {
+    let redirect_url = blocking_redirect_url(&context, context.base_url());
     assert_eq!(&redirect_url, context.files_url());
   });
 }
 
 #[test]
 fn no_trailing_slash_redirects_to_trailing_slash() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     fs::create_dir(context.files_directory().join("foo")).unwrap();
-    let redirect_url = redirect_url(&context, &context.files_url().join("foo").unwrap()).await;
+    let redirect_url = blocking_redirect_url(&context, &context.files_url().join("foo").unwrap());
     assert_eq!(redirect_url, context.files_url().join("foo/").unwrap());
   });
 }
 
 #[test]
 fn files_route_without_trailing_slash_redirects_to_files() {
-  async_test(|context| async move {
-    let redirect_url = redirect_url(&context, &context.base_url().join("files").unwrap()).await;
+  blocking_test(|context| {
+    let redirect_url = blocking_redirect_url(&context, &context.base_url().join("files").unwrap());
     assert_eq!(&redirect_url, context.files_url());
   });
 }
 
 #[test]
 fn unknown_route_status_code_is_404() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     assert_eq!(
-      reqwest::get(context.base_url().join("huhu").unwrap())
-        .await
+      reqwest::blocking::get(context.base_url().join("huhu").unwrap())
         .unwrap()
         .status(),
       404
@@ -237,8 +249,8 @@ fn unknown_route_status_code_is_404() {
 
 #[test]
 fn index_route_contains_title() {
-  async_test(|context| async move {
-    let haystack = text(context.base_url()).await;
+  blocking_test(|context| {
+    let haystack = blocking_text(context.base_url());
     let needle = "<title>/ · Agora</title>";
     assert_contains(&haystack, needle);
   });
@@ -246,10 +258,10 @@ fn index_route_contains_title() {
 
 #[test]
 fn directory_route_title_contains_directory_name() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.create_dir_all("some-directory");
     let url = context.files_url().join("some-directory").unwrap();
-    let haystack = text(&url).await;
+    let haystack = blocking_text(&url);
     let needle = "<title>/some-directory/ · Agora</title>";
     assert_contains(&haystack, needle);
   });
@@ -257,10 +269,10 @@ fn directory_route_title_contains_directory_name() {
 
 #[test]
 fn error_page_title_contains_error_text() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     let url = context.base_url().join("nonexistent-file.txt").unwrap();
-    let response = reqwest::get(url).await.unwrap();
-    let haystack = response.text().await.unwrap();
+    let response = reqwest::blocking::get(url).unwrap();
+    let haystack = response.text().unwrap();
     let needle = "<title>Not Found · Agora</title>";
     assert_contains(&haystack, needle);
   });
