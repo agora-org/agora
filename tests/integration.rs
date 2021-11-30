@@ -18,8 +18,8 @@ use ::{
 };
 
 struct TestContext {
-  base_url: reqwest::Url,
-  files_url: reqwest::Url,
+  base_url: Url,
+  files_url: Url,
   files_directory: PathBuf,
 }
 
@@ -133,6 +133,10 @@ fn blocking_text(url: &Url) -> String {
 
 async fn html(url: &Url) -> Html {
   Html::parse_document(&text(url).await)
+}
+
+fn blocking_html(url: &Url) -> Html {
+  Html::parse_document(&blocking_text(url))
 }
 
 fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
@@ -280,9 +284,9 @@ fn error_page_title_contains_error_text() {
 
 #[test]
 fn listing_contains_file() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("some-test-file.txt", "");
-    let haystack = html(context.base_url()).await.root_element().html();
+    let haystack = blocking_html(context.base_url()).root_element().html();
     let needle = "some-test-file.txt";
     assert_contains(&haystack, needle);
   });
@@ -290,10 +294,10 @@ fn listing_contains_file() {
 
 #[test]
 fn listing_contains_multiple_files() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("a.txt", "");
     context.write("b.txt", "");
-    let haystack = html(context.base_url()).await.root_element().html();
+    let haystack = blocking_html(context.base_url()).root_element().html();
     assert_contains(&haystack, "a.txt");
     assert_contains(&haystack, "b.txt");
   });
@@ -301,11 +305,11 @@ fn listing_contains_multiple_files() {
 
 #[test]
 fn listing_is_sorted_alphabetically() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("b", "");
     context.write("c", "");
     context.write("a", "");
-    let html = html(context.base_url()).await;
+    let html = blocking_html(context.base_url());
     let haystack: Vec<&str> = css_select(&html, ".listing a:not([download])")
       .into_iter()
       .map(|x| x.text())
@@ -317,37 +321,37 @@ fn listing_is_sorted_alphabetically() {
 
 #[test]
 fn listed_files_can_be_played_in_browser() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("some-test-file.txt", "contents");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "some-test-file.txt");
     let file_url = a.value().attr("href").unwrap();
     let file_url = context.files_url().join(file_url).unwrap();
-    let file_contents = text(&file_url).await;
+    let file_contents = blocking_text(&file_url);
     assert_eq!(file_contents, "contents");
   });
 }
 
 #[test]
 fn listed_files_have_download_links() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("some-test-file.txt", "contents");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, "a[download]").as_slice());
     assert_contains(&a.inner_html(), "download");
     let file_url = a.value().attr("href").unwrap();
     let file_url = context.files_url().join(file_url).unwrap();
-    let file_contents = text(&file_url).await;
+    let file_contents = blocking_text(&file_url);
     assert_eq!(file_contents, "contents");
   });
 }
 
 #[test]
 fn listed_files_have_percent_encoded_hrefs() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("filename with special chäracters", "");
-    let html = html(context.base_url()).await;
+    let html = blocking_html(context.base_url());
     let links = css_select(&html, ".listing a");
     assert_eq!(links.len(), 2);
     for link in links {
@@ -361,11 +365,9 @@ fn listed_files_have_percent_encoded_hrefs() {
 
 #[test]
 fn serves_error_pages() {
-  async_test(|context| async move {
-    let response = reqwest::get(context.files_url().join("foo.txt").unwrap())
-      .await
-      .unwrap();
-    assert_contains(&response.text().await.unwrap(), "404 Not Found");
+  blocking_test(|context| {
+    let response = reqwest::blocking::get(context.files_url().join("foo.txt").unwrap()).unwrap();
+    assert_contains(&response.text().unwrap(), "404 Not Found");
   });
 }
 
@@ -406,10 +408,10 @@ fn downloaded_files_are_streamed() {
 
 #[test]
 fn downloaded_files_have_correct_content_type() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo.mp4", "hello");
 
-    let response = get(&context.files_url().join("foo.mp4").unwrap()).await;
+    let response = blocking_get(&context.files_url().join("foo.mp4").unwrap());
 
     assert_eq!(
       response.headers().get(header::CONTENT_TYPE).unwrap(),
@@ -420,10 +422,10 @@ fn downloaded_files_have_correct_content_type() {
 
 #[test]
 fn unknown_files_have_no_content_type() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo", "hello");
 
-    let response = get(&context.files_url().join("foo").unwrap()).await;
+    let response = blocking_get(&context.files_url().join("foo").unwrap());
 
     assert_eq!(response.headers().get(header::CONTENT_TYPE), None);
   });
@@ -431,10 +433,10 @@ fn unknown_files_have_no_content_type() {
 
 #[test]
 fn filenames_with_spaces() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo bar", "hello");
 
-    let response = text(&context.files_url().join("foo%20bar").unwrap()).await;
+    let response = blocking_text(&context.files_url().join("foo%20bar").unwrap());
 
     assert_eq!(response, "hello");
   });
@@ -442,28 +444,28 @@ fn filenames_with_spaces() {
 
 #[test]
 fn subdirectories_appear_in_listings() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo/bar.txt", "hello");
-    let root_listing = html(context.files_url()).await;
+    let root_listing = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&root_listing, ".listing a").as_slice());
     assert_eq!(a.inner_html(), "foo/");
     let subdir_url = context
       .files_url()
       .join(a.value().attr("href").unwrap())
       .unwrap();
-    let subdir_listing = html(&subdir_url).await;
+    let subdir_listing = blocking_html(&subdir_url);
     guard_unwrap!(let &[a] = css_select(&subdir_listing, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "bar.txt");
     let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
-    assert_eq!(text(&file_url).await, "hello");
+    assert_eq!(blocking_text(&file_url), "hello");
   });
 }
 
 #[test]
 fn redirects_correctly_for_two_layers_of_subdirectories() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo/bar/baz.txt", "");
-    let listing = html(&context.files_url().join("foo/bar").unwrap()).await;
+    let listing = blocking_html(&context.files_url().join("foo/bar").unwrap());
     guard_unwrap!(let &[a] = css_select(&listing, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "baz.txt")
   });
@@ -471,11 +473,9 @@ fn redirects_correctly_for_two_layers_of_subdirectories() {
 
 #[test]
 fn requesting_files_with_trailing_slash_redirects() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo", "");
-    let response = reqwest::get(context.files_url().join("foo/").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("foo/").unwrap()).unwrap();
     assert!(
       response.url().as_str().ends_with("/files/foo"),
       "{} didn't end with /files/foo",
@@ -486,8 +486,8 @@ fn requesting_files_with_trailing_slash_redirects() {
 
 #[test]
 fn listings_are_not_cached() {
-  async_test(|context| async move {
-    let response = reqwest::get(context.files_url().clone()).await.unwrap();
+  blocking_test(|context| {
+    let response = reqwest::blocking::get(context.files_url().clone()).unwrap();
     assert_eq!(
       response.headers().get(header::CACHE_CONTROL).unwrap(),
       "no-store, max-age=0",
@@ -497,16 +497,14 @@ fn listings_are_not_cached() {
 
 #[test]
 fn files_are_not_cached() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo", "bar");
-    let response = reqwest::get(context.files_url().join("foo").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("foo").unwrap()).unwrap();
     assert_eq!(
       response.headers().get(header::CACHE_CONTROL).unwrap(),
       "no-store, max-age=0",
     );
-    assert_eq!(response.text().await.unwrap(), "bar");
+    assert_eq!(response.text().unwrap(), "bar");
   });
 }
 
@@ -532,61 +530,54 @@ fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
 
 #[test]
 fn allow_file_downloads_via_local_symlinks() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("file", "contents");
     symlink("file", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::OK);
   });
 }
 
 #[test]
 fn allow_file_downloads_via_local_intermediate_symlinks() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("dir/file", "contents");
     symlink("dir", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link/file").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link/file").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::OK);
   });
 }
 
 #[test]
 fn allow_listing_directories_via_local_symlinks() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     let dir = context.files_directory().join("dir");
     fs::create_dir(&dir).unwrap();
     symlink("dir", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::OK);
   });
 }
 
 #[test]
 fn allow_listing_directories_via_intermediate_local_symlinks() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     let dir = context.files_directory().join("dir");
     fs::create_dir(&dir).unwrap();
     symlink("dir", context.files_directory().join("link"));
     fs::create_dir(dir.join("subdir")).unwrap();
-    let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
-      .await
-      .unwrap();
+    let response =
+      reqwest::blocking::get(context.files_url().join("link/subdir").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::OK);
   });
 }
 
 #[test]
 fn show_local_symlinks_in_listings() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("file", "");
     symlink("file", context.files_directory().join("link"));
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a, b] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "file");
     assert_eq!(b.inner_html(), "link");
@@ -595,11 +586,11 @@ fn show_local_symlinks_in_listings() {
 
 #[test]
 fn remove_escaping_symlinks_from_listings() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("../escaping", "");
     context.write("local", "");
     symlink("../escaping", context.files_directory().join("link"));
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.inner_html(), "local");
   });
@@ -607,8 +598,8 @@ fn remove_escaping_symlinks_from_listings() {
 
 #[test]
 fn serves_static_assets() {
-  async_test(|context| async move {
-    let response = text(&context.base_url().join("static/index.css").unwrap()).await;
+  blocking_test(|context| {
+    let response = blocking_text(&context.base_url().join("static/index.css").unwrap());
     let expected = fs::read_to_string("static/index.css").unwrap();
     assert_eq!(response, expected);
   });
@@ -616,8 +607,8 @@ fn serves_static_assets() {
 
 #[test]
 fn sets_mime_types_for_static_assets() {
-  async_test(|context| async move {
-    let response = get(&context.base_url().join("static/index.css").unwrap()).await;
+  blocking_test(|context| {
+    let response = blocking_get(&context.base_url().join("static/index.css").unwrap());
     assert_eq!(
       response.headers().get(header::CONTENT_TYPE).unwrap(),
       "text/css"
@@ -627,19 +618,18 @@ fn sets_mime_types_for_static_assets() {
 
 #[test]
 fn missing_asset_not_found() {
-  async_test(|context| async move {
-    let response = reqwest::get(context.base_url().join("static/does-not-exist").unwrap())
-      .await
-      .unwrap();
+  blocking_test(|context| {
+    let response =
+      reqwest::blocking::get(context.base_url().join("static/does-not-exist").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
 }
 
 #[test]
 fn listing_does_not_contain_hidden_file() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write(".some-test-file.txt", "");
-    let haystack = html(context.base_url()).await.root_element().html();
+    let haystack = blocking_html(context.base_url()).root_element().html();
     let needle = ".some-test-file.txt";
     assert_not_contains(&haystack, needle);
   });
@@ -647,11 +637,10 @@ fn listing_does_not_contain_hidden_file() {
 
 #[test]
 fn return_404_for_hidden_files() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write(".foo.txt", "");
     assert_eq!(
-      reqwest::get(context.files_url().join(".foo.txt").unwrap())
-        .await
+      reqwest::blocking::get(context.files_url().join(".foo.txt").unwrap())
         .unwrap()
         .status(),
       StatusCode::NOT_FOUND
@@ -661,31 +650,28 @@ fn return_404_for_hidden_files() {
 
 #[test]
 fn return_404_for_hidden_directories() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     let dir = context.files_directory().join(".dir");
     fs::create_dir(&dir).unwrap();
-    let response = reqwest::get(context.files_url().join(".dir").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join(".dir").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
 }
 
 #[test]
 fn return_404_for_files_in_hidden_directories() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write(".dir/foo.txt", "hello");
-    let response = reqwest::get(context.files_url().join(".dir/foo.txt").unwrap())
-      .await
-      .unwrap();
+    let response =
+      reqwest::blocking::get(context.files_url().join(".dir/foo.txt").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
 }
 
 #[test]
 fn apple_touch_icon_is_served_under_root() {
-  async_test(|context| async move {
-    let response = get(&context.base_url().join("apple-touch-icon.png").unwrap()).await;
+  blocking_test(|context| {
+    let response = blocking_get(&context.base_url().join("apple-touch-icon.png").unwrap());
     assert_eq!(
       response.headers().get(header::CONTENT_TYPE).unwrap(),
       "image/png"
@@ -695,8 +681,8 @@ fn apple_touch_icon_is_served_under_root() {
 
 #[test]
 fn favicon_is_served_at_favicon_ico() {
-  async_test(|context| async move {
-    let response = get(&context.base_url().join("favicon.ico").unwrap()).await;
+  blocking_test(|context| {
+    let response = blocking_get(&context.base_url().join("favicon.ico").unwrap());
     assert_eq!(
       response.headers().get(header::CONTENT_TYPE).unwrap(),
       "image/x-icon"
@@ -709,13 +695,12 @@ fn favicon_is_served_at_favicon_ico() {
 fn errors_in_request_handling_cause_500_status_codes() {
   use std::os::unix::fs::PermissionsExt;
 
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     let file = context.write("foo", "");
     let mut permissions = file.metadata().unwrap().permissions();
     permissions.set_mode(0o000);
     fs::set_permissions(file, permissions).unwrap();
-    let status = reqwest::get(context.files_url().join("foo").unwrap())
-      .await
+    let status = reqwest::blocking::get(context.files_url().join("foo").unwrap())
       .unwrap()
       .status();
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -748,10 +733,9 @@ fn disallow_parent_path_component() {
 
 #[test]
 fn disallow_empty_path_component() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     assert_eq!(
-      reqwest::get(format!("{}foo//bar.txt", context.files_url()))
-        .await
+      reqwest::blocking::get(format!("{}foo//bar.txt", context.files_url()))
         .unwrap()
         .status(),
       StatusCode::BAD_REQUEST
@@ -762,10 +746,9 @@ fn disallow_empty_path_component() {
 
 #[test]
 fn disallow_absolute_path() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     assert_eq!(
-      reqwest::get(format!("{}/foo.txt", context.files_url()))
-        .await
+      reqwest::blocking::get(format!("{}/foo.txt", context.files_url()))
         .unwrap()
         .status(),
       StatusCode::BAD_REQUEST
@@ -776,10 +759,9 @@ fn disallow_absolute_path() {
 
 #[test]
 fn return_404_for_missing_files() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     assert_eq!(
-      reqwest::get(context.files_url().join("foo.txt").unwrap())
-        .await
+      reqwest::blocking::get(context.files_url().join("foo.txt").unwrap())
         .unwrap()
         .status(),
       StatusCode::NOT_FOUND
@@ -796,10 +778,9 @@ fn return_404_for_missing_files() {
 
 #[test]
 fn returns_error_if_index_is_unusable() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     fs::create_dir(context.files_directory().join(".index.md")).unwrap();
-    let status = reqwest::get(context.files_url().clone())
-      .await
+    let status = reqwest::blocking::get(context.files_url().clone())
       .unwrap()
       .status();
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -816,10 +797,10 @@ fn returns_error_if_index_is_unusable() {
 
 #[test]
 fn ignores_access_config_outside_of_base_directory() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("../.agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("foo", "foo");
-    let body = text(&context.files_url().join("foo").unwrap()).await;
+    let body = blocking_text(&context.files_url().join("foo").unwrap());
     assert_eq!(body, "foo");
   });
 }
@@ -827,10 +808,10 @@ fn ignores_access_config_outside_of_base_directory() {
 #[test]
 fn paid_files_dont_have_download_button() {
   #![allow(clippy::unused_unit)]
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("foo", "foo");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[] = css_select(&html, ".listing a[download]").as_slice());
     guard_unwrap!(let &[link] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(link.inner_html(), "foo");
@@ -839,38 +820,38 @@ fn paid_files_dont_have_download_button() {
 
 #[test]
 fn filenames_with_percent_encoded_characters() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("=", "contents");
-    let contents = text(&context.files_url().join("%3D").unwrap()).await;
+    let contents = blocking_text(&context.files_url().join("%3D").unwrap());
     assert_eq!(contents, "contents");
-    let contents = text(&context.files_url().join("=").unwrap()).await;
+    let contents = blocking_text(&context.files_url().join("=").unwrap());
     assert_eq!(contents, "contents");
   });
 }
 
 #[test]
 fn filenames_with_percent_encoding() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo%20bar", "contents");
-    let contents = text(&context.files_url().join("foo%2520bar").unwrap()).await;
+    let contents = blocking_text(&context.files_url().join("foo%2520bar").unwrap());
     assert_eq!(contents, "contents");
   });
 }
 
 #[test]
 fn filenames_with_invalid_percent_encoding() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("%80", "contents");
-    let contents = text(&context.files_url().join("%2580").unwrap()).await;
+    let contents = blocking_text(&context.files_url().join("%2580").unwrap());
     assert_eq!(contents, "contents");
   });
 }
 
 #[test]
 fn space_is_percent_encoded() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("foo bar", "contents");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "foo%20bar");
   });
@@ -878,14 +859,14 @@ fn space_is_percent_encoded() {
 
 #[test]
 fn doesnt_percent_encode_allowed_ascii_characters() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     let allowed_ascii_characters = if cfg!(windows) {
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()+,-.;=@_~"
     } else {
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!$&'()*+,-.:;=?@_~"
     };
     context.write(allowed_ascii_characters, "contents");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), allowed_ascii_characters);
   });
@@ -893,9 +874,9 @@ fn doesnt_percent_encode_allowed_ascii_characters() {
 
 #[test]
 fn percent_encodes_unicode() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("Å", "contents");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[a] = css_select(&html, ".listing a:not([download])").as_slice());
     assert_eq!(a.value().attr("href").unwrap(), "%C3%85");
   });
@@ -903,11 +884,10 @@ fn percent_encodes_unicode() {
 
 #[test]
 fn requesting_paid_file_with_no_lnd_returns_internal_error() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     context.write(".agora.yaml", "paid: true");
     context.write("foo", "precious content");
-    let status = reqwest::get(context.files_url().join("foo").unwrap())
-      .await
+    let status = reqwest::blocking::get(context.files_url().join("foo").unwrap())
       .unwrap()
       .status();
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
@@ -924,9 +904,9 @@ fn requesting_paid_file_with_no_lnd_returns_internal_error() {
 
 #[test]
 fn displays_index_markdown_files_as_html() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write(".index.md", "# test header");
-    let html = html(context.files_url()).await;
+    let html = blocking_html(context.files_url());
     guard_unwrap!(let &[index_header] = css_select(&html, "h1").as_slice());
     assert_eq!(index_header.inner_html(), "test header");
   });
@@ -934,11 +914,10 @@ fn displays_index_markdown_files_as_html() {
 
 #[test]
 fn file_errors_are_associated_with_file_path() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     fs::create_dir(context.files_directory().join("foo")).unwrap();
     assert_eq!(
-      reqwest::get(context.files_url().join("foo/bar.txt").unwrap())
-        .await
+      reqwest::blocking::get(context.files_url().join("foo/bar.txt").unwrap())
         .unwrap()
         .status(),
       StatusCode::NOT_FOUND
@@ -955,12 +934,10 @@ fn file_errors_are_associated_with_file_path() {
 
 #[test]
 fn disallow_file_downloads_via_escaping_symlinks() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     context.write("../file", "contents");
     symlink("../file", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
   assert_contains(
@@ -974,14 +951,12 @@ fn disallow_file_downloads_via_escaping_symlinks() {
 
 #[test]
 fn disallow_file_downloads_via_absolute_escaping_symlinks() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     let file = context.write("../file", "contents");
     let file = file.lexiclean();
     assert!(file.is_absolute());
     symlink(file, context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
   assert_contains(
@@ -995,12 +970,10 @@ fn disallow_file_downloads_via_absolute_escaping_symlinks() {
 
 #[test]
 fn disallow_file_downloads_via_escaping_intermediate_symlinks() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     context.write("../dir/file", "contents");
     symlink("../dir", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link/file").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link/file").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
   assert_contains(
@@ -1014,13 +987,11 @@ fn disallow_file_downloads_via_escaping_intermediate_symlinks() {
 
 #[test]
 fn disallow_listing_directories_via_escaping_symlinks() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     let dir = context.files_directory().join("../dir");
     fs::create_dir(&dir).unwrap();
     symlink("../dir", context.files_directory().join("link"));
-    let response = reqwest::get(context.files_url().join("link").unwrap())
-      .await
-      .unwrap();
+    let response = reqwest::blocking::get(context.files_url().join("link").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
   assert_contains(
@@ -1034,14 +1005,13 @@ fn disallow_listing_directories_via_escaping_symlinks() {
 
 #[test]
 fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     let dir = context.files_directory().join("../dir");
     fs::create_dir(&dir).unwrap();
     symlink("../dir", context.files_directory().join("link"));
     fs::create_dir(dir.join("subdir")).unwrap();
-    let response = reqwest::get(context.files_url().join("link/subdir").unwrap())
-      .await
-      .unwrap();
+    let response =
+      reqwest::blocking::get(context.files_url().join("link/subdir").unwrap()).unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
   });
   assert_contains(
@@ -1055,10 +1025,10 @@ fn disallow_listing_directories_via_intermediate_escaping_symlinks() {
 
 #[test]
 fn listing_renders_file_sizes() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.write("some-test-file.txt", "abc");
     context.write("large-file.txt", &"A".repeat(4096));
-    let html = html(&context.files_url()).await;
+    let html = blocking_html(&context.files_url());
     guard_unwrap!(let &[li1, li2] =  css_select(&html, ".listing li").as_slice());
     assert_contains(&li1.inner_html(), "large-file.txt");
     assert_contains(&li1.inner_html(), "4.0 KiB");
@@ -1070,9 +1040,9 @@ fn listing_renders_file_sizes() {
 
 #[test]
 fn listing_does_not_render_directory_file_sizes() {
-  async_test(|context| async move {
+  blocking_test(|context| {
     context.create_dir_all("some-directory");
-    let html = html(&context.files_url()).await;
+    let html = blocking_html(&context.files_url());
     guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
     assert_contains(&li.inner_html(), "some-directory");
     assert_not_contains(&li.inner_html(), "B");
