@@ -13,14 +13,11 @@ use ::{
   },
 };
 
-fn blocking_text(url: &Url) -> String {
+fn blocking_html(url: &Url) -> Html {
   let response = reqwest::blocking::get(url.clone()).unwrap();
   assert_eq!(response.status(), StatusCode::OK);
-  response.text().unwrap()
-}
-
-fn blocking_html(url: &Url) -> Html {
-  Html::parse_document(&blocking_text(url))
+  let text = response.text().unwrap();
+  Html::parse_document(&text)
 }
 
 fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
@@ -338,7 +335,7 @@ fn subdirectories_appear_in_listings() {
   guard_unwrap!(let &[a] = css_select(&subdir_listing, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "bar.txt");
   let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
-  assert_eq!(blocking_text(&file_url), "hello");
+  assert_eq!(context.text(&file_url.to_string()), "hello");
 }
 
 #[test]
@@ -468,7 +465,7 @@ fn remove_escaping_symlinks_from_listings() {
 #[test]
 fn serves_static_assets() {
   let context = AgoraTestContext::builder().build();
-  let response = blocking_text(&context.base_url().join("static/index.css").unwrap());
+  let response = context.text("static/index.css");
   let expected = fs::read_to_string("static/index.css").unwrap();
   assert_eq!(response, expected);
 }
@@ -658,7 +655,7 @@ fn ignores_access_config_outside_of_base_directory() {
   let context = AgoraTestContext::builder().build();
   context.write("../.agora.yaml", "{paid: true, base-price: 1000 sat}");
   context.write("foo", "foo");
-  let body = blocking_text(&context.files_url().join("foo").unwrap());
+  let body = context.text("files/foo");
   assert_eq!(body, "foo");
 }
 
@@ -678,9 +675,9 @@ fn paid_files_dont_have_download_button() {
 fn filenames_with_percent_encoded_characters() {
   let context = AgoraTestContext::builder().build();
   context.write("=", "contents");
-  let contents = blocking_text(&context.files_url().join("%3D").unwrap());
+  let contents = context.text("files/%3D");
   assert_eq!(contents, "contents");
-  let contents = blocking_text(&context.files_url().join("=").unwrap());
+  let contents = context.text("files/=");
   assert_eq!(contents, "contents");
 }
 
@@ -688,7 +685,7 @@ fn filenames_with_percent_encoded_characters() {
 fn filenames_with_percent_encoding() {
   let context = AgoraTestContext::builder().build();
   context.write("foo%20bar", "contents");
-  let contents = blocking_text(&context.files_url().join("foo%2520bar").unwrap());
+  let contents = context.text("files/foo%2520bar");
   assert_eq!(contents, "contents");
 }
 
@@ -696,7 +693,7 @@ fn filenames_with_percent_encoding() {
 fn filenames_with_invalid_percent_encoding() {
   let context = AgoraTestContext::builder().build();
   context.write("%80", "contents");
-  let contents = blocking_text(&context.files_url().join("%2580").unwrap());
+  let contents = context.text("files/%2580");
   assert_eq!(contents, "contents");
 }
 
