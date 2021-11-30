@@ -10,6 +10,15 @@ use ::{
   tempfile::TempDir,
 };
 
+pub struct Builder {}
+
+impl Builder {
+  pub fn build(self) -> AgoraTestContext {
+    let tempdir = tempfile::tempdir().unwrap();
+    AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false)
+  }
+}
+
 pub struct AgoraTestContext {
   _tempdir: TempDir,
   child: Child,
@@ -22,6 +31,10 @@ pub struct AgoraTestContext {
 }
 
 impl AgoraTestContext {
+  pub fn builder() -> Builder {
+    Builder {}
+  }
+
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
