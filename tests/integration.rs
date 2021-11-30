@@ -8,13 +8,11 @@ use ::{
   std::{
     fs,
     future::Future,
+    io::{Read, Write},
     path::{Path, PathBuf, MAIN_SEPARATOR},
     str,
   },
-  tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-  },
+  tokio::{io::AsyncWriteExt, net::TcpStream},
 };
 
 struct TestContext {
@@ -714,17 +712,15 @@ fn errors_in_request_handling_cause_500_status_codes() {
 
 #[test]
 fn disallow_parent_path_component() {
-  let stderr = async_test(|context| async move {
+  let stderr = blocking_test(|context| {
     let mut stream =
-      TcpStream::connect(format!("localhost:{}", context.base_url().port().unwrap()))
-        .await
+      std::net::TcpStream::connect(format!("localhost:{}", context.base_url().port().unwrap()))
         .unwrap();
     stream
       .write_all(b"GET /files/foo/../bar.txt HTTP/1.1\n\n")
-      .await
       .unwrap();
     let response = &mut [0; 1024];
-    let bytes = stream.read(response).await.unwrap();
+    let bytes = stream.read(response).unwrap();
     let response = str::from_utf8(&response[..bytes]).unwrap();
     assert_contains(response, "HTTP/1.1 400 Bad Request");
   });
