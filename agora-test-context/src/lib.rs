@@ -11,23 +11,56 @@ use ::{
   tempfile::TempDir,
 };
 
-#[derive(Default)]
 pub struct Builder {
   backtraces: bool,
+  tempdir: TempDir,
+  directory: String,
+  address: Option<String>,
 }
 
 impl Builder {
+  fn new() -> Self {
+    Self {
+      backtraces: false,
+      tempdir: tempfile::tempdir().unwrap(),
+      directory: "files".to_owned(),
+      address: Some("localhost".to_owned()),
+    }
+  }
+
   pub fn build(self) -> AgoraTestContext {
-    let tempdir = tempfile::tempdir().unwrap();
     AgoraTestContext::new(
-      tempdir,
-      vec!["--address=localhost", "--http-port=0"],
+      self.tempdir,
+      vec!["--http-port=0"],
       self.backtraces,
+      &self.directory,
+      self.address,
     )
+  }
+
+  pub fn address(self, address: Option<&str>) -> Self {
+    Self {
+      address: address.map(str::to_owned),
+      ..self
+    }
+  }
+
+  pub fn directory(self, directory: &str) -> Self {
+    Self {
+      directory: directory.to_owned(),
+      ..self
+    }
   }
 
   pub fn backtraces(self, backtraces: bool) -> Self {
     Self { backtraces, ..self }
+  }
+
+  pub fn write(self, path: &str, content: &str) -> Self {
+    let path = self.tempdir.path().join(path);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::fs::write(&path, content).unwrap();
+    self
   }
 }
 
@@ -44,19 +77,31 @@ pub struct AgoraTestContext {
 
 impl AgoraTestContext {
   pub fn builder() -> Builder {
-    Builder::default()
+    Builder::new()
   }
 
-  pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
+  pub fn new(
+    tempdir: TempDir,
+    additional_flags: Vec<&str>,
+    print_backtraces: bool,
+    directory: &str,
+    address: Option<String>,
+  ) -> Self {
     let mut command = Command::new(executable_path("agora"));
 
-    let files_directory = tempdir.path().join("files");
+    let files_directory = tempdir.path().join(directory);
 
-    fs::create_dir(&files_directory).unwrap();
+    fs::create_dir_all(&files_directory).unwrap();
+
+    if let Some(address) = address {
+      command.arg("--address");
+      command.arg(address);
+    }
 
     command
       .args(additional_flags)
-      .arg("--directory=files")
+      .arg("--directory")
+      .arg(directory)
       .current_dir(&tempdir)
       .stderr(Stdio::piped());
 

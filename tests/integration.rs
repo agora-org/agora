@@ -40,16 +40,10 @@ pub(crate) fn assert_not_contains(haystack: &str, needle: &str) {
 
 #[test]
 fn server_listens_on_all_ip_addresses_http() {
-  let tempdir = tempfile::tempdir().unwrap();
-  let agora = AgoraTestContext::new(tempdir, vec!["--http-port=0"], false);
-  let port = agora.port();
-  assert_eq!(
-    reqwest::blocking::get(agora.base_url().clone())
-      .unwrap()
-      .status(),
-    StatusCode::OK
-  );
-  let stderr = agora.kill();
+  let context = AgoraTestContext::builder().address(None).build();
+  let port = context.port();
+  assert_eq!(context.status(""), StatusCode::OK);
+  let stderr = context.kill();
   assert!(stderr.contains(&format!(
     "Listening for HTTP connections on `0.0.0.0:{}`",
     port
@@ -67,6 +61,8 @@ fn server_listens_on_all_ip_addresses_https() {
       "--acme-domain=foo",
     ],
     false,
+    "files",
+    None,
   );
   let port = agora.port();
   let stderr = agora.kill();
@@ -238,8 +234,13 @@ fn downloaded_files_are_streamed() {
 
   let tempdir = tempfile::tempdir().unwrap();
 
-  let test_context =
-    AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
+  let test_context = AgoraTestContext::new(
+    tempdir,
+    vec!["--http-port=0"],
+    false,
+    "files",
+    Some("localhost".to_owned()),
+  );
 
   async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
@@ -883,4 +884,18 @@ fn listing_does_not_render_directory_file_sizes() {
   guard_unwrap!(let &[li] =  css_select(&html, ".listing li").as_slice());
   assert_contains(&li.inner_html(), "some-directory");
   assert_not_contains(&li.inner_html(), "B");
+}
+
+#[test]
+fn configure_files_directory() {
+  let context = AgoraTestContext::builder()
+    .write("foo/bar.txt", "hello")
+    .directory("foo")
+    .build();
+
+  assert_contains(&context.text("files/"), "bar.txt");
+
+  let file_contents = context.text("files/bar.txt");
+
+  assert_eq!(file_contents, "hello");
 }

@@ -95,28 +95,6 @@ fn server_aborts_when_directory_does_not_exist() {
 }
 
 #[test]
-fn configure_source_directory() {
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--address=localhost".into(),
-    "--http-port=0".into(),
-    "--directory=src".into(),
-  ];
-
-  let src = environment.working_directory.join("src");
-  fs::create_dir(&src).unwrap();
-  fs::write(src.join("foo.txt"), "hello").unwrap();
-
-  test_with_environment(&mut environment, |context| async move {
-    assert_contains(&text(context.files_url()).await, "foo.txt");
-
-    let file_contents = text(&context.files_url().join("foo.txt").unwrap()).await;
-    assert_eq!(file_contents, "hello");
-  });
-}
-
-#[test]
 fn serves_https_requests_with_cert_from_cache_directory() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 
