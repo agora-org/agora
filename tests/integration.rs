@@ -7,12 +7,10 @@ use ::{
   scraper::{ElementRef, Html, Selector},
   std::{
     fs,
-    future::Future,
     io::{Read, Write},
     path::{Path, PathBuf, MAIN_SEPARATOR},
     str,
   },
-  tokio::io::AsyncWriteExt,
 };
 
 struct TestContext {
@@ -22,19 +20,19 @@ struct TestContext {
 }
 
 impl TestContext {
-  pub(crate) fn base_url(&self) -> &reqwest::Url {
+  pub(crate) fn base_url(&self) -> &Url {
     &self.base_url
   }
 
-  pub(crate) fn files_url(&self) -> &reqwest::Url {
+  pub(crate) fn files_url(&self) -> &Url {
     &self.files_url
   }
 
-  pub(crate) fn files_directory(&self) -> &std::path::Path {
+  pub(crate) fn files_directory(&self) -> &Path {
     &self.files_directory
   }
 
-  pub(crate) fn write(&self, path: &str, content: &str) -> std::path::PathBuf {
+  pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
     let path = self.files_directory.join(path);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, content).unwrap();
@@ -44,31 +42,6 @@ impl TestContext {
   fn create_dir_all(&self, path: &str) {
     std::fs::create_dir_all(self.files_directory.join(path)).unwrap();
   }
-}
-
-fn async_test<Function, F>(f: Function) -> String
-where
-  Function: FnOnce(TestContext) -> F,
-  F: Future<Output = ()> + 'static,
-{
-  let tempdir = tempfile::tempdir().unwrap();
-
-  let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(async {
-      f(TestContext {
-        base_url: agora.base_url().clone(),
-        files_url: agora.files_url().clone(),
-        files_directory: agora.files_directory().to_owned(),
-      })
-      .await;
-    });
-
-  agora.kill()
 }
 
 fn blocking_test<Function>(f: Function) -> String
@@ -86,12 +59,6 @@ where
   });
 
   agora.kill()
-}
-
-async fn get(url: &Url) -> reqwest::Response {
-  let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
-  response
 }
 
 fn blocking_get(url: &Url) -> reqwest::blocking::Response {
@@ -364,36 +331,60 @@ fn serves_error_pages() {
 #[test]
 #[cfg(unix)]
 fn downloaded_files_are_streamed() {
-  use futures::StreamExt;
-  use tokio::{fs::OpenOptions, sync::oneshot};
+  use {
+    futures::StreamExt,
+    tokio::{fs::OpenOptions, io::AsyncWriteExt, sync::oneshot},
+  };
 
-  async_test(|context| async move {
-    let fifo_path = context.files_directory().join("fifo");
+  let tempdir = tempfile::tempdir().unwrap();
 
-    nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
+  let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
-    let (sender, receiver) = oneshot::channel();
+  let test_context = TestContext {
+    base_url: agora.base_url().clone(),
+    files_url: agora.files_url().clone(),
+    files_directory: agora.files_directory().to_owned(),
+  };
 
-    let writer = tokio::spawn(async move {
-      let mut fifo = OpenOptions::new()
-        .write(true)
-        .open(&fifo_path)
+  async fn get(url: &Url) -> reqwest::Response {
+    let response = reqwest::get(url.clone()).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    response
+  }
+
+  tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(async move {
+      let fifo_path = test_context.files_directory().join("fifo");
+
+      nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
+
+      let (sender, receiver) = oneshot::channel();
+
+      let writer = tokio::spawn(async move {
+        let mut fifo = OpenOptions::new()
+          .write(true)
+          .open(&fifo_path)
+          .await
+          .unwrap();
+        fifo.write_all(b"hello").await.unwrap();
+        receiver.await.unwrap();
+      });
+
+      let mut stream = get(&test_context.files_url().join("fifo").unwrap())
         .await
-        .unwrap();
-      fifo.write_all(b"hello").await.unwrap();
-      receiver.await.unwrap();
+        .bytes_stream();
+
+      assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
+
+      sender.send(()).unwrap();
+
+      writer.await.unwrap();
     });
 
-    let mut stream = get(&context.files_url().join("fifo").unwrap())
-      .await
-      .bytes_stream();
-
-    assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
-
-    sender.send(()).unwrap();
-
-    writer.await.unwrap();
-  });
+  agora.kill();
 }
 
 #[test]
