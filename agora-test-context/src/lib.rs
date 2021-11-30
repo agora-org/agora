@@ -126,21 +126,21 @@ impl AgoraTestContext {
     std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
   }
 
-  pub fn response(&self, url: &str) -> Response {
-    reqwest::blocking::get(self.base_url.join(url).unwrap()).unwrap()
+  pub fn response(&self, url: impl AsRef<str>) -> Response {
+    reqwest::blocking::get(self.base_url.join(url.as_ref()).unwrap()).unwrap()
   }
 
-  pub fn get(&self, url: &str) -> Response {
+  pub fn get(&self, url: impl AsRef<str>) -> Response {
     let response = self.response(url);
     assert_eq!(response.status(), StatusCode::OK);
     response
   }
 
-  pub fn text(&self, url: &str) -> String {
+  pub fn text(&self, url: impl AsRef<str>) -> String {
     self.get(url).text().unwrap()
   }
 
-  pub fn html(&self, url: &str) -> Html {
+  pub fn html(&self, url: impl AsRef<str>) -> Html {
     Html::parse_document(&self.text(url))
   }
 

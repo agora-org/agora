@@ -13,13 +13,6 @@ use ::{
   },
 };
 
-fn blocking_html(url: &Url) -> Html {
-  let response = reqwest::blocking::get(url.clone()).unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
-  let text = response.text().unwrap();
-  Html::parse_document(&text)
-}
-
 fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
   let selector = Selector::parse(selector).unwrap();
   html.select(&selector).collect::<Vec<_>>()
@@ -331,11 +324,11 @@ fn subdirectories_appear_in_listings() {
     .files_url()
     .join(a.value().attr("href").unwrap())
     .unwrap();
-  let subdir_listing = blocking_html(&subdir_url);
+  let subdir_listing = context.html(&subdir_url);
   guard_unwrap!(let &[a] = css_select(&subdir_listing, ".listing a:not([download])").as_slice());
   assert_eq!(a.inner_html(), "bar.txt");
   let file_url = subdir_url.join(a.value().attr("href").unwrap()).unwrap();
-  assert_eq!(context.text(&file_url.to_string()), "hello");
+  assert_eq!(context.text(&file_url), "hello");
 }
 
 #[test]
