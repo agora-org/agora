@@ -12,7 +12,7 @@ use ::{
     path::{Path, PathBuf, MAIN_SEPARATOR},
     str,
   },
-  tokio::{io::AsyncWriteExt, net::TcpStream},
+  tokio::io::AsyncWriteExt,
 };
 
 struct TestContext {
@@ -121,16 +121,8 @@ fn blocking_redirect_url(context: &TestContext, url: &Url) -> Url {
     .unwrap()
 }
 
-async fn text(url: &Url) -> String {
-  get(url).await.text().await.unwrap()
-}
-
 fn blocking_text(url: &Url) -> String {
   blocking_get(url).text().unwrap()
-}
-
-async fn html(url: &Url) -> Html {
-  Html::parse_document(&text(url).await)
 }
 
 fn blocking_html(url: &Url) -> Html {
