@@ -11,12 +11,23 @@ use ::{
   tempfile::TempDir,
 };
 
-pub struct Builder {}
+#[derive(Default)]
+pub struct Builder {
+  backtraces: bool,
+}
 
 impl Builder {
   pub fn build(self) -> AgoraTestContext {
     let tempdir = tempfile::tempdir().unwrap();
-    AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false)
+    AgoraTestContext::new(
+      tempdir,
+      vec!["--address=localhost", "--http-port=0"],
+      self.backtraces,
+    )
+  }
+
+  pub fn backtraces(self, backtraces: bool) -> Self {
+    Self { backtraces, ..self }
   }
 }
 
@@ -33,7 +44,7 @@ pub struct AgoraTestContext {
 
 impl AgoraTestContext {
   pub fn builder() -> Builder {
-    Builder {}
+    Builder::default()
   }
 
   pub fn new(tempdir: TempDir, additional_flags: Vec<&str>, print_backtraces: bool) -> Self {
@@ -124,6 +135,10 @@ impl AgoraTestContext {
 
   pub fn create_dir_all(&self, path: &str) {
     std::fs::create_dir_all(self.files_directory().join(path)).unwrap();
+  }
+
+  pub fn status(&self, url: impl AsRef<str>) -> StatusCode {
+    self.response(url).status()
   }
 
   pub fn response(&self, url: impl AsRef<str>) -> Response {
