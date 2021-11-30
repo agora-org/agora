@@ -8,46 +8,20 @@ use ::{
   std::{
     fs,
     io::{Read, Write},
-    path::{Path, PathBuf, MAIN_SEPARATOR},
+    path::{Path, MAIN_SEPARATOR},
     str,
   },
 };
 
-struct TestContext<'a> {
-  context: &'a AgoraTestContext,
-}
-
-impl<'a> TestContext<'a> {
-  pub(crate) fn base_url(&self) -> &Url {
-    self.context.base_url()
-  }
-
-  pub(crate) fn files_url(&self) -> &Url {
-    self.context.files_url()
-  }
-
-  pub(crate) fn files_directory(&self) -> &Path {
-    self.context.files_directory()
-  }
-
-  pub(crate) fn write(&self, path: &str, content: &str) -> PathBuf {
-    self.context.write(path, content)
-  }
-
-  fn create_dir_all(&self, path: &str) {
-    self.context.create_dir_all(path);
-  }
-}
-
 fn blocking_test<Function>(f: Function) -> String
 where
-  Function: FnOnce(TestContext) -> (),
+  Function: FnOnce(&AgoraTestContext) -> (),
 {
   let tempdir = tempfile::tempdir().unwrap();
 
   let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
-  f(TestContext { context: &agora });
+  f(&agora);
 
   agora.kill()
 }
@@ -58,7 +32,7 @@ fn blocking_get(url: &Url) -> reqwest::blocking::Response {
   response
 }
 
-fn blocking_redirect_url(context: &TestContext, url: &Url) -> Url {
+fn blocking_redirect_url(context: &AgoraTestContext, url: &Url) -> Url {
   let client = reqwest::blocking::Client::builder()
     .redirect(Policy::none())
     .build()
@@ -329,9 +303,8 @@ fn downloaded_files_are_streamed() {
 
   let tempdir = tempfile::tempdir().unwrap();
 
-  let agora = AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
-
-  let test_context = TestContext { context: &agora };
+  let test_context =
+    AgoraTestContext::new(tempdir, vec!["--address=localhost", "--http-port=0"], false);
 
   async fn get(url: &Url) -> reqwest::Response {
     let response = reqwest::get(url.clone()).await.unwrap();
@@ -339,12 +312,15 @@ fn downloaded_files_are_streamed() {
     response
   }
 
+  let files_url = test_context.files_url();
+  let files_directory = test_context.files_directory();
+
   tokio::runtime::Builder::new_multi_thread()
     .enable_all()
     .build()
     .unwrap()
     .block_on(async move {
-      let fifo_path = test_context.files_directory().join("fifo");
+      let fifo_path = files_directory.join("fifo");
 
       nix::unistd::mkfifo(&fifo_path, nix::sys::stat::Mode::S_IRWXU).unwrap();
 
@@ -360,9 +336,7 @@ fn downloaded_files_are_streamed() {
         receiver.await.unwrap();
       });
 
-      let mut stream = get(&test_context.files_url().join("fifo").unwrap())
-        .await
-        .bytes_stream();
+      let mut stream = get(&files_url.join("fifo").unwrap()).await.bytes_stream();
 
       assert_eq!(stream.next().await.unwrap().unwrap(), "hello");
 
@@ -371,7 +345,7 @@ fn downloaded_files_are_streamed() {
       writer.await.unwrap();
     });
 
-  agora.kill();
+  test_context.kill();
 }
 
 #[test]
