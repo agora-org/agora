@@ -13,12 +13,6 @@ use ::{
   },
 };
 
-fn blocking_get(url: &Url) -> reqwest::blocking::Response {
-  let response = reqwest::blocking::get(url.clone()).unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
-  response
-}
-
 fn blocking_redirect_url(context: &AgoraTestContext, url: &Url) -> Url {
   let client = reqwest::blocking::Client::builder()
     .redirect(Policy::none())
@@ -41,7 +35,9 @@ fn blocking_redirect_url(context: &AgoraTestContext, url: &Url) -> Url {
 }
 
 fn blocking_text(url: &Url) -> String {
-  blocking_get(url).text().unwrap()
+  let response = reqwest::blocking::get(url.clone()).unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  response.text().unwrap()
 }
 
 fn blocking_html(url: &Url) -> Html {
@@ -563,7 +559,7 @@ fn return_404_for_files_in_hidden_directories() {
 #[test]
 fn apple_touch_icon_is_served_under_root() {
   let context = AgoraTestContext::builder().build();
-  let response = blocking_get(&context.base_url().join("apple-touch-icon.png").unwrap());
+  let response = context.get("apple-touch-icon.png");
   assert_eq!(
     response.headers().get(header::CONTENT_TYPE).unwrap(),
     "image/png"
@@ -573,7 +569,7 @@ fn apple_touch_icon_is_served_under_root() {
 #[test]
 fn favicon_is_served_at_favicon_ico() {
   let context = AgoraTestContext::builder().build();
-  let response = blocking_get(&context.base_url().join("favicon.ico").unwrap());
+  let response = context.get("favicon.ico");
   assert_eq!(
     response.headers().get(header::CONTENT_TYPE).unwrap(),
     "image/x-icon"
