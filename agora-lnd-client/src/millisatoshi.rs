@@ -1,9 +1,11 @@
-use regex::Regex;
-use serde::{
-  de::{self, Visitor},
-  Deserialize, Deserializer,
+use {
+  regex::Regex,
+  serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer,
+  },
+  std::fmt::{self, Display, Formatter},
 };
-use std::fmt::{self, Display, Formatter};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Millisatoshi(u64);

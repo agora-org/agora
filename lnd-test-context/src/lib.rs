@@ -1,17 +1,19 @@
-use crate::owned_child::{CommandExt, OwnedChild};
-use cradle::prelude::*;
-use lazy_static::lazy_static;
-use std::{
-  collections::BTreeSet,
-  fs,
-  net::TcpListener,
-  path::{Path, PathBuf},
-  process::Command,
-  sync::Arc,
-  time::Duration,
+use {
+  crate::owned_child::{CommandExt, OwnedChild},
+  cradle::prelude::*,
+  lazy_static::lazy_static,
+  std::{
+    collections::BTreeSet,
+    fs,
+    net::TcpListener,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::Arc,
+    time::Duration,
+  },
+  tempfile::TempDir,
+  tokio::sync::Mutex,
 };
-use tempfile::TempDir;
-use tokio::sync::Mutex;
 
 mod executables;
 mod owned_child;

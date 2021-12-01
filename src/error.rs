@@ -1,10 +1,12 @@
-use crate::common::*;
-use color_backtrace::BacktracePrinter;
-use snafu::{ErrorCompat, Snafu};
-use std::{path::MAIN_SEPARATOR, str::Utf8Error};
-use structopt::clap;
-use termcolor::WriteColor;
-use tokio::task::JoinError;
+use {
+  crate::common::*,
+  color_backtrace::BacktracePrinter,
+  snafu::{ErrorCompat, Snafu},
+  std::{path::MAIN_SEPARATOR, str::Utf8Error},
+  structopt::clap,
+  termcolor::WriteColor,
+  tokio::task::JoinError,
+};
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
