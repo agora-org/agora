@@ -1,13 +1,15 @@
-use cradle::prelude::*;
-use hex_literal::hex;
-use lazy_static::lazy_static;
-use pretty_assertions::assert_eq;
-use sha2::{Digest, Sha256};
-use std::{
-  env::{self, consts::EXE_SUFFIX},
-  fs,
-  io::{self, Write},
-  path::{Path, PathBuf},
+use {
+  cradle::prelude::*,
+  hex_literal::hex,
+  lazy_static::lazy_static,
+  pretty_assertions::assert_eq,
+  sha2::{Digest, Sha256},
+  std::{
+    env::{self, consts::EXE_SUFFIX},
+    fs,
+    io::{self, Write},
+    path::{Path, PathBuf},
+  },
 };
 
 pub fn target_dir() -> &'static Path {

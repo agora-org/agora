@@ -1,14 +1,18 @@
-use crate::{
-  common::*,
-  test_utils::{set_up_test_certificate, test_with_arguments, test_with_lnd},
+use {
+  crate::{
+    common::*,
+    test_utils::{set_up_test_certificate, test_with_arguments, test_with_lnd},
+  },
+  chromiumoxide::{
+    browser::BrowserConfig,
+    cdp::browser_protocol::browser::{
+      PermissionDescriptor, PermissionSetting, SetPermissionParams,
+    },
+    Page,
+  },
+  lnd_test_context::LndTestContext,
+  pretty_assertions::assert_eq,
 };
-use chromiumoxide::{
-  browser::BrowserConfig,
-  cdp::browser_protocol::browser::{PermissionDescriptor, PermissionSetting, SetPermissionParams},
-  Page,
-};
-use lnd_test_context::LndTestContext;
-use pretty_assertions::assert_eq;
 
 struct Browser {
   inner: chromiumoxide::Browser,

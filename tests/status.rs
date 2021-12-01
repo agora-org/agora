@@ -1,5 +1,4 @@
-use executable_path::executable_path;
-use std::process::Command;
+use {executable_path::executable_path, std::process::Command};
 
 #[test]
 fn help_returns_success() {

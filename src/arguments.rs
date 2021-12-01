@@ -1,5 +1,7 @@
-use crate::common::*;
-use structopt::clap::{AppSettings, ArgGroup};
+use {
+  crate::common::*,
+  structopt::clap::{AppSettings, ArgGroup},
+};
 
 #[derive(Debug, StructOpt)]
 #[structopt(

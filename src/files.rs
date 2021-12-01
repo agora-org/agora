@@ -1,7 +1,9 @@
-use crate::{common::*, file_stream::FileStream};
-use agora_lnd_client::lnrpc::invoice::InvoiceState;
-use maud::html;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
+use {
+  crate::{common::*, file_stream::FileStream},
+  agora_lnd_client::lnrpc::invoice::InvoiceState,
+  maud::html,
+  percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {

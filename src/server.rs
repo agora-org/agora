@@ -1,6 +1,4 @@
-use crate::common::*;
-use openssl::x509::X509;
-use tower::make::Shared;
+use {crate::common::*, openssl::x509::X509, tower::make::Shared};
 
 pub(crate) struct Server {
   http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
