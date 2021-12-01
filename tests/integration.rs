@@ -1,4 +1,4 @@
-use ::{
+use {
   agora_test_context::AgoraInstance,
   guard::guard_unwrap,
   hyper::{header, StatusCode},

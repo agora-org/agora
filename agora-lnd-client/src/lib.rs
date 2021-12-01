@@ -1,19 +1,20 @@
-use crate::https_service::HttpsService;
-use http::uri::Authority;
-#[cfg(test)]
-use lnd_test_context::LndTestContext;
-use lnrpc::{
-  lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+use {
+  crate::https_service::HttpsService,
+  http::uri::Authority,
+  lnrpc::{
+    lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+  },
+  openssl::x509::X509,
+  std::convert::TryInto,
+  tonic::{
+    metadata::AsciiMetadataValue,
+    service::interceptor::{InterceptedService, Interceptor},
+    Code, Request, Status,
+  },
 };
-use openssl::x509::X509;
-use std::convert::TryInto;
+
 #[cfg(test)]
-use std::sync::Arc;
-use tonic::{
-  metadata::AsciiMetadataValue,
-  service::interceptor::{InterceptedService, Interceptor},
-  Code, Request, Status,
-};
+use {lnd_test_context::LndTestContext, std::sync::Arc};
 
 pub use millisatoshi::Millisatoshi;
 

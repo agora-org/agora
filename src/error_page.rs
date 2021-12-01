@@ -1,5 +1,4 @@
-use crate::common::*;
-use maud::html;
+use {crate::common::*, maud::html};
 
 pub(crate) fn map_error(
   mut stderr: Stderr,

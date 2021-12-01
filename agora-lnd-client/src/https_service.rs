@@ -1,10 +1,12 @@
-use http::uri::{Authority, Scheme, Uri};
-use hyper::{client::connect::HttpConnector, Body, Request, Response};
-use hyper_openssl::HttpsConnector;
-use openssl::ssl::{SslConnector, SslMethod};
-use openssl::x509::X509;
-use std::task::{Context, Poll};
-use tonic::body::BoxBody;
+use {
+  http::uri::{Authority, Scheme, Uri},
+  hyper::{client::connect::HttpConnector, Body, Request, Response},
+  hyper_openssl::HttpsConnector,
+  openssl::ssl::{SslConnector, SslMethod},
+  openssl::x509::X509,
+  std::task::{Context, Poll},
+  tonic::body::BoxBody,
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct HttpsService {
