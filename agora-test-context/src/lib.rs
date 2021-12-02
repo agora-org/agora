@@ -12,7 +12,6 @@ use ::{
 };
 
 pub struct AgoraTestContext {
-  _tempdir: TempDir,
   base_url: Url,
   child: Child,
   collected_stderr: String,
@@ -20,6 +19,7 @@ pub struct AgoraTestContext {
   files_url: Url,
   port: u16,
   stderr: ChildStderr,
+  tempdir: TempDir,
 }
 
 impl AgoraTestContext {
@@ -37,6 +37,10 @@ impl AgoraTestContext {
 
   pub fn files_directory(&self) -> &Path {
     &self.files_directory
+  }
+
+  pub fn current_dir(&self) -> &Path {
+    self.tempdir.path()
   }
 
   pub fn files_url(&self) -> &Url {
@@ -203,7 +207,7 @@ impl Builder {
       files_url,
       port,
       stderr: child_stderr.into_inner(),
-      _tempdir: self.tempdir,
+      tempdir: self.tempdir,
     }
   }
 

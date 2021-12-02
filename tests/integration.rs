@@ -1,4 +1,4 @@
-use ::{
+use {
   agora_test_context::AgoraTestContext,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
@@ -9,7 +9,8 @@ use ::{
     io::{Read, Write},
     net::TcpListener,
     path::{Path, MAIN_SEPARATOR},
-    str,
+    str, thread,
+    time::Duration,
   },
 };
 
@@ -904,4 +905,28 @@ fn configure_port() {
       .status(),
     200
   );
+}
+
+#[test]
+fn creates_cert_cache_directory_if_it_doesnt_exist() {
+  let context = AgoraTestContext::builder()
+    .args(&[
+      "--acme-cache-directory",
+      "cache-directory",
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ])
+    .build();
+
+  let cache_directory = context.current_dir().join("cache-directory");
+
+  for _ in 0..100 {
+    if cache_directory.is_dir() {
+      return;
+    }
+
+    thread::sleep(Duration::from_millis(100));
+  }
+
+  panic!("Cache directory not created after ten seconds");
 }
