@@ -1,5 +1,7 @@
-use crate::common::*;
-use maud::{html, DOCTYPE};
+use {
+  crate::common::*,
+  maud::{html, DOCTYPE},
+};
 
 pub(crate) fn wrap_body(title_slug: &str, body: Markup) -> Response<Body> {
   let html = html! {

@@ -1,4 +1,4 @@
-use ::{
+use {
   agora_test_context::AgoraInstance,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
@@ -1049,4 +1049,21 @@ fn listing_does_not_render_directory_file_sizes() {
     assert_contains(&li.inner_html(), "some-directory");
     assert_not_contains(&li.inner_html(), "B");
   });
+}
+
+#[test]
+#[cfg(not(windows))]
+fn errors_printed_in_red_and_bold() {
+  use {executable_path::executable_path, std::process::Command};
+
+  let output = Command::new(executable_path("agora"))
+    .arg("--directory=/does/not/exist")
+    .arg("--http-port=8080")
+    .env("TERM", "vt100")
+    .output()
+    .unwrap();
+
+  let stderr = str::from_utf8(&output.stderr).unwrap();
+
+  assert_contains(stderr, "\u{1b}[31merror\u{1b}[0m\u{1b}[1m: ");
 }

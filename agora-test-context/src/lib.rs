@@ -1,4 +1,4 @@
-use ::{
+use {
   executable_path::executable_path,
   reqwest::Url,
   std::{
