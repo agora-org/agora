@@ -11,7 +11,7 @@ impl Vfs {
   }
 
   /// If an `.index.md` file exists in this directory, return its contents as a string.
-  pub(crate) fn directory_markdown_file(&self, dir_path: &InputPath) -> Result<Option<String>> {
+  pub(crate) fn index_file_markdown(&self, dir_path: &InputPath) -> Result<Option<String>> {
     let file = dir_path.join_relative(".index.md".as_ref())?;
     match fs::read_to_string(&file) {
       Ok(markdown) => Ok(Some(markdown)),
@@ -20,23 +20,30 @@ impl Vfs {
     }
   }
 
-  pub(crate) fn paid(&self, path: &InputPath) -> bool {
+  pub(crate) fn paid(&self, path: &InputPath) -> Result<bool> {
     let config = Config::for_dir(
       self.base_directory.as_ref(),
-      path.as_ref().parent().unwrap(),
-    )
-    .unwrap();
-    config.paid()
+      path.as_ref().parent().ok_or_else(|| {
+        Error::internal(format!(
+          "Path {} has no parent",
+          path.display_path().display()
+        ))
+      })?,
+    )?;
+    Ok(config.paid())
   }
 
-  pub(crate) fn base_price(&self, path: &InputPath) -> Option<Millisatoshi> {
+  pub(crate) fn base_price(&self, path: &InputPath) -> Result<Option<Millisatoshi>> {
     let config = Config::for_dir(
       self.base_directory.as_ref(),
-      path.as_ref().parent().unwrap(),
-    )
-    .unwrap();
-
-    config.base_price
+      path.as_ref().parent().ok_or_else(|| {
+        Error::internal(format!(
+          "Path {} has no parent",
+          path.display_path().display()
+        ))
+      })?,
+    )?;
+    Ok(config.base_price)
   }
 
   pub(crate) fn file_path(&self, path: &str) -> Result<InputPath> {
@@ -102,7 +109,7 @@ impl Vfs {
     Ok(())
   }
 
-  pub(crate) async fn read_dir(&self, path: &InputPath) -> Result<Vec<DirectoryEntry>> {
+  pub(crate) async fn read_dir(&self, path: &InputPath) -> Result<Vec<DirEntry>> {
     let mut read_dir = tokio::fs::read_dir(path)
       .await
       .with_context(|| Error::filesystem_io(path))?;
@@ -126,11 +133,11 @@ impl Vfs {
       } else {
         Some(metadata.len())
       };
-      entries.push(DirectoryEntry {
+      entries.push(DirEntry {
         file_name: entry.file_name(),
         file_type,
         file_size,
-        paid: self.paid(&path.join_relative(entry.file_name().as_ref()).unwrap()),
+        paid: self.paid(&path.join_relative(entry.file_name().as_ref())?)?,
       });
     }
     entries.sort_by(|a, b| a.file_name.cmp(&b.file_name));
@@ -138,7 +145,7 @@ impl Vfs {
   }
 }
 
-pub(crate) struct DirectoryEntry {
+pub(crate) struct DirEntry {
   pub(crate) file_name: OsString,
   pub(crate) file_type: FileType,
   pub(crate) file_size: Option<u64>,

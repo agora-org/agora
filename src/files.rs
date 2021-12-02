@@ -73,7 +73,7 @@ impl Files {
   fn render_index(&self, dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
 
-    let markdown = match self.vfs.directory_markdown_file(dir)? {
+    let markdown = match self.vfs.index_file_markdown(dir)? {
       None => return Ok(None),
       Some(markdown) => markdown,
     };
@@ -142,7 +142,7 @@ impl Files {
     tail: &[&str],
     path: &InputPath,
   ) -> Result<Response<Body>> {
-    if !self.vfs.paid(path) {
+    if !self.vfs.paid(path)? {
       return Self::serve_file(path).await;
     }
 
@@ -154,7 +154,7 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
-    let base_price = self.vfs.base_price(path).ok_or_else(|| {
+    let base_price = self.vfs.base_price(path)?.ok_or_else(|| {
       error::ConfigMissingBasePrice {
         path: path.display_path(),
       }
