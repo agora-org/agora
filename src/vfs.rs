@@ -12,6 +12,7 @@ impl Vfs {
 
   /// If an `.index.md` file exists in this directory, return its contents as a string.
   pub(crate) fn index_file_markdown(&self, dir_path: &InputPath) -> Result<Option<String>> {
+    self.check_path(&dir_path)?;
     let file = dir_path.join_relative(".index.md".as_ref())?;
     match fs::read_to_string(&file) {
       Ok(markdown) => Ok(Some(markdown)),
@@ -21,6 +22,7 @@ impl Vfs {
   }
 
   pub(crate) fn paid(&self, path: &InputPath) -> Result<bool> {
+    self.check_path(&path)?;
     let config = Config::for_dir(
       self.base_directory.as_ref(),
       path.as_ref().parent().ok_or_else(|| {
@@ -34,6 +36,7 @@ impl Vfs {
   }
 
   pub(crate) fn base_price(&self, path: &InputPath) -> Result<Option<Millisatoshi>> {
+    self.check_path(&path)?;
     let config = Config::for_dir(
       self.base_directory.as_ref(),
       path.as_ref().parent().ok_or_else(|| {
