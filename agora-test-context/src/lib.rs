@@ -119,6 +119,7 @@ pub struct Builder {
   address: Option<String>,
   args: Vec<String>,
   backtraces: bool,
+  current_dir: Option<String>,
   files_directory: String,
   http_port: Option<u16>,
   tempdir: TempDir,
@@ -150,7 +151,13 @@ impl Builder {
   pub fn build(self) -> AgoraTestContext {
     let mut command = Command::new(executable_path("agora"));
 
-    let files_directory = self.tempdir.path().join(&self.files_directory);
+    let current_dir = if let Some(current_dir) = self.current_dir {
+      self.tempdir.path().join(current_dir)
+    } else {
+      self.tempdir.path().to_owned()
+    };
+
+    let files_directory = current_dir.join(&self.files_directory);
 
     fs::create_dir_all(&files_directory).unwrap();
 
@@ -168,7 +175,7 @@ impl Builder {
       .args(self.args)
       .arg("--directory")
       .arg(self.files_directory)
-      .current_dir(self.tempdir.path())
+      .current_dir(current_dir)
       .stderr(Stdio::piped());
 
     if !self.backtraces {
@@ -230,6 +237,14 @@ impl Builder {
       files_directory: "files".to_owned(),
       http_port: Some(0),
       tempdir: tempfile::tempdir().unwrap(),
+      current_dir: None,
+    }
+  }
+
+  pub fn current_dir(self, current_dir: &str) -> Self {
+    Self {
+      current_dir: Some(current_dir.to_owned()),
+      ..self
     }
   }
 

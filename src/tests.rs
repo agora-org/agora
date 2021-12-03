@@ -95,32 +95,3 @@ fn redirects_requests_from_port_80_to_443() {
     },
   );
 }
-
-#[test]
-fn bugfix_symlink_with_relative_base_directory() {
-  let mut environment = Environment::test();
-
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  let working_directory = environment.working_directory.join("working_directory");
-  std::fs::create_dir(&working_directory).unwrap();
-
-  environment.working_directory = working_directory;
-
-  environment.arguments = vec![
-    "agora".into(),
-    "--address=localhost".into(),
-    "--http-port=0".into(),
-    "--directory=../www".into(),
-  ];
-
-  test_with_environment(&mut environment, |context| async move {
-    context.write("file", "precious content");
-    symlink("file", context.files_directory().join("link"));
-    let content = text(&context.files_url().join("file").unwrap()).await;
-    assert_eq!(content, "precious content");
-    let link = text(&context.files_url().join("link").unwrap()).await;
-    assert_eq!(link, "precious content");
-  });
-}

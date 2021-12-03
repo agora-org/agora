@@ -948,3 +948,21 @@ fn server_aborts_when_directory_does_not_exist() {
     "IO error accessing filesystem",
   );
 }
+
+#[test]
+fn bugfix_symlink_with_relative_base_directory() {
+  let context = AgoraTestContext::builder()
+    .current_dir("current-dir")
+    .files_directory("../files")
+    .build();
+
+  context.write("file", "precious content");
+
+  symlink("file", context.files_directory().join("link"));
+
+  let content = context.text("files/file");
+  assert_eq!(content, "precious content");
+
+  let content = context.text("files/link");
+  assert_eq!(content, "precious content");
+}
