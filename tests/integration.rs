@@ -1,5 +1,6 @@
 use {
   agora_test_context::AgoraTestContext,
+  executable_path::executable_path,
   guard::guard_unwrap,
   hyper::{header, StatusCode},
   lexiclean::Lexiclean,
@@ -9,6 +10,7 @@ use {
     io::{Read, Write},
     net::TcpListener,
     path::{Path, MAIN_SEPARATOR},
+    process::Command,
     str, thread,
     time::Duration,
   },
@@ -875,7 +877,7 @@ fn listing_does_not_render_directory_file_sizes() {
 fn configure_files_directory() {
   let context = AgoraTestContext::builder()
     .write("foo/bar.txt", "hello")
-    .directory("foo")
+    .files_directory("foo")
     .build();
 
   assert_contains(&context.text("files/"), "bar.txt");
@@ -929,4 +931,20 @@ fn creates_cert_cache_directory_if_it_doesnt_exist() {
   }
 
   panic!("Cache directory not created after ten seconds");
+}
+
+#[test]
+fn server_aborts_when_directory_does_not_exist() {
+  let output = Command::new(executable_path("agora"))
+    .arg("--directory=does/not/exist")
+    .arg("--http-port=0")
+    .output()
+    .unwrap();
+
+  assert!(!output.status.success());
+
+  assert_contains(
+    str::from_utf8(&output.stderr).unwrap(),
+    "IO error accessing filesystem",
+  );
 }

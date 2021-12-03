@@ -42,23 +42,6 @@ fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
 }
 
 #[test]
-fn server_aborts_when_directory_does_not_exist() {
-  let mut environment = Environment::test();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(
-      async {
-        #![allow(clippy::unused_unit)]
-        let error = Server::setup(&mut environment).await.err().unwrap();
-        guard_unwrap!(let Error::FilesystemIo { .. } = error);
-      },
-    );
-}
-
-#[test]
 fn serves_https_requests_with_cert_from_cache_directory() {
   let (certificate_cache, root_certificate) = set_up_test_certificate();
 
