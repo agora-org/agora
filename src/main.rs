@@ -1,4 +1,7 @@
-use crate::common::*;
+use {
+  crate::common::*,
+  termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor},
+};
 
 #[cfg(test)]
 #[macro_use]
@@ -32,10 +35,18 @@ async fn main() {
     if let crate::error::Error::Clap { source, .. } = error {
       source.exit();
     } else {
-      error.print_backtrace(&mut termcolor::StandardStream::stderr(
-        termcolor::ColorChoice::Auto,
-      ));
-      eprintln!("{}", error);
+      let mut stderr = StandardStream::stderr(ColorChoice::Auto);
+
+      error.print_backtrace(&mut stderr);
+
+      stderr
+        .set_color(ColorSpec::new().set_fg(Some(Color::Red)))
+        .ok();
+      write!(&mut stderr, "error").ok();
+
+      stderr.set_color(ColorSpec::new().set_bold(true)).ok();
+      writeln!(&mut stderr, ": {}", error).ok();
+
       std::process::exit(1);
     }
   }
