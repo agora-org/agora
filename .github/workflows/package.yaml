@@ -18,32 +18,32 @@ jobs:
     strategy:
       matrix:
         target:
-        - aarch64-unknown-linux-gnu
-        - armv7-unknown-linux-gnueabihf
+        - aarch64-unknown-linux-musl
+        - armv7-unknown-linux-musleabihf
         - x86_64-apple-darwin
         - x86_64-pc-windows-msvc
         - x86_64-unknown-linux-musl
         include:
-        - target: aarch64-unknown-linux-gnu
+        - target: aarch64-unknown-linux-musl
           os: ubuntu-latest
           cross_compiling: true
           target_rustflags: '--codegen linker=aarch64-linux-gnu-gcc'
-        - target: armv7-unknown-linux-gnueabihf
+        - target: armv7-unknown-linux-musleabihf
           os: ubuntu-latest
           cross_compiling: true
           target_rustflags: '--codegen linker=arm-linux-gnueabihf-gcc'
         - target: x86_64-apple-darwin
           os: macos-latest
           cross_compiling: false
-          target_rustflags: '--codegen target-feature=+crt-static'
+          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross_compiling: false
-          target_rustflags: '--codegen target-feature=+crt-static'
+          target_rustflags: ''
         - target: x86_64-unknown-linux-musl
           os: ubuntu-latest
           cross_compiling: false
-          target_rustflags: '--codegen target-feature=+crt-static'
+          target_rustflags: ''
 
     runs-on: ${{ matrix.os }}
 
