@@ -200,6 +200,8 @@ pub(crate) struct TestContext {
   files_url: reqwest::Url,
   https_files_url: Option<reqwest::Url>,
   https_redirect_port: Option<u16>,
+  #[cfg(feature = "slow-tests")]
+  working_directory: std::path::PathBuf,
 }
 
 #[cfg(test)]
