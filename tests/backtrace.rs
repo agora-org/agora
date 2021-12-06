@@ -5,5 +5,5 @@ fn errors_contain_backtraces() {
   let context = AgoraTestContext::builder().backtraces(true).build();
   assert_eq!(context.status("files/.hidden"), StatusCode::NOT_FOUND);
   let stderr = context.kill();
-  assert!(stderr.contains("agora::files::Files::check_path"));
+  assert!(stderr.contains("agora::vfs::Vfs::check_path"));
 }

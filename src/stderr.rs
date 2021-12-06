@@ -1,5 +1,7 @@
-use crate::common::*;
-use termcolor::{ColorSpec, WriteColor};
+use {
+  crate::common::*,
+  termcolor::{ColorSpec, WriteColor},
+};
 
 #[cfg(test)]
 use std::sync::Mutex;

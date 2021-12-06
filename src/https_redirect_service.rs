@@ -1,5 +1,4 @@
-use crate::common::*;
-use tower::make::Shared;
+use {crate::common::*, tower::make::Shared};
 
 #[derive(Clone)]
 pub(crate) struct HttpsRedirectService {

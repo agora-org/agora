@@ -1,11 +1,13 @@
-use crate::{common::*, file_stream::FileStream};
-use agora_lnd_client::lnrpc::invoice::InvoiceState;
-use maud::html;
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
+use {
+  crate::{common::*, file_stream::FileStream, vfs::Vfs},
+  agora_lnd_client::lnrpc::invoice::InvoiceState,
+  maud::html,
+  percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
+};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
-  base_directory: InputPath,
+  vfs: Vfs,
   lnd_client: Option<agora_lnd_client::Client>,
 }
 
@@ -15,61 +17,9 @@ impl Files {
     lnd_client: Option<agora_lnd_client::Client>,
   ) -> Self {
     Self {
-      base_directory,
+      vfs: Vfs::new(base_directory),
       lnd_client,
     }
-  }
-
-  fn file_path(&self, path: &str) -> Result<InputPath> {
-    self.base_directory.join_file_path(path)
-  }
-
-  fn check_path(&self, path: &InputPath) -> Result<()> {
-    if path
-      .as_ref()
-      .symlink_metadata()
-      .with_context(|| Error::filesystem_io(path))?
-      .file_type()
-      .is_symlink()
-    {
-      let link = fs::read_link(path.as_ref()).with_context(|| Error::filesystem_io(path))?;
-
-      let destination = path
-        .as_ref()
-        .parent()
-        .expect("Input paths are always absolute, and thus have parents or are `/`, and `/` cannot be a symlink.")
-        .join(link)
-        .lexiclean();
-
-      if !destination.starts_with(&self.base_directory) {
-        return Err(
-          error::SymlinkAccess {
-            path: path.display_path().to_owned(),
-          }
-          .build(),
-        );
-      }
-    }
-
-    if path
-      .as_ref()
-      .file_name()
-      .map(|file_name| file_name.to_string_lossy().starts_with('.'))
-      .unwrap_or(false)
-    {
-      return Err(
-        error::HiddenFileAccess {
-          path: path.as_ref().to_owned(),
-        }
-        .build(),
-      );
-    }
-
-    Ok(())
-  }
-
-  fn config_for_dir(&self, dir: &Path) -> Result<Config> {
-    Config::for_dir(self.base_directory.as_ref(), dir)
   }
 
   pub(crate) async fn serve(
@@ -77,18 +27,8 @@ impl Files {
     request: &Request<Body>,
     tail: &[&str],
   ) -> Result<Response<Body>> {
-    let file_path = self.file_path(&tail.join(""))?;
-
-    for result in self.base_directory.iter_prefixes(tail) {
-      let prefix = result?;
-      self.check_path(&prefix)?;
-    }
-
-    let file_type = file_path
-      .as_ref()
-      .metadata()
-      .with_context(|| Error::filesystem_io(&file_path))?
-      .file_type();
+    let file_path = self.vfs.file_path(&tail.join(""))?;
+    let file_type = self.vfs.file_type(tail)?;
 
     if !file_type.is_dir() {
       if let Some(stripped) = request.uri().path().strip_suffix('/') {
@@ -105,36 +45,6 @@ impl Files {
     } else {
       self.access_file(request, tail, &file_path).await
     }
-  }
-
-  async fn read_dir(&self, path: &InputPath) -> Result<Vec<(OsString, FileType, Option<u64>)>> {
-    let mut read_dir = tokio::fs::read_dir(path)
-      .await
-      .with_context(|| Error::filesystem_io(path))?;
-    let mut entries = Vec::new();
-    while let Some(entry) = read_dir
-      .next_entry()
-      .await
-      .with_context(|| Error::filesystem_io(path))?
-    {
-      let input_path = path.join_relative(Path::new(&entry.file_name()))?;
-      if self.check_path(&input_path).is_err() {
-        continue;
-      }
-      let metadata = entry
-        .metadata()
-        .await
-        .with_context(|| Error::filesystem_io(&input_path))?;
-      let file_type = metadata.file_type();
-      let file_size = if metadata.is_dir() {
-        None
-      } else {
-        Some(metadata.len())
-      };
-      entries.push((entry.file_name(), file_type, file_size));
-    }
-    entries.sort_by(|a, b| a.0.cmp(&b.0));
-    Ok(entries)
   }
 
   // Percent encode all unicode codepoints, even though
@@ -161,15 +71,12 @@ impl Files {
     .remove(b'_')
     .remove(b'~');
 
-  fn render_index(dir: &InputPath) -> Result<Option<Markup>> {
+  fn render_index(&self, dir: &InputPath) -> Result<Option<Markup>> {
     use pulldown_cmark::{html, Options, Parser};
 
-    let file = dir.join_relative(".index.md".as_ref())?;
-
-    let markdown = match fs::read_to_string(&file) {
-      Ok(markdown) => markdown,
-      Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
-      Err(source) => return Err(Error::filesystem_io(&file).into_error(source)),
+    let markdown = match self.vfs.index_file_markdown(dir)? {
+      None => return Ok(None),
+      Some(markdown) => markdown,
     };
 
     let options = Options::ENABLE_FOOTNOTES
@@ -183,14 +90,13 @@ impl Files {
   }
 
   async fn serve_dir(&self, tail: &[&str], dir: &InputPath) -> Result<Response<Body>> {
-    let config = self.config_for_dir(dir.as_ref())?;
     let body = html! {
       ul class="listing" {
-        @for (file_name, file_type, bytes) in self.read_dir(dir).await? {
+        @for entry in self.vfs.read_dir(dir).await? {
 
           @let file_name = {
-            let mut file_name = file_name.to_string_lossy().into_owned();
-            if file_type.is_dir() {
+            let mut file_name = entry.file_name.to_string_lossy().into_owned();
+            if entry.file_type.is_dir() {
               file_name.push('/');
             }
             file_name
@@ -201,12 +107,12 @@ impl Files {
               (file_name)
             }
 
-            @if let Some(bytes) = bytes {
+            @if let Some(file_size) = entry.file_size {
               span class="filesize" {
-                (bytes.display_size())
+                (file_size.display_size())
               }
             }
-            @if file_type.is_file() && !config.paid() {
+            @if entry.file_type.is_file() && !entry.paid {
               a download href=(encoded) {
                 (Files::icon("download"))
               }
@@ -214,7 +120,7 @@ impl Files {
           }
         }
       }
-      @if let Some(index) = Self::render_index(dir)? {
+      @if let Some(index) = self.render_index(dir)? {
         div {
           (index)
         }
@@ -237,14 +143,7 @@ impl Files {
     tail: &[&str],
     path: &InputPath,
   ) -> Result<Response<Body>> {
-    let config = self.config_for_dir(
-      path
-        .as_ref()
-        .parent()
-        .ok_or_else(|| Error::internal(format!("Failed to get parent of file: {:?}", path)))?,
-    )?;
-
-    if !config.paid() {
+    if !self.vfs.paid(path)? {
       return Self::serve_file(path).await;
     }
 
@@ -256,7 +155,7 @@ impl Files {
     })?;
 
     let file_path = tail.join("");
-    let base_price = config.base_price.ok_or_else(|| {
+    let base_price = self.vfs.base_price(path)?.ok_or_else(|| {
       error::ConfigMissingBasePrice {
         path: path.display_path(),
       }
@@ -316,7 +215,7 @@ impl Files {
     let value = invoice.value_msat();
     match invoice.state() {
       InvoiceState::Settled => {
-        let path = self.file_path(&invoice.memo)?;
+        let path = self.vfs.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
       }
       _ => {

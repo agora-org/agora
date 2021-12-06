@@ -1,4 +1,4 @@
-use ::{
+use {
   executable_path::executable_path,
   reqwest::{blocking::Response, header, redirect::Policy, StatusCode, Url},
   scraper::Html,
