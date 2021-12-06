@@ -174,15 +174,15 @@ impl Builder {
     command
       .args(self.args)
       .arg("--directory")
-      .arg(self.files_directory)
-      .current_dir(current_dir)
+      .arg(dbg!(self.files_directory))
+      .current_dir(dbg!(current_dir))
       .stderr(Stdio::piped());
 
     if !self.backtraces {
       command.env("AGORA_SUPPRESS_BACKTRACE", "");
     }
 
-    let mut child = command.spawn().unwrap();
+    let mut child = dbg!(command).spawn().unwrap();
 
     let mut first_line = String::new();
     let child_stderr = child.stderr.take().unwrap();
