@@ -22,7 +22,7 @@ jobs:
         - armv7-unknown-linux-gnueabihf
         - x86_64-apple-darwin
         - x86_64-pc-windows-msvc
-        - x86_64-unknown-linux-gnu
+        - x86_64-unknown-linux-musl
         include:
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-latest
@@ -35,15 +35,15 @@ jobs:
         - target: x86_64-apple-darwin
           os: macos-latest
           cross_compiling: false
-          target_rustflags: ''
+          target_rustflags: '--codegen target-feature=+crt-static'
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross_compiling: false
           target_rustflags: '--codegen target-feature=+crt-static'
-        - target: x86_64-unknown-linux-gnu
+        - target: x86_64-unknown-linux-musl
           os: ubuntu-latest
           cross_compiling: false
-          target_rustflags: ''
+          target_rustflags: '--codegen target-feature=+crt-static'
 
     runs-on: ${{ matrix.os }}
 
@@ -61,17 +61,25 @@ jobs:
         target: ${{ matrix.target }}
         toolchain: stable
 
+    - name: Update Apt
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      run: |
+        sudo apt-get update
+
     - name: Install AArch64 Toolchain
       if: ${{ matrix.target == 'aarch64-unknown-linux-gnu' }}
       run: |
-        sudo apt-get update
         sudo apt-get install gcc-aarch64-linux-gnu
 
     - name: Install ARM7 Toolchain
       if: ${{ matrix.target == 'armv7-unknown-linux-gnueabihf' }}
       run: |
-        sudo apt-get update
         sudo apt-get install gcc-arm-linux-gnueabihf
+
+    - name: Install Musl
+      if: ${{ matrix.target == 'x86_64-unknown-linux-musl' }}
+      run: |
+        sudo apt-get install musl-tools
 
     - name: Test
       if: '!matrix.cross_compiling'
