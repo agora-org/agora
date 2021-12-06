@@ -107,9 +107,9 @@ impl Files {
               (file_name)
             }
 
-            @if let Some(bytes) = entry.file_size {
+            @if let Some(file_size) = entry.file_size {
               span class="filesize" {
-                (bytes.display_size())
+                (file_size.display_size())
               }
             }
             @if entry.file_type.is_file() && !entry.paid {
