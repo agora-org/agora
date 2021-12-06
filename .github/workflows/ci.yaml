@@ -50,6 +50,8 @@ jobs:
         toolchain: 1.48.0
 
     - uses: Swatinem/rust-cache@v1
+      with:
+        key: 0
 
     - name: Check Lockfile
       run: cargo update --locked --package agora
