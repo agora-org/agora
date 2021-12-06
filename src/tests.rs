@@ -1,15 +1,6 @@
 use {
-  crate::{
-    common::*,
-    test_utils::{
-      assert_contains, https_client, set_up_test_certificate, test_with_arguments,
-      test_with_environment,
-    },
-  },
-  guard::guard_unwrap,
+  crate::test_utils::{https_client, set_up_test_certificate, test_with_arguments},
   pretty_assertions::assert_eq,
-  reqwest::Url,
-  std::net::TcpListener,
 };
 
 #[cfg(feature = "slow-tests")]
@@ -17,34 +8,16 @@ mod browser_tests;
 #[cfg(feature = "slow-tests")]
 mod slow_tests;
 
-async fn get(url: &Url) -> reqwest::Response {
+#[cfg(feature = "slow-tests")]
+async fn get(url: &reqwest::Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(response.status(), reqwest::StatusCode::OK);
   response
 }
 
-async fn text(url: &Url) -> String {
+#[cfg(feature = "slow-tests")]
+async fn text(url: &reqwest::Url) -> String {
   get(url).await.text().await.unwrap()
-}
-
-fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
-  #[cfg(unix)]
-  std::os::unix::fs::symlink(contents, link).unwrap();
-  #[cfg(windows)]
-  {
-    let target = link.as_ref().parent().unwrap().join(&contents);
-    if target.is_dir() {
-      std::os::windows::fs::symlink_dir(contents, link).unwrap();
-    } else if target.is_file() {
-      std::os::windows::fs::symlink_file(contents, link).unwrap();
-    } else {
-      panic!(
-        "unsupported file type for paths: contents: `{}`, link: `{}`",
-        contents.as_ref().display(),
-        link.as_ref().display(),
-      );
-    }
-  }
 }
 
 #[test]

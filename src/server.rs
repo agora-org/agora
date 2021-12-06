@@ -156,7 +156,7 @@ impl Server {
   }
 
   #[cfg(test)]
-  pub(crate) fn test_context(&self, environment: &Environment) -> TestContext {
+  pub(crate) fn test_context(&self) -> TestContext {
     let http_url = reqwest::Url::parse(&format!(
       "http://localhost:{}",
       self
@@ -167,10 +167,10 @@ impl Server {
         .port()
     ))
     .unwrap();
-    let working_directory = environment.working_directory.clone();
     TestContext {
       #[cfg(feature = "slow-tests")]
       base_url: http_url.clone(),
+      #[cfg(feature = "slow-tests")]
       files_url: http_url.join("files/").unwrap(),
       https_files_url: self
         .https_request_handler
@@ -186,7 +186,6 @@ impl Server {
         .https_redirect_server
         .as_ref()
         .map(|server| server.local_addr().port()),
-      working_directory,
       files_directory: self.directory.to_owned(),
     }
   }
@@ -197,15 +196,15 @@ pub(crate) struct TestContext {
   #[cfg(feature = "slow-tests")]
   base_url: reqwest::Url,
   files_directory: std::path::PathBuf,
+  #[cfg(feature = "slow-tests")]
   files_url: reqwest::Url,
   https_files_url: Option<reqwest::Url>,
   https_redirect_port: Option<u16>,
-  #[cfg(feature = "slow-tests")]
-  working_directory: std::path::PathBuf,
 }
 
 #[cfg(test)]
 impl TestContext {
+  #[cfg(feature = "slow-tests")]
   pub(crate) fn files_url(&self) -> &reqwest::Url {
     &self.files_url
   }
@@ -218,17 +217,9 @@ impl TestContext {
     self.https_redirect_port.unwrap()
   }
 
-  pub(crate) fn files_directory(&self) -> &std::path::Path {
-    &self.files_directory
-  }
-
   #[cfg(feature = "slow-tests")]
   pub(crate) fn base_url(&self) -> &reqwest::Url {
     &self.base_url
-  }
-
-  pub(crate) fn working_directory(&self) -> &std::path::Path {
-    &self.working_directory
   }
 
   pub(crate) fn write(&self, path: &str, content: &str) -> std::path::PathBuf {

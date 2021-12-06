@@ -150,7 +150,7 @@ where
     .unwrap()
     .block_on(async {
       let server = Server::setup(environment).await.unwrap();
-      let test_context = server.test_context(environment);
+      let test_context = server.test_context();
       let server_join_handle = tokio::spawn(async { server.run().await.unwrap() });
       let test_result = tokio::task::LocalSet::new()
         .run_until(async move { tokio::task::spawn_local(test_function(test_context)).await })
