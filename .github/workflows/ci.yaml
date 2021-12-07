@@ -47,7 +47,7 @@ jobs:
       with:
         components: clippy, rustfmt
         override: true
-        toolchain: 1.48.0
+        toolchain: 1.51.0
 
     - uses: Swatinem/rust-cache@v1
       with:
