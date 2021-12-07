@@ -207,7 +207,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
     }
     assert_contains(&error.to_string(), "error trying to connect: ");
     assert_contains(&error.to_string(), "certificate verify failed");
-    assert_contains(&error.to_string(), "self signed certificate");
+    assert_contains(&error.to_string(), "self-signed certificate");
   }
 
   #[tokio::test]
