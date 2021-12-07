@@ -1,7 +1,6 @@
 pub(crate) use {
   crate::{
     arguments::Arguments,
-    config::Config,
     display_size::DisplaySize,
     environment::Environment,
     error::{self, Error, Result},
