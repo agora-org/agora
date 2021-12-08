@@ -1,5 +1,11 @@
 use {
-  crate::test_utils::{https_client, set_up_test_certificate, test_with_arguments},
+  crate::{
+    common::*,
+    environment::Environment,
+    test_utils::{
+      https_client, set_up_test_certificate, test_with_arguments, test_with_environment,
+    },
+  },
   pretty_assertions::assert_eq,
 };
 
@@ -8,14 +14,12 @@ mod browser_tests;
 #[cfg(feature = "slow-tests")]
 mod slow_tests;
 
-#[cfg(feature = "slow-tests")]
 async fn get(url: &reqwest::Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
   assert_eq!(response.status(), reqwest::StatusCode::OK);
   response
 }
 
-#[cfg(feature = "slow-tests")]
 async fn text(url: &reqwest::Url) -> String {
   get(url).await.text().await.unwrap()
 }
@@ -73,4 +77,53 @@ fn redirects_requests_from_port_80_to_443() {
       assert_eq!(body, "encrypted content");
     },
   );
+}
+
+fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
+  #[cfg(unix)]
+  std::os::unix::fs::symlink(contents, link).unwrap();
+  #[cfg(windows)]
+  {
+    let target = link.as_ref().parent().unwrap().join(&contents);
+    if target.is_dir() {
+      std::os::windows::fs::symlink_dir(contents, link).unwrap();
+    } else if target.is_file() {
+      std::os::windows::fs::symlink_file(contents, link).unwrap();
+    } else {
+      panic!(
+        "unsupported file type for paths: contents: `{}`, link: `{}`",
+        contents.as_ref().display(),
+        link.as_ref().display(),
+      );
+    }
+  }
+}
+
+#[test]
+fn bugfix_symlink_with_relative_base_directory() {
+  let mut environment = Environment::test();
+
+  let www = environment.working_directory.join("www");
+  std::fs::create_dir(&www).unwrap();
+
+  let working_directory = environment.working_directory.join("working_directory");
+  std::fs::create_dir(&working_directory).unwrap();
+
+  environment.working_directory = working_directory;
+
+  environment.arguments = vec![
+    "agora".into(),
+    "--address=localhost".into(),
+    "--http-port=0".into(),
+    "--directory=../www".into(),
+  ];
+
+  test_with_environment(&mut environment, |context| async move {
+    context.write("file", "precious content");
+    symlink("file", context.files_directory().join("link"));
+    let content = text(&context.files_url().join("file").unwrap()).await;
+    assert_eq!(content, "precious content");
+    let link = text(&context.files_url().join("link").unwrap()).await;
+    assert_eq!(link, "precious content");
+  });
 }

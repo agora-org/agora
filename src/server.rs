@@ -170,7 +170,6 @@ impl Server {
     TestContext {
       #[cfg(feature = "slow-tests")]
       base_url: http_url.clone(),
-      #[cfg(feature = "slow-tests")]
       files_url: http_url.join("files/").unwrap(),
       https_files_url: self
         .https_request_handler
@@ -196,7 +195,6 @@ pub(crate) struct TestContext {
   #[cfg(feature = "slow-tests")]
   base_url: reqwest::Url,
   files_directory: std::path::PathBuf,
-  #[cfg(feature = "slow-tests")]
   files_url: reqwest::Url,
   https_files_url: Option<reqwest::Url>,
   https_redirect_port: Option<u16>,
@@ -204,9 +202,12 @@ pub(crate) struct TestContext {
 
 #[cfg(test)]
 impl TestContext {
-  #[cfg(feature = "slow-tests")]
   pub(crate) fn files_url(&self) -> &reqwest::Url {
     &self.files_url
+  }
+
+  pub(crate) fn files_directory(&self) -> &Path {
+    &self.files_directory
   }
 
   pub(crate) fn https_files_url(&self) -> &reqwest::Url {
