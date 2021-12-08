@@ -4,15 +4,15 @@ use crate::common::*;
 #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
 pub(crate) struct Config {
   paid: Option<bool>,
-  pub(crate) base_price: Option<Millisatoshi>,
+  pub(super) base_price: Option<Millisatoshi>,
 }
 
 impl Config {
-  pub(crate) fn paid(&self) -> bool {
+  pub(super) fn paid(&self) -> bool {
     self.paid.unwrap_or(false)
   }
 
-  pub(crate) fn for_dir(base_directory: &Path, path: &Path) -> Result<Self> {
+  pub(super) fn for_dir(base_directory: &Path, path: &Path) -> Result<Self> {
     if !path.starts_with(base_directory) {
       return Err(Error::internal(format!(
         "Config::for_dir: `{}` does not start with `{}`",

@@ -1,4 +1,7 @@
 use crate::common::*;
+mod config;
+
+use config::Config;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Vfs {
