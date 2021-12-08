@@ -1,7 +1,6 @@
 use {
   super::*,
   crate::{
-    common::*,
     server::TestContext,
     test_utils::{assert_contains, test_with_arguments, test_with_lnd},
   },
