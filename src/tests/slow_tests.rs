@@ -8,6 +8,7 @@ use {
   lnd_test_context::LndTestContext,
   pretty_assertions::assert_eq,
   regex::Regex,
+  reqwest::Url,
   scraper::{ElementRef, Html, Selector},
   std::path::MAIN_SEPARATOR,
 };

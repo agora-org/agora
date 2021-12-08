@@ -1,15 +1,12 @@
 use {
   crate::{
     common::*,
+    environment::Environment,
     test_utils::{
-      assert_contains, https_client, set_up_test_certificate, test_with_arguments,
-      test_with_environment,
+      https_client, set_up_test_certificate, test_with_arguments, test_with_environment,
     },
   },
-  guard::guard_unwrap,
   pretty_assertions::assert_eq,
-  reqwest::Url,
-  std::net::TcpListener,
 };
 
 #[cfg(feature = "slow-tests")]
@@ -17,105 +14,14 @@ mod browser_tests;
 #[cfg(feature = "slow-tests")]
 mod slow_tests;
 
-async fn get(url: &Url) -> reqwest::Response {
+async fn get(url: &reqwest::Url) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(response.status(), reqwest::StatusCode::OK);
   response
 }
 
-async fn text(url: &Url) -> String {
+async fn text(url: &reqwest::Url) -> String {
   get(url).await.text().await.unwrap()
-}
-
-fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
-  #[cfg(unix)]
-  std::os::unix::fs::symlink(contents, link).unwrap();
-  #[cfg(windows)]
-  {
-    let target = link.as_ref().parent().unwrap().join(&contents);
-    if target.is_dir() {
-      std::os::windows::fs::symlink_dir(contents, link).unwrap();
-    } else if target.is_file() {
-      std::os::windows::fs::symlink_file(contents, link).unwrap();
-    } else {
-      panic!(
-        "unsupported file type for paths: contents: `{}`, link: `{}`",
-        contents.as_ref().display(),
-        link.as_ref().display(),
-      );
-    }
-  }
-}
-
-#[test]
-fn configure_port() {
-  let free_port = {
-    TcpListener::bind("127.0.0.1:0")
-      .unwrap()
-      .local_addr()
-      .unwrap()
-      .port()
-  };
-
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--address=localhost".into(),
-    "--directory=www".into(),
-    "--http-port".into(),
-    free_port.to_string().into(),
-  ];
-  let www = environment.working_directory.join("www");
-  std::fs::create_dir(&www).unwrap();
-
-  test_with_environment(&mut environment, |_| async move {
-    assert_eq!(
-      reqwest::get(format!("http://localhost:{}", free_port))
-        .await
-        .unwrap()
-        .status(),
-      200
-    )
-  });
-}
-
-#[test]
-fn server_aborts_when_directory_does_not_exist() {
-  let mut environment = Environment::test();
-
-  tokio::runtime::Builder::new_multi_thread()
-    .enable_all()
-    .build()
-    .unwrap()
-    .block_on(
-      async {
-        #![allow(clippy::unused_unit)]
-        let error = Server::setup(&mut environment).await.err().unwrap();
-        guard_unwrap!(let Error::FilesystemIo { .. } = error);
-      },
-    );
-}
-
-#[test]
-fn configure_source_directory() {
-  let mut environment = Environment::test();
-  environment.arguments = vec![
-    "agora".into(),
-    "--address=localhost".into(),
-    "--http-port=0".into(),
-    "--directory=src".into(),
-  ];
-
-  let src = environment.working_directory.join("src");
-  fs::create_dir(&src).unwrap();
-  fs::write(src.join("foo.txt"), "hello").unwrap();
-
-  test_with_environment(&mut environment, |context| async move {
-    assert_contains(&text(context.files_url()).await, "foo.txt");
-
-    let file_contents = text(&context.files_url().join("foo.txt").unwrap()).await;
-    assert_eq!(file_contents, "hello");
-  });
 }
 
 #[test]
@@ -139,28 +45,6 @@ fn serves_https_requests_with_cert_from_cache_directory() {
         .unwrap();
       let body = response.text().await.unwrap();
       assert_eq!(body, "encrypted content");
-    },
-  );
-}
-
-#[test]
-fn creates_cert_cache_directory_if_it_doesnt_exist() {
-  test_with_arguments(
-    &[
-      "--acme-cache-directory",
-      "cache-directory",
-      "--https-port=0",
-      "--acme-domain=localhost",
-    ],
-    |context| async move {
-      let cache_directory = context.working_directory().join("cache-directory");
-      for _ in 0..100 {
-        if cache_directory.is_dir() {
-          return;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-      }
-      panic!("Cache directory not created after ten seconds");
     },
   );
 }
@@ -193,6 +77,26 @@ fn redirects_requests_from_port_80_to_443() {
       assert_eq!(body, "encrypted content");
     },
   );
+}
+
+fn symlink(contents: impl AsRef<Path>, link: impl AsRef<Path>) {
+  #[cfg(unix)]
+  std::os::unix::fs::symlink(contents, link).unwrap();
+  #[cfg(windows)]
+  {
+    let target = link.as_ref().parent().unwrap().join(&contents);
+    if target.is_dir() {
+      std::os::windows::fs::symlink_dir(contents, link).unwrap();
+    } else if target.is_file() {
+      std::os::windows::fs::symlink_file(contents, link).unwrap();
+    } else {
+      panic!(
+        "unsupported file type for paths: contents: `{}`, link: `{}`",
+        contents.as_ref().display(),
+        link.as_ref().display(),
+      );
+    }
+  }
 }
 
 #[test]
