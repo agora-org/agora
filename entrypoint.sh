@@ -1,13 +1,5 @@
 #!/bin/bash
 
-echo '$LND_RPC_AUTHORITY'
-echo $LND_RPC_AUTHORITY
-
-pwd
-ls -l .
-
-echo '$FILES_DIR'
-echo $FILES_DIR
 
 # if lnd enabled, attempt to connect
 if [[ ! -z "${LND_RPC_AUTHORITY}" ]]
