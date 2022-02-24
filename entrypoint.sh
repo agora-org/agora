@@ -15,5 +15,5 @@ then
     exec agora --directory $FILES_DIR --http-port $AGORA_PORT --lnd-rpc-authority $LND_RPC_AUTHORITY --lnd-rpc-cert-path .lnd/tls.cert --lnd-rpc-macaroon-path .lnd/invoices.macaroon
 # else run simple server
 else
-    exec agora --directory /root/agora-files --http-port $AGORA_PORT
+    exec agora --directory $FILES_DIR --http-port $AGORA_PORT
 fi
