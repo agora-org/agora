@@ -7,7 +7,6 @@ echo $FILES_DIR
 echo $TLS_CERT_PATH
 echo $INVOICES_MACAROON_PATH
 
-sleep 120
 
 # if lnd enabled, attempt to connect
 if [[ ! -z "${LND_RPC_AUTHORITY}" ]]
