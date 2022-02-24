@@ -11,9 +11,9 @@ services:
       - 18332:18332
       - 28334:28334
 
-  lnd_server:
+  lnd:
     image: lnd
-    container_name: lnd_server
+    container_name: lnd
     build:
       context: ../
       dockerfile: docker/lnd/Dockerfile
@@ -21,11 +21,11 @@ services:
       - NETWORK=testnet
       - RPCHOST=bitcoin-core
       - BACKEND=bitcoind
-      - TARGETHOST=lnd_server
+      - TARGETHOST=lnd
     depends_on:
       - "tor-node"
     volumes:
-      - lnd_server_dir:/root/.lnd
+      - lnd_dir:/root/.lnd
       - tor-dir:/var/lib/tor
     links:
       - "bitcoin-core:bitcoin-core"
@@ -50,26 +50,28 @@ services:
       context: ../
       dockerfile: Dockerfile
     depends_on:
-      - "lnd_server"
+      - "lnd"
     environment:
-      - LND_RPC_AUTHORITY=
+      - LND_RPC_AUTHORITY=lnd:10009
       - AGORA_PORT=1234
       - FILES_DIR=/root/agora-files
+      - TLS_CERT_PATH=/root/.lnd/tls.cert
+      - INVOICES_MACAROON_PATH=/root/.lnd/data/chain/bitcoin/testnet/invoice.macaroon
     volumes:
-      - lnd_server_dir:/root/.lnd
+      - lnd_dir:/root/.lnd
       - agora_files_dir:/root/agora-files
     ports:
       - 1234:1234
       - 1235:1235
     links:
       - "bitcoin-core:bitcoin-core"
-      - "lnd_server:lnd"
+      - "lnd:lnd"
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
     entrypoint: ["./entrypoint.sh"]
 
 volumes:
-  lnd_server_dir:
+  lnd_dir:
     driver: local
   tor-dir:
     driver: local
