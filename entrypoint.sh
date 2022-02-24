@@ -1,13 +1,6 @@
 #!/bin/bash
 
 
-echo $LND_RPC_AUTHORITY
-echo $AGORA_PORT
-echo $FILES_DIR
-echo $TLS_CERT_PATH
-echo $INVOICES_MACAROON_PATH
-
-
 # if lnd enabled, attempt to connect
 if [[ ! -z "${LND_RPC_AUTHORITY}" ]]
 then

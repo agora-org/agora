@@ -56,6 +56,51 @@ Inside the checked out repository, running `cargo build --release` will build `a
 
 From within the repository, you can also run, e.g., `cargo install --locked --path . --root /usr/local`, which will copy `agora` to `/usr/local/bin/agora`.
 
+## Running with Docker
+
+The `agora` Docker image can be pulled from `TBD`.
+
+### Building Agora Docker Image
+
+The Docker image can also be built directly from within the repository.
+
+Building the image:
+```bash
+docker build --tag agora:latest .
+```
+
+### Running Agora in Docker
+
+The Docker image can used to serve files from your host machine, and connect to your existing LND node.
+
+To run `agora` with a local directory `~/my-files`:
+```bash
+docker run \
+--network="host" \
+-e FILES_DIR=/files \
+-e AGORA_PORT=8080 \
+-e LND_RPC_AUTHORITY=localhost:10009 \
+-e TLS_CERT_PATH=/.lnd/tls.cert \
+-e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
+-v ~/my-files:/files \
+-v ~/.lnd:/.lnd \
+agora:latest
+```
+
+To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `.lnd`).
+```bash
+docker run \
+--network="host" \
+-e FILES_DIR=/files \
+-e AGORA_PORT=8080 \
+-e LND_RPC_AUTHORITY=localhost:10009 \
+-e TLS_CERT_PATH=/.lnd/tls.cert \
+-e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
+-v ~/my-files:/files \
+-v ~/.lnd:/.lnd \
+agora:latest
+```
+
 ## Releases Notifications
 
 To receive release notifications on GitHub, you can watch this repository with [custom notification settings](https://docs.github.com/en/github/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications#configuring-your-watch-settings-for-an-individual-repository).
