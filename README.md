@@ -83,7 +83,7 @@ docker run \
 agora:latest
 ```
 
-To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `.lnd`).
+To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `~/.lnd`).
 ```bash
 docker run \
 --network="host" \
