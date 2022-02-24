@@ -1,7 +1,5 @@
 FROM rust:1.56 AS builder
 
-WORKDIR /
-
 WORKDIR /app
 
 COPY . ./
