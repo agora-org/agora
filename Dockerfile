@@ -13,9 +13,6 @@ FROM ubuntu AS final
 
 COPY --from=builder /app/target/release/agora /usr/local/bin/agora
 
-EXPOSE 1234
-EXPOSE 1235
-
 # Make sure we use the virtualenv:
 ENV PATH="/usr/local/bin:$PATH"
 
