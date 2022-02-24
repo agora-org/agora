@@ -79,11 +79,7 @@ docker run \
 --network="host" \
 -e FILES_DIR=/files \
 -e AGORA_PORT=8080 \
--e LND_RPC_AUTHORITY=localhost:10009 \
--e TLS_CERT_PATH=/.lnd/tls.cert \
--e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
 -v ~/my-files:/files \
--v ~/.lnd:/.lnd \
 agora:latest
 ```
 
