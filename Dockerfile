@@ -15,4 +15,7 @@ ENV PATH="/usr/local/bin:$PATH"
 COPY "entrypoint.sh" .
 RUN chmod +x entrypoint.sh
 
+COPY "wait-for-it.sh" .
+RUN chmod +x wait-for-it.sh
+
 CMD ["./entrypoint.sh"]
