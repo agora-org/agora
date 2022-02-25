@@ -58,7 +58,7 @@ From within the repository, you can also run, e.g., `cargo install --locked --pa
 
 ## Running with Docker
 
-The `agora` Docker image can be pulled from [ghcr](pkgs/container/agora).
+The `agora` Docker image can be pulled from [ghcr](/../../pkgs/container/agora).
 
 
 ### Building Agora Docker Image
