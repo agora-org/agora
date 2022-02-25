@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Abort on any error (including if wait-for-it fails).
-set -e
-
-# Wait for LND to be up, if we know where it is.
-if [[ ! -z "${LND_RPC_AUTHORITY}" ]]; then
-    ./wait-for-it.sh "$LND_RPC_AUTHORITY"
-fi
 
 # if lnd enabled, attempt to connect
 if [[ ! -z "${LND_RPC_AUTHORITY}" ]]
