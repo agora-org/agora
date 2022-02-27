@@ -2,8 +2,7 @@
 
 
 # if lnd enabled, attempt to connect
-if [[ ! -z "${LND_RPC_AUTHORITY}" ]]
-then
+if [[ ! -z "${LND_RPC_AUTHORITY}" ]]; then
     exec agora \
 	 --directory $FILES_DIR \
 	 --http-port $AGORA_PORT \
