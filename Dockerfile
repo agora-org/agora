@@ -6,7 +6,7 @@ COPY . ./
 
 RUN cargo build --release
 
-FROM debian:buster-slim AS final
+FROM debian:buster-slim
 
 COPY --from=builder /app/target/release/agora /usr/local/bin/agora
 
