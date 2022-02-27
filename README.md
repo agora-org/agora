@@ -77,11 +77,11 @@ The Docker image can used to serve files from your host machine, and connect to 
 To run `agora` with a local directory `~/my-files`:
 ```bash
 docker run \
---network="host" \
--e FILES_DIR=/files \
--e AGORA_PORT=8080 \
--v ~/my-files:/files \
-agora:latest
+  --network="host" \
+  -e FILES_DIR=/files \
+  -e AGORA_PORT=8080 \
+  -v ~/my-files:/files \
+  agora:latest
 ```
 
 To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `~/.lnd`).
