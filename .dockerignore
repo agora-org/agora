@@ -1,7 +1,6 @@
-/target/
-/.git/
-.github/
+target
+Dockerfile
+.dockerignore
+.git
 .gitignore
-/tests/
-README.md
-/example-files/
+example-files
