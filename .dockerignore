@@ -1,6 +1,6 @@
-target
-Dockerfile
-.dockerignore
-.git
-.gitignore
-example-files
+/.dockerignore
+/.git
+/.gitignore
+/Dockerfile
+/example-files
+/target
