@@ -87,15 +87,15 @@ docker run \
 To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `~/.lnd`).
 ```bash
 docker run \
---network="host" \
--e FILES_DIR=/files \
--e AGORA_PORT=8080 \
--e LND_RPC_AUTHORITY=localhost:10009 \
--e TLS_CERT_PATH=/.lnd/tls.cert \
--e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
--v ~/my-files:/files \
--v ~/.lnd:/.lnd \
-agora:latest
+  --network="host" \
+  -e FILES_DIR=/files \
+  -e AGORA_PORT=8080 \
+  -e LND_RPC_AUTHORITY=localhost:10009 \
+  -e TLS_CERT_PATH=/.lnd/tls.cert \
+  -e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
+  -v ~/my-files:/files \
+  -v ~/.lnd:/.lnd \
+  agora:latest
 ```
 
 ## Releases Notifications
