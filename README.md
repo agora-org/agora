@@ -15,6 +15,7 @@ Public Agora instances:
 
 - [agora.download](https://agora.download): Development instance on mainnet
 - [test.agora.download](https://test.agora.download): Development instances on testnet
+- [tmcalh6tjskfmnjsipi4tqlzcr4ltracuup6gp4vkyi4e5s42ooef2yd.onion](http://tmcalh6tjskfmnjsipi4tqlzcr4ltracuup6gp4vkyi4e5s42ooef2yd.onion): Instance belonging to @yzernik (accessible over Tor)
 - Open an issue or submit a PR if you run an Agora instance and would like to add it to list!
 
 Agora is free software developed by [@casey](https://github.com/casey/)
