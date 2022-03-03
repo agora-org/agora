@@ -221,7 +221,7 @@ impl Files {
       _ => {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         let filename = invoice.memo;
-        Ok(html::wrap_body(
+        let mut response = html::wrap_body(
           &format!("Invoice for {}", filename),
           html! {
             div class="invoice" {
@@ -277,7 +277,9 @@ impl Files {
               }
             }
           },
-        ))
+        );
+        *response.status_mut() = StatusCode::PAYMENT_REQUIRED;
+        Ok(response)
       }
     }
   }

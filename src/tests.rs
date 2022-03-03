@@ -14,14 +14,28 @@ mod browser_tests;
 #[cfg(feature = "slow-tests")]
 mod slow_tests;
 
-async fn get(url: &reqwest::Url) -> reqwest::Response {
+async fn get_with_status(url: &reqwest::Url, status_code: reqwest::StatusCode) -> reqwest::Response {
   let response = reqwest::get(url.clone()).await.unwrap();
-  assert_eq!(response.status(), reqwest::StatusCode::OK);
+  assert_eq!(response.status(), status_code);
   response
+}
+
+async fn get(url: &reqwest::Url) -> reqwest::Response {
+  get_with_status(url, reqwest::StatusCode::OK).await
+}
+
+#[cfg(feature = "slow-tests")]
+async fn get_payment_required(url: &reqwest::Url) -> reqwest::Response {
+  get_with_status(url, reqwest::StatusCode::PAYMENT_REQUIRED).await
 }
 
 async fn text(url: &reqwest::Url) -> String {
   get(url).await.text().await.unwrap()
+}
+
+#[cfg(feature = "slow-tests")]
+async fn text_payment_required(url: &reqwest::Url) -> String {
+  get_payment_required(url).await.text().await.unwrap()
 }
 
 #[test]

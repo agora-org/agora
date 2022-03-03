@@ -13,8 +13,8 @@ use {
   std::path::MAIN_SEPARATOR,
 };
 
-async fn html(url: &Url) -> Html {
-  Html::parse_document(&text(url).await)
+async fn html_payment_required(url: &Url) -> Html {
+  Html::parse_document(&text_payment_required(url).await)
 }
 
 fn css_select<'a>(html: &'a Html, selector: &'a str) -> Vec<ElementRef<'a>> {
@@ -78,7 +78,7 @@ fn invoice_url_serves_bech32_encoded_invoice() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write("foo", "");
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
-    let html = html(&context.files_url().join("foo").unwrap()).await;
+    let html = html_payment_required(&context.files_url().join("foo").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.text().collect::<String>();
     assert_contains(&payment_request, "lnbcrt1");
@@ -93,7 +93,7 @@ fn invoice_url_contains_filename() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("test-filename", "");
-    let html = html(&context.files_url().join("test-filename").unwrap()).await;
+    let html = html_payment_required(&context.files_url().join("test-filename").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".invoice").as_slice());
     assert_contains(&payment_request.inner_html(), "test-filename");
   });
@@ -104,7 +104,7 @@ fn invoice_title_contains_the_word_invoice() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("test-filename", "");
-    let text = text(&context.files_url().join("test-filename").unwrap()).await;
+    let text = text_payment_required(&context.files_url().join("test-filename").unwrap()).await;
     assert_contains(&text, "<title>Invoice for test-filename · Agora</title>");
   });
 }
@@ -139,7 +139,7 @@ fn invoice_url_links_to_qr_code() {
   test_with_lnd(&receiver.clone(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("test-filename", "precious content");
-    let response = get(&context.files_url().join("test-filename").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("test-filename").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[qr_code] = css_select(&html, "img.qr-code").as_slice());
@@ -170,7 +170,7 @@ fn paying_invoice_allows_downloading_file() {
   test_with_lnd(&receiver.clone(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("foo", "precious content");
-    let response = get(&context.files_url().join("foo").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("foo").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
@@ -191,7 +191,7 @@ fn allows_configuring_invoice_amount() {
     use lightning_invoice::Invoice;
     context.write(".agora.yaml", "{paid: true, base-price: 1234 sat}");
     context.write("foo", "precious content");
-    let response = get(&context.files_url().join("foo").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("foo").unwrap()).await;
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[invoice_element] = css_select(&html, ".invoice").as_slice());
     assert_contains(&invoice_element.inner_html(), "1,234 satoshis");
@@ -290,7 +290,7 @@ fn inherits_access_configuration() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write("dir/foo", "");
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
-    let response = get(&context.files_url().join("dir/foo").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("dir/foo").unwrap()).await;
     let regex = Regex::new(r"^/files/dir/foo\?invoice=[a-f0-9]{64}$").unwrap();
     let path_and_query = format!(
       "{}?{}",
@@ -312,7 +312,7 @@ fn relative_links_in_paid_files() {
     context.write("free.txt", "content");
     context.write("paid/.agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("paid/file.html", r#"<a href="../free.txt">link</a>"#);
-    let response = get(&context.files_url().join("paid/file.html").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("paid/file.html").unwrap()).await;
     let invoice_url = response.url().clone();
 
     let html = Html::parse_document(&response.text().await.unwrap());
@@ -335,7 +335,7 @@ fn relative_links_in_paid_files() {
 #[test]
 fn request_path_must_match_invoice_path() {
   async fn assert_bad_request(context: &TestContext, url_path: &str) {
-    let response = get(&context.files_url().join("exists").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("exists").unwrap()).await;
     let mut bad_url = response.url().clone();
     bad_url.set_path(url_path);
     let response = reqwest::get(bad_url).await.unwrap();
@@ -351,7 +351,7 @@ fn request_path_must_match_invoice_path() {
     assert_bad_request(&context, "/files/does-not-exist").await;
     assert_bad_request(&context, "/files/also-exists").await;
 
-    let html = html(&context.files_url().join("exists").unwrap()).await;
+    let html = html_payment_required(&context.files_url().join("exists").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.text().collect::<String>();
     receiver.fulfill_own_payment_request(&payment_request).await;
@@ -376,7 +376,7 @@ fn payment_request_memo_decodes_percent() {
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
     context.write("file.with.dots", "");
-    let html = html(&context.files_url().join("file%2Ewith%2Edots").unwrap()).await;
+    let html = html_payment_required(&context.files_url().join("file%2Ewith%2Edots").unwrap()).await;
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.text().collect::<String>();
     let invoice = payment_request.parse::<Invoice>().unwrap();
@@ -397,7 +397,7 @@ fn filenames_with_percent_encoding() {
 
     let sender = receiver.create_sender().await;
 
-    let response = get(&context.files_url().join("foo%2520bar").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("foo%2520bar").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
@@ -406,7 +406,7 @@ fn filenames_with_percent_encoding() {
     let contents = text(&invoice_url).await;
     assert_eq!(contents, "contents");
 
-    let response = get(&context.files_url().join("%2580").unwrap()).await;
+    let response = get_payment_required(&context.files_url().join("%2580").unwrap()).await;
     let invoice_url = response.url().clone();
     let html = Html::parse_document(&response.text().await.unwrap());
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
