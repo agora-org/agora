@@ -1,0 +1,26 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>agora</title><link rel="stylesheet" href="../../../static/index.css"><script type="module" src="../../../static/index.js"></script></head><body><main><ul class="listing"></ul><div><h1>Agora Version 0.1.0 Release</h1>
+<p><em><strong>TL;DR</strong> Agora is tool for running web stores that accept Lightning Network payments for downloads. We just released a new version with lots of nice features and polish. <a href="https://github.com/agora-org/agora">Try it out</a> and <a href="https://t.me/agoradiscussion">let us know what you think</a>.</em></p>
+<p>We're proud to announce the release of Agora v0.1.0. You can download it <a href="https://github.com/agora-org/agora/releases/">here</a>. Agora is a web server that allows you to host files and accept Lighting Network payments for downloads. We <a href="http://localhost:8080/files/blog/mvp.html">released an MVP a few months ago</a> with the core functionality, and since then we've been busy adding features and improving existing functionality.</p>
+<p>If you have content that you'd like to sell online, or you want to run a web store for others to sell content, Agora might be for you. Our <a href="https://github.com/agora-org/agora/#readme">readme</a> is probably the best place to start learning more.</p>
+<h2>New Features and Improvements</h2>
+<h3>HTTPS Support with Certificates from Let's Encrypt</h3>
+<p>Agora now supports serving content over HTTPS with SSL certificates automatically fetched from <a href="https://letsencrypt.org/">Let's Encrypt</a>. For this to work all you need is a domain that points to your Agora instance, no need to set up a reverse proxy or manually configure SSL certificates.</p>
+<h3>Index Files</h3>
+<p>If a <code>.index.md</code> file is present in a directory, it will be rendered as HTML and served along with that directory's file listing. For example, this blog post is a rendered <code>.index.md</code> file.</p>
+<h3>Invoice Page Improvements</h3>
+<p>We've made a number of improvements to invoice pages. Invoice pages now include:</p>
+<ul>
+<li>The payment request encoded as a QR code.</li>
+<li>A button to copy the payment request to the clipboard.</li>
+<li>A link to open the payment request in a Lightning wallet running on the same device.</li>
+</ul>
+<h3>Per-directory File Prices</h3>
+<p>The price of files can now be set on a per-directory basis, with subdirectories inheriting the configuration of parent directories.</p>
+<h3>Trophies</h3>
+<p>If you'd like to support the project, or just see what it's like to buy files from an Agora instance, head to our <a href="../../trophies/index.html">trophies folder</a>, where we host a few files of our own.</p>
+<h2>Try it out!</h2>
+<p>You can learn more about Agora from our <a href="https://github.com/agora-org/agora/#readme">readme</a> or download the latest release <a href="https://github.com/agora-org/agora/releases/">here</a>. We'd love to get feedback on the setup process, feature requests, and bug reports, so feel free to reach out to us on <a href="https://github.com/agora-org/agora/issues/new">GitHub</a> or <a href="https://t.me/agoradiscussion">Telegram</a>.</p>
+<h2>Sell Content</h2>
+<p>If you have content that you'd like to sell on our Agora instance, <a href="../../../index.html">agora.download</a>, reach out to us on <a href="https://t.me/agoradiscussion">Telegram</a>.</p>
+<p><small>Casey Rodarmor, 10/13/2021</small></p>
+</div></main><footer>Powered by <a href="https://github.com/agora-org/agora">Agora</a>. Have questions? Join us on <a href="https://t.me/agoradiscussion">Telegram</a>.</footer></body></html>

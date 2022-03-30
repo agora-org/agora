@@ -11,11 +11,9 @@
 For example, you can point it at a directory full of PDFs, allowing users to browse and view the PDFs in their web browser.
 If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) node, it can be configured to require [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network) payments for downloads.
 
-Public Agora instances:
+A static snapshot of our (decommissioned) test instance is available [here](https://agora-org.github.io/agora/).
 
-- [agora.download](https://agora.download): Development instance on mainnet
-- [test.agora.download](https://test.agora.download): Development instances on testnet
-- Open an issue or submit a PR if you run an Agora instance and would like to add it to list!
+Open an issue or submit a PR if you run an Agora instance and would like it to appear in this readme!
 
 Agora is free software developed by [@casey](https://github.com/casey/)
 and [@soenkehahn](https://github.com/soenkehahn/).
@@ -169,12 +167,6 @@ base-price: null
 
 `agora` serves directory file listings.
 If a `.index.md` file is present in a directory, `agora` will render the contained Markdown as HTML and include it with the file listing. `agora` expects Commonmark Markdown, extended with footnotes, [strikethrough](https://github.github.com/gfm/#strikethrough-extension-), [tables](https://github.github.com/gfm/#tables-extension-), and [task lists](https://github.github.com/gfm/#task-list-items-extension-).
-
-## Development Agora Instances
-
-There are Agora instances accessible at [agora.download](http://agora.download) and [test.agora.download](http://test.agora.download).
-[agora.download](http://agora.download) operates on the Bitcoin mainnet, and the invoices it generates can be paid with any **mainnet** Lightning Network wallet.
-[http://test.agora.download](http://test.agora.download) operates on the Bitcoin testnet, and the invoices it generates can only be paid with a **testnet** Lightning Network wallet, for example, [htlc.me](https://htlc.me/).
 
 ## Buying Files from an Agora Instance
 
