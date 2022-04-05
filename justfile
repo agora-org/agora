@@ -75,3 +75,13 @@ open:
   else
     open http://localhost:8080
   fi
+
+scrape-website:
+  wget \
+    --adjust-extension \
+    --convert-links \
+    --directory-prefix docs \
+    --mirror \
+    --no-host-directories \
+    --page-requisites \
+    https://agora.download/
