@@ -13,6 +13,7 @@ If `agora` is connected to an [LND](https://github.com/lightningnetwork/lnd) nod
 
 A static snapshot of our (decommissioned) test instance is available [here](https://agora-org.github.io/agora/).
 
+- [tmcalh6tjskfmnjsipi4tqlzcr4ltracuup6gp4vkyi4e5s42ooef2yd.onion](http://tmcalh6tjskfmnjsipi4tqlzcr4ltracuup6gp4vkyi4e5s42ooef2yd.onion): [@yzernik's](https://github.com/yzernik) instance, accessible over Tor
 Open an issue or submit a PR if you run an Agora instance and would like it to appear in this readme!
 
 Agora is free software developed by [@casey](https://github.com/casey/)
