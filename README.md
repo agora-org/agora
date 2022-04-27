@@ -19,12 +19,6 @@ Public Agora instances:
 
 Agora is free software developed by [@casey](https://github.com/casey/)
 and [@soenkehahn](https://github.com/soenkehahn/).
-Donations are greatly appreciated,
-our Bitcoin donation address is:
-
-```
-bc1qpyg4schsrglnunrcc74rkd7xam22xvf9v0yk0y
-```
 
 ## Support, Feedback, and Discussion
 
