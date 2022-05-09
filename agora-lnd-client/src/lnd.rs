@@ -1,7 +1,6 @@
 use {
   crate::https_service::HttpsService,
   crate::millisatoshi::Millisatoshi,
-  crate::invoice::LightningInvoice,
   http::uri::Authority,
   lnrpc::{
     lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
@@ -25,12 +24,13 @@ use {lnd_test_context::LndTestContext, std::sync::Arc};
 
 pub mod lnrpc {
   use crate::millisatoshi::Millisatoshi;
+  use crate::invoice::LightningInvoice;
   use std::convert::TryInto;
 
   tonic::include_proto!("lnrpc");
 
-  impl Invoice {
-    pub fn value_msat(&self) -> Millisatoshi {
+  impl LightningInvoice for Invoice {
+    fn value_msat(&self) -> Millisatoshi {
       Millisatoshi::new(
         self
           .value_msat
@@ -39,7 +39,7 @@ pub mod lnrpc {
       )
     }
 
-    pub fn is_settled(&self) -> bool {
+    fn is_settled(&self) -> bool {
 	self.state() == invoice::InvoiceState::Settled
     }
 
@@ -59,46 +59,6 @@ impl Interceptor for MacaroonInterceptor {
     Ok(request)
   }
 }
-
-
-// struct LndInvoice { invoice: agora_lnd_client::lnrpc::invoice::Invoice }
-
-// impl LndInvoice {
-//     fn new(name: &'static str) -> LndInvoice {
-//         Sheep { name: name, naked: false }
-//     }
-
-//     fn state(&self) -> &'static str {
-//         self.invoice.state();
-//     }
-// }
-
-// // Implement the `LightningInvoice` trait for `LndInvoice`.
-// impl LightningInvoice for LndInvoice {
-
-//     fn is_settled(&self) -> bool {
-// 	invoice.state() {
-//       InvoiceState::Settled
-//     }
-
-//     fn name(&self) -> &'static str {
-//         self.name
-//     }
-
-//     fn noise(&self) -> &'static str {
-//         if self.is_naked() {
-//             "baaaaah?"
-//         } else {
-//             "baaaaah!"
-//         }
-//     }
-
-//     // Default trait methods can be overridden.
-//     fn talk(&self) {
-//         // For example, we can add some quiet contemplation.
-//         println!("{} pauses briefly... {}", self.name, self.noise());
-//     }
-// }
 
 
 #[derive(Debug, Clone)]
