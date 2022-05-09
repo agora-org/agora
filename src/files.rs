@@ -215,12 +215,10 @@ impl Files {
 
     let value = invoice.value_msat();
     // TODO: Use custom trait for Invoice with settled function.
-    match invoice.is_settled() {
-      true => {
+    if invoice.is_settled() {
         let path = self.vfs.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
-      }
-      _ => {
+    } else {
         let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
         let filename = invoice.memo;
         Ok(html::wrap_body(
@@ -282,7 +280,6 @@ impl Files {
         ))
       }
     }
-  }
 
   pub(crate) async fn serve_invoice_qr_code(
     &mut self,
