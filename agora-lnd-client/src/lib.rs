@@ -104,6 +104,7 @@
 mod https_service;
 mod millisatoshi;
 mod lnd;
+mod invoice;
 
 
 pub use millisatoshi::Millisatoshi;
