@@ -1,6 +1,6 @@
 use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
-  agora_lnd_client::lnrpc::invoice::InvoiceState,
+  // agora_lnd_client::lnrpc::invoice::InvoiceState,
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
 };
@@ -213,8 +213,9 @@ impl Files {
     }
 
     let value = invoice.value_msat();
-    match invoice.state() {
-      InvoiceState::Settled => {
+    // TODO: Use custom trait for Invoice with settled function.
+    match invoice.settled() {
+      true => {
         let path = self.vfs.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
       }
