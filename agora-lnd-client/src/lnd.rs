@@ -17,11 +17,6 @@ use {
 #[cfg(test)]
 use {lnd_test_context::LndTestContext, std::sync::Arc};
 
-// pub use millisatoshi::Millisatoshi;
-
-//mod https_service;
-//mod millisatoshi;
-
 pub mod lnrpc {
   use crate::millisatoshi::Millisatoshi;
   use crate::invoice::LightningInvoice;
