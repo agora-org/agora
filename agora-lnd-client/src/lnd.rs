@@ -19,7 +19,7 @@ use {lnd_test_context::LndTestContext, std::sync::Arc};
 
 pub mod lnrpc {
   use crate::millisatoshi::Millisatoshi;
-  use crate::invoice::LightningInvoice;
+  use crate::LightningInvoice;
   use std::convert::TryInto;
 
   tonic::include_proto!("lnrpc");

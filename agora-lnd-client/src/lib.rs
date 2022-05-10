@@ -1,8 +1,13 @@
 mod https_service;
 mod millisatoshi;
 mod lnd;
-mod invoice;
 
 pub use millisatoshi::Millisatoshi;
 pub use lnd::Client;
-pub use invoice::LightningInvoice;
+
+
+pub trait LightningInvoice {
+    fn value_msat(&self) -> Millisatoshi;
+
+    fn is_settled(&self) -> bool;
+}
