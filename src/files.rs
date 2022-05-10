@@ -1,6 +1,5 @@
 use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
-  // agora_lnd_client::lnrpc::invoice::InvoiceState,
   agora_lnd_client::LightningInvoice,
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
