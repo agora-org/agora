@@ -213,7 +213,6 @@ impl Files {
     }
 
     let value = invoice.value_msat();
-    // TODO: Use custom trait for Invoice with settled function.
     if invoice.is_settled() {
         let path = self.vfs.file_path(&invoice.memo)?;
         Self::serve_file(&path).await
