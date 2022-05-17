@@ -1,6 +1,7 @@
 use {
   crate::https_service::HttpsService,
   crate::millisatoshi::Millisatoshi,
+  crate::LightningError,
   http::uri::Authority,
   lnrpc::{
     lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
@@ -56,6 +57,13 @@ impl Interceptor for MacaroonInterceptor {
 }
 
 
+impl From<Status> for LightningError {
+    fn from(_: Status) -> Self {
+        LightningError
+    }
+}
+
+
 #[derive(Debug, Clone)]
 pub struct Client {
   inner: LightningClient<InterceptedService<HttpsService, MacaroonInterceptor>>,
@@ -87,7 +95,7 @@ impl Client {
     })
   }
 
-  pub async fn ping(&mut self) -> Result<(), Status> {
+  pub async fn ping(&mut self) -> Result<(), LightningError> {
     let request = tonic::Request::new(ListInvoiceRequest {
       index_offset: 0,
       num_max_invoices: 0,
@@ -104,7 +112,7 @@ impl Client {
     &mut self,
     memo: &str,
     value_msat: Millisatoshi,
-  ) -> Result<AddInvoiceResponse, Status> {
+  ) -> Result<AddInvoiceResponse, LightningError> {
     let request = tonic::Request::new(Invoice {
       memo: memo.to_owned(),
       value_msat: value_msat.value().try_into().map_err(|source| {
@@ -118,7 +126,7 @@ impl Client {
     Ok(self.inner.add_invoice(request).await?.into_inner())
   }
 
-  pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, Status> {
+  pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, LightningError> {
     let request = tonic::Request::new(PaymentHash {
       r_hash: r_hash.to_vec(),
       ..PaymentHash::default()
@@ -132,7 +140,7 @@ impl Client {
         {
           Ok(None)
         } else {
-          Err(status)
+          Err(LightningError)
         }
       }
     }

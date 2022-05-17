@@ -1,5 +1,6 @@
 use {
   crate::common::*,
+  agora_lnd_client::LightningError,
   color_backtrace::BacktracePrinter,
   snafu::{ErrorCompat, Snafu},
   std::{path::MAIN_SEPARATOR, str::Utf8Error},
@@ -115,7 +116,7 @@ pub(crate) enum Error {
   #[snafu(display("LND RPC call failed: {}", source))]
   LndRpcStatus {
     backtrace: Backtrace,
-    source: tonic::Status,
+    source: LightningError,
   },
   #[snafu(display(
     "Payment request `{}` too long for QR code: {}",
