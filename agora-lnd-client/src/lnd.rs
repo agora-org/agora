@@ -2,6 +2,7 @@ use {
   crate::https_service::HttpsService,
   crate::millisatoshi::Millisatoshi,
   crate::LightningError,
+  crate::LightningNodeClient,
   http::uri::Authority,
   lnrpc::{
     lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
@@ -13,6 +14,7 @@ use {
     service::interceptor::{InterceptedService, Interceptor},
     Code, Request, Status,
   },
+  async_trait::async_trait,
 };
 
 #[cfg(test)]
@@ -71,6 +73,23 @@ pub struct Client {
   _lnd_test_context: Arc<LndTestContext>,
 }
 
+#[async_trait]
+impl LightningNodeClient for Client {
+
+  async fn ping(&mut self) -> Result<(), LightningError> {
+    let request = tonic::Request::new(ListInvoiceRequest {
+      index_offset: 0,
+      num_max_invoices: 0,
+      pending_only: false,
+      reversed: false,
+    });
+
+    self.inner.list_invoices(request).await?;
+
+    Ok(())
+  }
+}
+
 impl Client {
   pub async fn new(
     authority: Authority,
@@ -95,18 +114,18 @@ impl Client {
     })
   }
 
-  pub async fn ping(&mut self) -> Result<(), LightningError> {
-    let request = tonic::Request::new(ListInvoiceRequest {
-      index_offset: 0,
-      num_max_invoices: 0,
-      pending_only: false,
-      reversed: false,
-    });
+  // pub async fn ping(&mut self) -> Result<(), LightningError> {
+  //   let request = tonic::Request::new(ListInvoiceRequest {
+  //     index_offset: 0,
+  //     num_max_invoices: 0,
+  //     pending_only: false,
+  //     reversed: false,
+  //   });
 
-    self.inner.list_invoices(request).await?;
+  //   self.inner.list_invoices(request).await?;
 
-    Ok(())
-  }
+  //   Ok(())
+  // }
 
   pub async fn add_invoice(
     &mut self,

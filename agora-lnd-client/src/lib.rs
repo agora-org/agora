@@ -5,6 +5,7 @@ mod lnd;
 pub use millisatoshi::Millisatoshi;
 pub use lnd::Client;
 
+use async_trait::async_trait;
 use std::fmt;
 use std::error::Error;
 
@@ -32,4 +33,12 @@ impl Error for LightningError {
 	// TODO: replace with actual description from error status.
         &"failed lightning node request"
     }
+}
+
+
+#[async_trait]
+pub trait LightningNodeClient {
+
+    async fn ping(&mut self) -> Result<(), LightningError>;
+
 }
