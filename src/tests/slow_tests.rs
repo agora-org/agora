@@ -198,7 +198,7 @@ fn allows_configuring_invoice_amount() {
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.text().collect::<String>();
     let invoice = payment_request.parse::<Invoice>().unwrap();
-    assert_eq!(invoice.amount_pico_btc().unwrap(), 1234 * 1000 * 10);
+    assert_eq!(invoice.amount_milli_satoshis().unwrap(), 1234 * 1000);
   });
 }
 
