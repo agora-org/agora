@@ -2,10 +2,12 @@ use {
   crate::https_service::HttpsService,
   crate::millisatoshi::Millisatoshi,
   crate::LightningError,
+  crate::LightningInvoice,
+  crate::AddLightningInvoiceResponse,
   crate::LightningNodeClient,
   http::uri::Authority,
   lnrpc::{
-    lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+    lightning_client::LightningClient, Invoice, ListInvoiceRequest, PaymentHash,
   },
   openssl::x509::X509,
   std::convert::TryInto,
@@ -23,6 +25,7 @@ use {lnd_test_context::LndTestContext, std::sync::Arc};
 pub mod lnrpc {
   use crate::millisatoshi::Millisatoshi;
   use crate::LightningInvoice;
+  use crate::AddLightningInvoiceResponse;
   use std::convert::TryInto;
 
   tonic::include_proto!("lnrpc");
@@ -41,7 +44,28 @@ pub mod lnrpc {
 	self.state() == invoice::InvoiceState::Settled
     }
 
+    fn memo(&self) -> &std::string::String {
+	&self.memo
+    }
+
+    fn payment_hash(&self) -> &Vec<u8> {
+        &self.r_hash
+    }
+
+    fn payment_request(&self) -> &std::string::String {
+	&self.payment_request
+    }
+
   }
+
+  impl AddLightningInvoiceResponse for AddInvoiceResponse {
+
+    fn payment_hash(&self) -> &Vec<u8> {
+        &self.r_hash
+    }
+
+  }
+
 }
 
 #[derive(Clone)]
@@ -88,6 +112,45 @@ impl LightningNodeClient for Client {
 
     Ok(())
   }
+
+  async fn add_invoice(
+    &mut self,
+    memo: &str,
+    value_msat: Millisatoshi,
+  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+    let request = tonic::Request::new(Invoice {
+      memo: memo.to_owned(),
+      value_msat: value_msat.value().try_into().map_err(|source| {
+        Status::new(
+          Code::InvalidArgument,
+          format!("invalid value for `value_msat`: {}", source),
+        )
+      })?,
+      ..Invoice::default()
+    });
+    Ok(Box::new(self.inner.add_invoice(request).await?.into_inner()))
+  }
+
+  async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+    let request = tonic::Request::new(PaymentHash {
+      r_hash: r_hash.to_vec(),
+      ..PaymentHash::default()
+    });
+    match self.inner.lookup_invoice(request).await {
+      Ok(response) => Ok(Some(Box::new(response.into_inner()))),
+      Err(status) => {
+        if status.code() == Code::Unknown
+          && (status.message() == "there are no existing invoices"
+            || status.message() == "unable to locate invoice")
+        {
+          Ok(None)
+        } else {
+          Err(LightningError)
+        }
+      }
+    }
+  }
+
 }
 
 impl Client {
@@ -127,43 +190,43 @@ impl Client {
   //   Ok(())
   // }
 
-  pub async fn add_invoice(
-    &mut self,
-    memo: &str,
-    value_msat: Millisatoshi,
-  ) -> Result<AddInvoiceResponse, LightningError> {
-    let request = tonic::Request::new(Invoice {
-      memo: memo.to_owned(),
-      value_msat: value_msat.value().try_into().map_err(|source| {
-        Status::new(
-          Code::InvalidArgument,
-          format!("invalid value for `value_msat`: {}", source),
-        )
-      })?,
-      ..Invoice::default()
-    });
-    Ok(self.inner.add_invoice(request).await?.into_inner())
-  }
+  // pub async fn add_invoice(
+  //   &mut self,
+  //   memo: &str,
+  //   value_msat: Millisatoshi,
+  // ) -> Result<AddInvoiceResponse, LightningError> {
+  //   let request = tonic::Request::new(Invoice {
+  //     memo: memo.to_owned(),
+  //     value_msat: value_msat.value().try_into().map_err(|source| {
+  //       Status::new(
+  //         Code::InvalidArgument,
+  //         format!("invalid value for `value_msat`: {}", source),
+  //       )
+  //     })?,
+  //     ..Invoice::default()
+  //   });
+  //   Ok(self.inner.add_invoice(request).await?.into_inner())
+  // }
 
-  pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, LightningError> {
-    let request = tonic::Request::new(PaymentHash {
-      r_hash: r_hash.to_vec(),
-      ..PaymentHash::default()
-    });
-    match self.inner.lookup_invoice(request).await {
-      Ok(response) => Ok(Some(response.into_inner())),
-      Err(status) => {
-        if status.code() == Code::Unknown
-          && (status.message() == "there are no existing invoices"
-            || status.message() == "unable to locate invoice")
-        {
-          Ok(None)
-        } else {
-          Err(LightningError)
-        }
-      }
-    }
-  }
+  // pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, LightningError> {
+  //   let request = tonic::Request::new(PaymentHash {
+  //     r_hash: r_hash.to_vec(),
+  //     ..PaymentHash::default()
+  //   });
+  //   match self.inner.lookup_invoice(request).await {
+  //     Ok(response) => Ok(Some(response.into_inner())),
+  //     Err(status) => {
+  //       if status.code() == Code::Unknown
+  //         && (status.message() == "there are no existing invoices"
+  //           || status.message() == "unable to locate invoice")
+  //       {
+  //         Ok(None)
+  //       } else {
+  //         Err(LightningError)
+  //       }
+  //     }
+  //   }
+  // }
 
   #[cfg(test)]
   async fn with_cert(lnd_test_context: LndTestContext, cert: &str) -> Self {

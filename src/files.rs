@@ -1,6 +1,6 @@
 use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
-  agora_lnd_client::LightningInvoice,
+  agora_lnd_client::LightningNodeClient,
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
 };
@@ -168,7 +168,7 @@ impl Files {
     redirect(format!(
       "{}?invoice={}",
       request.uri().path(),
-      hex::encode(invoice.r_hash),
+      hex::encode(invoice.payment_hash()),
     ))
   }
 
@@ -201,10 +201,10 @@ impl Files {
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
 
     let request_tail = request_tail.join("");
-    if request_tail != invoice.memo {
+    if request_tail != *invoice.memo() {
       return Err(
         error::InvoicePathMismatch {
-          invoice_tail: invoice.memo,
+          invoice_tail: invoice.memo(),
           request_tail,
           r_hash,
         }
@@ -214,11 +214,11 @@ impl Files {
 
     let value = invoice.value_msat();
     if invoice.is_settled() {
-        let path = self.vfs.file_path(&invoice.memo)?;
+        let path = self.vfs.file_path(&invoice.memo())?;
         Self::serve_file(&path).await
     } else {
-        let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
-        let filename = invoice.memo;
+        let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash()));
+        let filename = invoice.memo();
         Ok(html::wrap_body(
           &format!("Invoice for {}", filename),
           html! {
@@ -233,15 +233,15 @@ impl Files {
               }
               div class="payment-request"{
                 button class="clipboard-copy" onclick=(
-                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request())
                 ) {
                   (Files::icon("clipboard"))
                 }
-                (invoice.payment_request)
+                (invoice.payment_request())
               }
 
               div class="links" {
-                a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+                a class="payment-link" href={"lightning:" (invoice.payment_request())} {
                   "Open invoice in wallet"
                 }
                 a class="reload-link" href=(request.uri()) {
@@ -297,7 +297,7 @@ impl Files {
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
-    let payment_request = invoice.payment_request.to_uppercase();
+    let payment_request = invoice.payment_request().to_uppercase();
     let qr_code = QrCode::encode_text(&payment_request, QrCodeEcc::Medium)
       .context(error::PaymentRequestTooLongForQrCode { payment_request })?;
     Ok(
