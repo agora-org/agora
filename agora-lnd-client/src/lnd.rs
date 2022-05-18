@@ -91,14 +91,14 @@ impl From<Status> for LightningError {
 
 
 #[derive(Debug, Clone)]
-pub struct Client {
+pub struct LndClient {
   inner: LightningClient<InterceptedService<HttpsService, MacaroonInterceptor>>,
   #[cfg(test)]
   _lnd_test_context: Arc<LndTestContext>,
 }
 
 #[async_trait]
-impl LightningNodeClient for Client {
+impl LightningNodeClient for LndClient {
 
   async fn ping(&mut self) -> Result<(), LightningError> {
     let request = tonic::Request::new(ListInvoiceRequest {
@@ -153,13 +153,13 @@ impl LightningNodeClient for Client {
 
 }
 
-impl Client {
+impl LndClient {
   pub async fn new(
     authority: Authority,
     certificate: Option<X509>,
     macaroon: Option<Vec<u8>>,
     #[cfg(test)] lnd_test_context: LndTestContext,
-  ) -> Result<Client, openssl::error::ErrorStack> {
+  ) -> Result<LndClient, openssl::error::ErrorStack> {
     let grpc_service = HttpsService::new(authority, certificate)?;
 
     let macaroon = macaroon.map(|macaroon| {
@@ -170,7 +170,7 @@ impl Client {
 
     let inner = LightningClient::with_interceptor(grpc_service, MacaroonInterceptor { macaroon });
 
-    Ok(Client {
+    Ok(LndClient {
       inner,
       #[cfg(test)]
       _lnd_test_context: Arc::new(lnd_test_context),

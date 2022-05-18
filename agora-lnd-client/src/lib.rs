@@ -3,7 +3,7 @@ mod millisatoshi;
 mod lnd;
 
 pub use millisatoshi::Millisatoshi;
-pub use lnd::Client;
+pub use lnd::LndClient;
 
 use async_trait::async_trait;
 use std::fmt;

@@ -8,13 +8,13 @@ use {
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   vfs: Vfs,
-  lnd_client: Option<agora_lnd_client::Client>,
+  lnd_client: Option<agora_lnd_client::LndClient>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
-    lnd_client: Option<agora_lnd_client::Client>,
+    lnd_client: Option<agora_lnd_client::LndClient>,
   ) -> Self {
     Self {
       vfs: Vfs::new(base_directory),

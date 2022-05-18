@@ -96,7 +96,7 @@ impl Server {
   async fn setup_lnd_client(
     environment: &mut Environment,
     arguments: &Arguments,
-  ) -> Result<Option<agora_lnd_client::Client>> {
+  ) -> Result<Option<agora_lnd_client::LndClient>> {
     match &arguments.lnd_rpc_authority {
       Some(lnd_rpc_authority) => {
         let lnd_rpc_cert = match &arguments.lnd_rpc_cert_path {
@@ -119,7 +119,7 @@ impl Server {
         };
 
         let mut client =
-          agora_lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+          agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
             .await
             .context(error::LndRpcConnect)?;
 

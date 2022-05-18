@@ -10,7 +10,7 @@ impl RequestHandler {
   pub(crate) fn new(
     environment: &Environment,
     base_directory: &Path,
-    lnd_client: Option<agora_lnd_client::Client>,
+    lnd_client: Option<agora_lnd_client::LndClient>,
   ) -> Self {
     Self {
       stderr: environment.stderr.clone(),

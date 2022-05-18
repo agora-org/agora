@@ -26,7 +26,7 @@ impl HttpsRequestHandler {
     arguments: &Arguments,
     acme_cache_directory: &Path,
     https_port: u16,
-    lnd_client: Option<agora_lnd_client::Client>,
+    lnd_client: Option<agora_lnd_client::LndClient>,
   ) -> Result<HttpsRequestHandler> {
     let request_handler = RequestHandler::new(environment, &arguments.directory, lnd_client);
     let socket_addr = (arguments.address.as_str(), https_port)
