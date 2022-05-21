@@ -136,6 +136,7 @@ name = "agora-lnd-client"
 version = "0.0.2"
 dependencies = [
  "async-trait",
+ "dyn-clone",
  "hex",
  "http",
  "hyper",
@@ -1059,6 +1060,12 @@ checksum = "bde03329ae10e79ede66c9ce4dc930aa8599043b0743008548680f25b91502d6"
 dependencies = [
  "dtoa",
 ]
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e50f3adc76d6a43f5ed73b698a87d0760ca74617f60f7c3b879003536fdd28"
 
 [[package]]
 name = "ego-tree"

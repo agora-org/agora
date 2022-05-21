@@ -22,6 +22,7 @@ regex = "1.5.4"
 tonic = "0.5.2"
 tower = "0.4.8"
 async-trait = "0.1.53"
+dyn-clone = "1.0.5"
 
 [dependencies.openssl]
 version = "0.10.35"

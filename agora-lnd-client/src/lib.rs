@@ -8,6 +8,9 @@ pub use lnd::LndClient;
 use async_trait::async_trait;
 use std::fmt;
 use std::error::Error;
+use core::fmt::Debug;
+
+use dyn_clone::DynClone;
 
 
 pub trait LightningInvoice {
@@ -52,16 +55,25 @@ impl Error for LightningError {
 
 
 #[async_trait]
-pub trait LightningNodeClient {
+pub trait LightningNodeClient: DynClone + Send + Sync + 'static {
 
-    async fn ping(&mut self) -> Result<(), LightningError>;
+    async fn ping(&self) -> Result<(), LightningError>;
 
     async fn add_invoice(
-	&mut self,
+	&self,
 	memo: &str,
 	value_msat: Millisatoshi,
     ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError>;
 
-    async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError>;
+    async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError>;
 
+}
+
+dyn_clone::clone_trait_object!(LightningNodeClient);
+
+
+impl Debug for dyn LightningNodeClient {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Hi")
+    }
 }

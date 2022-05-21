@@ -1,6 +1,5 @@
 use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
-  agora_lnd_client::LightningNodeClient,
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
 };
@@ -8,13 +7,13 @@ use {
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   vfs: Vfs,
-  lnd_client: Option<agora_lnd_client::LndClient>,
+  lnd_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
-    lnd_client: Option<agora_lnd_client::LndClient>,
+    lnd_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
   ) -> Self {
     Self {
       vfs: Vfs::new(base_directory),

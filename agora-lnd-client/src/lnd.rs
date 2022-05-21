@@ -100,7 +100,7 @@ pub struct LndClient {
 #[async_trait]
 impl LightningNodeClient for LndClient {
 
-  async fn ping(&mut self) -> Result<(), LightningError> {
+  async fn ping(&self) -> Result<(), LightningError> {
     let request = tonic::Request::new(ListInvoiceRequest {
       index_offset: 0,
       num_max_invoices: 0,
@@ -108,13 +108,13 @@ impl LightningNodeClient for LndClient {
       reversed: false,
     });
 
-    self.inner.list_invoices(request).await?;
+    self.clone().inner.list_invoices(request).await?;
 
     Ok(())
   }
 
   async fn add_invoice(
-    &mut self,
+    &self,
     memo: &str,
     value_msat: Millisatoshi,
   ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
@@ -128,15 +128,15 @@ impl LightningNodeClient for LndClient {
       })?,
       ..Invoice::default()
     });
-    Ok(Box::new(self.inner.add_invoice(request).await?.into_inner()))
+    Ok(Box::new(self.clone().inner.add_invoice(request).await?.into_inner()))
   }
 
-  async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+  async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
     let request = tonic::Request::new(PaymentHash {
       r_hash: r_hash.to_vec(),
       ..PaymentHash::default()
     });
-    match self.inner.lookup_invoice(request).await {
+    match self.clone().inner.lookup_invoice(request).await {
       Ok(response) => Ok(Some(Box::new(response.into_inner()))),
       Err(status) => {
         if status.code() == Code::Unknown
