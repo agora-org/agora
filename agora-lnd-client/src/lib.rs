@@ -1,11 +1,11 @@
 mod https_service;
 mod millisatoshi;
 mod lnd;
-
 mod core_lightning;
 
 pub use millisatoshi::Millisatoshi;
 pub use lnd::LndClient;
+pub use core_lightning::CoreLightningClient;
 
 use async_trait::async_trait;
 use std::fmt;

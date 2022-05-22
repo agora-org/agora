@@ -89,7 +89,7 @@ impl LightningNodeClient for CoreLightningClient {
           Ok(list_invoices_resp) => {
 	      let invoices = list_invoices_resp.invoices;
 	      let maybe_invoice = invoices.get(0);
-	      let boxed_maybe: Option<Box<dyn LightningInvoice + Send>> = maybe_invoice.map(|inv| Box::new(inv));
+	      let boxed_maybe = maybe_invoice.map(|inv| Box::new(*inv) as _);
 	      future::ok(boxed_maybe)
 	  },
           Err(e) => future::err(LightningError),
