@@ -13,38 +13,73 @@ use {
 };
 
 
-impl LightningInvoice for ListInvoice {
+#[derive(Debug, Clone)]
+pub struct CoreLightningInvoice {
+    pub value_msat: Millisatoshi,
+    pub is_settled: bool,
+    pub memo: std::string::String,
+    pub payment_hash: Vec<u8>,
+    pub payment_request: std::string::String,
+}
+
+
+#[derive(Debug, Clone)]
+pub struct CoreLightningAddInvoiceResult {
+    pub payment_hash: Vec<u8>,
+}
+
+
+impl LightningInvoice for CoreLightningInvoice {
     fn value_msat(&self) -> Millisatoshi {
-	Millisatoshi::new(self.amount_msat.unwrap().0)
+	self.value_msat
     }
 
     fn is_settled(&self) -> bool {
-	self.status == "paid"
+	self.is_settled
     }
 
     fn memo(&self) -> &std::string::String {
-	&self.label
+	&self.memo
     }
 
     fn payment_hash(&self) -> &Vec<u8> {
-        &self.payment_hash.as_bytes().to_vec()
+        &self.payment_hash
     }
 
     fn payment_request(&self) -> &std::string::String {
-	&self.bolt11
+	&self.payment_request
     }
 
 }
 
+impl From<ListInvoice> for CoreLightningInvoice {
+    fn from(item: ListInvoice) -> Self {
+        CoreLightningInvoice {
+	    value_msat: Millisatoshi::new(item.amount_msat.unwrap().0),
+	    is_settled: item.status == "paid",
+	    memo: item.label,
+	    payment_hash: item.payment_hash.as_bytes().to_vec(),
+	    payment_request: item.bolt11,
+	}
+    }
+}
 
-impl AddLightningInvoiceResponse for Invoice {
+
+impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
 
     fn payment_hash(&self) -> &Vec<u8> {
-        &self.payment_hash.as_bytes().to_vec()
+        &self.payment_hash
     }
 
 }
 
+impl From<Invoice> for CoreLightningAddInvoiceResult {
+    fn from(item: Invoice) -> Self {
+        CoreLightningAddInvoiceResult {
+	    payment_hash: item.payment_hash.as_bytes().to_vec(),
+	}
+    }
+}
 
 
 #[derive(Debug, Clone)]
@@ -89,7 +124,8 @@ impl LightningNodeClient for CoreLightningClient {
 
       match invoice_res {
           Ok(invoice_resp) => {
-	      let boxed_invoice = Box::new(invoice_resp) as _;
+	      let cln_added_invoice: CoreLightningAddInvoiceResult = invoice_resp.into();
+	      let boxed_invoice = Box::new(cln_added_invoice) as _;
 	      future::ok(boxed_invoice)
 	  },
           Err(_) => future::err(LightningError),
@@ -109,7 +145,10 @@ impl LightningNodeClient for CoreLightningClient {
           Ok(list_invoices_resp) => {
 	      let invoices = list_invoices_resp.invoices;
 	      let maybe_invoice = invoices.get(0);
-	      let boxed_maybe = maybe_invoice.map(|inv| Box::new(inv.clone()) as _);
+	      let boxed_maybe = maybe_invoice.map(|inv| {
+		  let cln_invoice: CoreLightningInvoice = inv.clone().into();
+		  Box::new(cln_invoice) as _
+	      });
 	      future::ok(boxed_maybe)
 	  },
           Err(_) => future::err(LightningError),

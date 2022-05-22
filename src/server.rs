@@ -1,6 +1,5 @@
 use {
   crate::common::*,
-  agora_lnd_client::LightningNodeClient,
   openssl::x509::X509,
   tower::make::Shared,
 };
