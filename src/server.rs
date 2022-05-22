@@ -96,15 +96,13 @@ impl Server {
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<Option<Box<dyn agora_lnd_client::LightningNodeClient>>> {
-    match &arguments.lnd_rpc_authority {
-      Some(lnd_rpc_authority) => {
 
+    if let Some(lnd_rpc_authority) = &arguments.lnd_rpc_authority {
 	let client = Self::setup_lnd_client(
 	  lnd_rpc_authority.clone(),
 	  &arguments.lnd_rpc_cert_path,
 	  &arguments.lnd_rpc_macaroon_path,
 	).await?;
-
         match client.ping().await.context(error::LndRpcStatus) {
           Err(error) => {
             writeln!(
@@ -123,10 +121,31 @@ impl Server {
             .context(error::StderrWrite)?;
           }
         }
-
         Ok(Some(client))
-      }
-      None => Ok(None),
+    } else if let Some(core_lightning_rpc_file_path) = &arguments.core_lightning_rpc_file_path {
+	let client = Self::setup_core_lightning_client(
+	  core_lightning_rpc_file_path.clone(),
+	).await?;
+        match client.ping().await.context(error::LndRpcStatus) {
+          Err(error) => {
+            writeln!(
+              environment.stderr,
+              "warning: Cannot connect to core-lightning server: {}",
+              error,
+            )
+            .context(error::StderrWrite)?;
+          }
+          Ok(()) => {
+            writeln!(
+              environment.stderr,
+              "Connected to core-lightning serve",
+            )
+            .context(error::StderrWrite)?;
+          }
+        }
+        Ok(Some(client))
+    } else {
+	Ok(None)
     }
   }
 
@@ -158,6 +177,17 @@ impl Server {
           agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
             .await
             .context(error::LndRpcConnect)?;
+
+        Ok(Box::new(client))
+  }
+
+  async fn setup_core_lightning_client(
+    core_lightning_rpc_file_path: PathBuf,
+  ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
+      let my_str = core_lightning_rpc_file_path.into_os_string().into_string().unwrap();
+      let client =
+          agora_lnd_client::CoreLightningClient::new(my_str)
+            .await;
 
         Ok(Box::new(client))
   }
