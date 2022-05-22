@@ -35,7 +35,7 @@ impl Server {
           .acme_cache_directory
           .as_ref()
           .expect("<https-port> requires <acme-cache-directory>");
-        let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+        let lnd_client = Self::setup_lightning_node_client(environment, &arguments).await?;
         let https_request_handler = HttpsRequestHandler::new(
           environment,
           &arguments,
@@ -65,7 +65,7 @@ impl Server {
     arguments: &Arguments,
     http_port: u16,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
-    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
+    let lnd_client = Self::setup_lightning_node_client(environment, arguments).await?;
 
     let socket_addr = (arguments.address.as_str(), http_port)
       .to_socket_addrs()
@@ -93,35 +93,18 @@ impl Server {
     Ok(request_handler)
   }
 
-  async fn setup_lnd_client(
+  async fn setup_lightning_node_client(
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<Option<Box<dyn agora_lnd_client::LightningNodeClient>>> {
     match &arguments.lnd_rpc_authority {
       Some(lnd_rpc_authority) => {
-        let lnd_rpc_cert = match &arguments.lnd_rpc_cert_path {
-          Some(path) => {
-            let pem = tokio::fs::read_to_string(&path)
-              .await
-              .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
-          }
-          None => None,
-        };
 
-        let lnd_rpc_macaroon = match &arguments.lnd_rpc_macaroon_path {
-          Some(path) => Some(
-            tokio::fs::read(&path)
-              .await
-              .context(error::FilesystemIo { path })?,
-          ),
-          None => None,
-        };
-
-        let client =
-          agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
-            .await
-            .context(error::LndRpcConnect)?;
+	let client = Self::setup_lnd_client(
+	  lnd_rpc_authority.clone(),
+	  &arguments.lnd_rpc_cert_path,
+	  &arguments.lnd_rpc_macaroon_path,
+	).await?;
 
         match client.ping().await.context(error::LndRpcStatus) {
           Err(error) => {
@@ -142,10 +125,42 @@ impl Server {
           }
         }
 
-        Ok(Some(Box::new(client)))
+        Ok(Some(client))
       }
       None => Ok(None),
     }
+  }
+
+  async fn setup_lnd_client(
+    lnd_rpc_authority: Authority,
+    lnd_rpc_cert_path: &Option<PathBuf>,
+    lnd_rpc_macaroon_path: &Option<PathBuf>,
+  ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
+        let lnd_rpc_cert = match &lnd_rpc_cert_path {
+          Some(path) => {
+            let pem = tokio::fs::read_to_string(&path)
+              .await
+              .context(error::FilesystemIo { path })?;
+            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
+          }
+          None => None,
+        };
+
+        let lnd_rpc_macaroon = match &lnd_rpc_macaroon_path {
+          Some(path) => Some(
+            tokio::fs::read(&path)
+              .await
+              .context(error::FilesystemIo { path })?,
+          ),
+          None => None,
+        };
+
+        let client =
+          agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+            .await
+            .context(error::LndRpcConnect)?;
+
+        Ok(Box::new(client))
   }
 
   pub(crate) async fn run(self) -> Result<()> {
