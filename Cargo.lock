@@ -144,6 +144,7 @@ dependencies = [
  "hyper",
  "hyper-openssl",
  "lnd-test-context",
+ "log",
  "num-format",
  "openssl",
  "pretty_assertions 0.7.2",

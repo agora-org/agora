@@ -25,6 +25,7 @@ async-trait = "0.1.53"
 dyn-clone = "1.0.5"
 clightningrpc = "0.2.0"
 futures = "0.3.21"
+log = "0.4.14"
 
 [dependencies.openssl]
 version = "0.10.35"

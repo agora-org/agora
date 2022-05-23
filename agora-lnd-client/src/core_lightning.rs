@@ -58,7 +58,7 @@ impl From<ListInvoice> for CoreLightningInvoice {
 	    value_msat: Millisatoshi::new(item.amount_msat.unwrap().0),
 	    is_settled: item.status == "paid",
 	    memo: item.label,
-	    payment_hash: item.payment_hash.as_bytes().to_vec(),
+	    payment_hash: hex::decode(item.payment_hash).unwrap(),
 	    payment_request: item.bolt11,
 	}
     }
@@ -76,7 +76,7 @@ impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
 impl From<Invoice> for CoreLightningAddInvoiceResult {
     fn from(item: Invoice) -> Self {
         CoreLightningAddInvoiceResult {
-	    payment_hash: item.payment_hash.as_bytes().to_vec(),
+	    payment_hash: hex::decode(item.payment_hash).unwrap(),
 	}
     }
 }
@@ -93,6 +93,8 @@ pub struct CoreLightningClient {
 impl LightningNodeClient for CoreLightningClient {
 
   async fn ping(&self) -> Result<(), LightningError> {
+
+    log::error!("ping core-lightning");
 
     let client = LightningRPC::new(&self.inner);
 
@@ -122,8 +124,11 @@ impl LightningNodeClient for CoreLightningClient {
 	  None,
       );
 
+      log::error!("added invoice {:?}", invoice_res);
+
       match invoice_res {
           Ok(invoice_resp) => {
+
 	      let cln_added_invoice: CoreLightningAddInvoiceResult = invoice_resp.into();
 	      let boxed_invoice = Box::new(cln_added_invoice) as _;
 	      future::ok(boxed_invoice)
@@ -135,16 +140,20 @@ impl LightningNodeClient for CoreLightningClient {
 
   async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
 
-      let payment_hash_str = str::from_utf8(&r_hash).unwrap();
+      let payment_hash_hex = hex::encode(&r_hash);
+
+      log::error!("lookup payment hash hex {:?}", payment_hash_hex);
 
       let client = LightningRPC::new(&self.inner);
 
-      let list_invoices_res = client.listinvoices(Some(payment_hash_str));
+      let list_invoices_res = client.listinvoices(Some(&payment_hash_hex));
 
       match list_invoices_res {
           Ok(list_invoices_resp) => {
 	      let invoices = list_invoices_resp.invoices;
+	      log::error!("invoices {:?}", invoices);
 	      let maybe_invoice = invoices.get(0);
+	      log::error!("maybe invoice {:?}", maybe_invoice);
 	      let boxed_maybe = maybe_invoice.map(|inv| {
 		  let cln_invoice: CoreLightningInvoice = inv.clone().into();
 		  Box::new(cln_invoice) as _
