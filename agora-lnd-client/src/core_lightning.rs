@@ -1,15 +1,23 @@
 use {
-  crate::millisatoshi::Millisatoshi,
-  crate::LightningError,
-  crate::LightningInvoice,
-  crate::AddLightningInvoiceResponse,
-  crate::LightningNodeClient,
-  clightningrpc::LightningRPC,
-  clightningrpc::responses::ListInvoice,
-  clightningrpc::responses::Invoice,
-  async_trait::async_trait,
-  std::str,
-  futures::future,
+    crate::millisatoshi::Millisatoshi,
+    crate::LightningError,
+    crate::LightningInvoice,
+    crate::AddLightningInvoiceResponse,
+    crate::LightningNodeClient,
+    cln_rpc::{
+	model::InvoiceRequest,
+	model::InvoiceResponse,
+	model::ListinvoicesRequest,
+	model::ListinvoicesInvoices,
+	model::ListinvoicesInvoicesStatus,
+	ClnRpc,
+	Request,
+	Response,
+    },
+    cln_rpc::primitives::{Amount, AmountOrAny},
+    async_trait::async_trait,
+    std::str,
+    std::path::Path,
 };
 
 
@@ -52,18 +60,18 @@ impl LightningInvoice for CoreLightningInvoice {
 
 }
 
-impl From<ListInvoice> for CoreLightningInvoice {
-    fn from(item: ListInvoice) -> Self {
+
+impl From<ListinvoicesInvoices> for CoreLightningInvoice {
+    fn from(item: ListinvoicesInvoices) -> Self {
         CoreLightningInvoice {
-	    value_msat: Millisatoshi::new(item.amount_msat.unwrap().0),
-	    is_settled: item.status == "paid",
+	    value_msat: Millisatoshi::new(item.amount_msat.unwrap().msat()),
+	    is_settled: matches!(item.status, ListinvoicesInvoicesStatus::PAID),
 	    memo: item.label,
-	    payment_hash: hex::decode(item.payment_hash).unwrap(),
-	    payment_request: item.bolt11,
+	    payment_hash: item.payment_hash.to_vec(),
+	    payment_request: item.bolt11.unwrap(),
 	}
     }
 }
-
 
 impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
 
@@ -73,10 +81,11 @@ impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
 
 }
 
-impl From<Invoice> for CoreLightningAddInvoiceResult {
-    fn from(item: Invoice) -> Self {
+
+impl From<InvoiceResponse> for CoreLightningAddInvoiceResult {
+    fn from(item: InvoiceResponse) -> Self {
         CoreLightningAddInvoiceResult {
-	    payment_hash: hex::decode(item.payment_hash).unwrap(),
+	    payment_hash: item.payment_hash.to_vec(),
 	}
     }
 }
@@ -84,109 +93,124 @@ impl From<Invoice> for CoreLightningAddInvoiceResult {
 
 #[derive(Debug, Clone)]
 pub struct CoreLightningClient {
-  inner: String,
-  #[cfg(test)]
-  _lnd_test_context: Arc<LndTestContext>,
+    inner: String,
+    #[cfg(test)]
+    _lnd_test_context: Arc<LndTestContext>,
 }
 
 #[async_trait]
 impl LightningNodeClient for CoreLightningClient {
 
-  async fn ping(&self) -> Result<(), LightningError> {
+    async fn ping(&self) -> Result<(), LightningError> {
 
-    log::error!("ping core-lightning");
+	let p = Path::new(&self.inner);
+	let mut rpc = ClnRpc::new(p)
+            .await
+            .map_err(|_| LightningError)?;
 
-    let client = LightningRPC::new(&self.inner);
+	rpc.call(Request::ListInvoices(ListinvoicesRequest {
+	    payment_hash: None,
+	    label: None,
+	    invstring: None,
+	    offer_id: None,
+	}))
+            .await
+            .map_err(|_| LightningError)?;
 
-    let list_invoices_resp = client.getinfo();
+	Ok(())
 
-    match list_invoices_resp {
-        Ok(_) => future::ok(()),
-        Err(_) => future::err(LightningError),
-    }.await
+    }
 
-  }
+    async fn add_invoice(
+	&self,
+	memo: &str,
+	value_msat: Millisatoshi,
+    ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
 
-  async fn add_invoice(
-    &self,
-    memo: &str,
-    value_msat: Millisatoshi,
-  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+	let value_msat_num = value_msat.value();
 
-      let value_msat_num = value_msat.value();
+	let p = Path::new(&self.inner);
+	let mut rpc = ClnRpc::new(p)
+            .await
+            .map_err(|_| LightningError)?;
 
-      let client = LightningRPC::new(&self.inner);
+	let response = rpc
+            .call(Request::Invoice(InvoiceRequest {
+		msatoshi: AmountOrAny::Amount(Amount::from_msat(value_msat_num)),
+		label: memo.to_owned(),
+		description: "".to_owned(),
+		cltv: None,
+		deschashonly: None,
+		expiry: None,
+		exposeprivatechannels: None,
+		fallbacks: None,
+		preimage: None,
+	    }))
+            .await
+            .map_err(|_| LightningError)?;
 
-      let invoice_res = client.invoice(
-	  value_msat_num,
-	  memo,
-	  "",
-	  None,
-      );
 
-      log::error!("added invoice {:?}", invoice_res);
+	match response {
+	    Response::Invoice(r) => {
+		let cln_inv: CoreLightningAddInvoiceResult = r.into();
 
-      match invoice_res {
-          Ok(invoice_resp) => {
+		Ok(Box::new(cln_inv) as _)
+	    },
+	    _ => Err(LightningError)
+	}
+    }
 
-	      let cln_added_invoice: CoreLightningAddInvoiceResult = invoice_resp.into();
-	      let boxed_invoice = Box::new(cln_added_invoice) as _;
-	      future::ok(boxed_invoice)
-	  },
-          Err(_) => future::err(LightningError),
-      }.await
+    async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
 
-  }
+	let payment_hash_hex = hex::encode(&r_hash);
 
-  async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
 
-      let payment_hash_hex = hex::encode(&r_hash);
+	let p = Path::new(&self.inner);
+	let mut rpc = ClnRpc::new(p)
+            .await
+            .map_err(|_| LightningError)?;
 
-      log::error!("lookup payment hash hex {:?}", payment_hash_hex);
+	let response = rpc
+            .call(Request::ListInvoices(ListinvoicesRequest {
+		payment_hash: Some(payment_hash_hex),
+		label: None,
+		invstring: None,
+		offer_id: None,
+	    }))
+            .await
+            .map_err(|_| LightningError)?;
 
-      let client = LightningRPC::new(&self.inner);
 
-      let list_invoices_res = client.listinvoices(Some(&payment_hash_hex));
+	match response {
+	    Response::ListInvoices(r) => {
+		let maybe_invoice = r.invoices.get(0);
+		let cln_inv = maybe_invoice.map(|inv| {
+		    let inv2: CoreLightningInvoice = inv.clone().into();
+		    Box::new(inv2) as _
+		});
+		Ok(cln_inv)
+	    },
+	    _ => Err(LightningError)
+	}
 
-      match list_invoices_res {
-          Ok(list_invoices_resp) => {
-	      let invoices = list_invoices_resp.invoices;
-	      log::error!("invoices {:?}", invoices);
-	      let maybe_invoice = invoices.get(0);
-	      log::error!("maybe invoice {:?}", maybe_invoice);
-	      let boxed_maybe = maybe_invoice.map(|inv| {
-		  let cln_invoice: CoreLightningInvoice = inv.clone().into();
-		  Box::new(cln_invoice) as _
-	      });
-	      future::ok(boxed_maybe)
-	  },
-          Err(_) => future::err(LightningError),
-      }.await
-
-  }
+    }
 
 }
 
 impl CoreLightningClient {
 
-  pub async fn new(
-    rpc_path: String,
-    #[cfg(test)] lnd_test_context: LndTestContext,
-  ) -> CoreLightningClient {
+    pub async fn new(
+	rpc_path: String,
+	#[cfg(test)] lnd_test_context: LndTestContext,
+    ) -> CoreLightningClient {
 
-    let inner = rpc_path;
+	let inner = rpc_path;
 
-    CoreLightningClient {
-      inner,
-      #[cfg(test)]
-      _lnd_test_context: Arc::new(lnd_test_context),
+	CoreLightningClient {
+	    inner,
+	    #[cfg(test)]
+	    _lnd_test_context: Arc::new(lnd_test_context),
+	}
     }
-  }
-
-  pub async fn get_client(
-    &self,
-  ) -> LightningRPC {
-    LightningRPC::new(&self.inner)
-  }
 
 }
