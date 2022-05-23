@@ -177,57 +177,6 @@ impl LndClient {
     })
   }
 
-  // pub async fn ping(&mut self) -> Result<(), LightningError> {
-  //   let request = tonic::Request::new(ListInvoiceRequest {
-  //     index_offset: 0,
-  //     num_max_invoices: 0,
-  //     pending_only: false,
-  //     reversed: false,
-  //   });
-
-  //   self.inner.list_invoices(request).await?;
-
-  //   Ok(())
-  // }
-
-  // pub async fn add_invoice(
-  //   &mut self,
-  //   memo: &str,
-  //   value_msat: Millisatoshi,
-  // ) -> Result<AddInvoiceResponse, LightningError> {
-  //   let request = tonic::Request::new(Invoice {
-  //     memo: memo.to_owned(),
-  //     value_msat: value_msat.value().try_into().map_err(|source| {
-  //       Status::new(
-  //         Code::InvalidArgument,
-  //         format!("invalid value for `value_msat`: {}", source),
-  //       )
-  //     })?,
-  //     ..Invoice::default()
-  //   });
-  //   Ok(self.inner.add_invoice(request).await?.into_inner())
-  // }
-
-  // pub async fn lookup_invoice(&mut self, r_hash: [u8; 32]) -> Result<Option<Invoice>, LightningError> {
-  //   let request = tonic::Request::new(PaymentHash {
-  //     r_hash: r_hash.to_vec(),
-  //     ..PaymentHash::default()
-  //   });
-  //   match self.inner.lookup_invoice(request).await {
-  //     Ok(response) => Ok(Some(response.into_inner())),
-  //     Err(status) => {
-  //       if status.code() == Code::Unknown
-  //         && (status.message() == "there are no existing invoices"
-  //           || status.message() == "unable to locate invoice")
-  //       {
-  //         Ok(None)
-  //       } else {
-  //         Err(LightningError)
-  //       }
-  //     }
-  //   }
-  // }
-
   #[cfg(test)]
   async fn with_cert(lnd_test_context: LndTestContext, cert: &str) -> Self {
     Self::new(
