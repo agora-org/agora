@@ -34,13 +34,13 @@ impl Server {
           .acme_cache_directory
           .as_ref()
           .expect("<https-port> requires <acme-cache-directory>");
-        let lnd_client = Self::setup_lightning_node_client(environment, &arguments).await?;
+        let lightning_client = Self::setup_lightning_node_client(environment, &arguments).await?;
         let https_request_handler = HttpsRequestHandler::new(
           environment,
           &arguments,
           acme_cache_directory,
           https_port,
-          lnd_client,
+          lightning_client,
         )
         .await?;
         let https_redirect_server =
@@ -64,7 +64,7 @@ impl Server {
     arguments: &Arguments,
     http_port: u16,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
-    let lnd_client = Self::setup_lightning_node_client(environment, arguments).await?;
+    let lightning_client = Self::setup_lightning_node_client(environment, arguments).await?;
 
     let socket_addr = (arguments.address.as_str(), http_port)
       .to_socket_addrs()
@@ -80,7 +80,7 @@ impl Server {
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(environment, &arguments.directory, lnd_client),
+      RequestHandler::new(environment, &arguments.directory, lightning_client),
     ));
 
     writeln!(

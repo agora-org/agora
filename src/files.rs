@@ -7,17 +7,17 @@ use {
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   vfs: Vfs,
-  lnd_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
+  lightning_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
-    lnd_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
+    lightning_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
   ) -> Self {
     Self {
       vfs: Vfs::new(base_directory),
-      lnd_client,
+      lightning_client,
     }
   }
 
@@ -146,7 +146,7 @@ impl Files {
       return Self::serve_file(path).await;
     }
 
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredPaidFileRequest {
         path: path.display_path().to_owned(),
       }
@@ -160,7 +160,7 @@ impl Files {
       }
       .build()
     })?;
-    let invoice = lnd_client
+    let invoice = lightning_client
       .add_invoice(&file_path, base_price)
       .await
       .context(error::LndRpcStatus)?;
@@ -187,13 +187,13 @@ impl Files {
     request_tail: &[&str],
     r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredInvoiceRequest {
         uri_path: request.uri().path().to_owned(),
       }
       .build()
     })?;
-    let invoice = lnd_client
+    let invoice = lightning_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
@@ -285,13 +285,13 @@ impl Files {
   ) -> Result<Response<Body>> {
     use qrcodegen::{QrCode, QrCodeEcc};
 
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredInvoiceRequest {
         uri_path: request.uri().path().to_owned(),
       }
       .build()
     })?;
-    let invoice = lnd_client
+    let invoice = lightning_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
