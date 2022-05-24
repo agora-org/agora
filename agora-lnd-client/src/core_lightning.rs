@@ -153,7 +153,6 @@ impl LightningNodeClient for CoreLightningClient {
 	match response {
 	    Response::Invoice(r) => {
 		let cln_inv: CoreLightningAddInvoiceResult = r.into();
-
 		Ok(Box::new(cln_inv) as _)
 	    },
 	    _ => Err(LightningError)
@@ -184,11 +183,11 @@ impl LightningNodeClient for CoreLightningClient {
 	match response {
 	    Response::ListInvoices(r) => {
 		let maybe_invoice = r.invoices.get(0);
-		let cln_inv = maybe_invoice.map(|inv| {
-		    let inv2: CoreLightningInvoice = inv.clone().into();
-		    Box::new(inv2) as _
+		let maybe_cln_inv = maybe_invoice.map(|inv| {
+		    let cln_inv: CoreLightningInvoice = inv.clone().into();
+		    Box::new(cln_inv) as _
 		});
-		Ok(cln_inv)
+		Ok(maybe_cln_inv)
 	    },
 	    _ => Err(LightningError)
 	}
