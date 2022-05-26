@@ -33,9 +33,6 @@ impl RequestHandler {
   }
 
   fn decode_invoice_id(invoice_id_hex: &str) -> Result<[u8; 32]> {
-
-    log::error!("decoding invoice for {:?}", invoice_id_hex);
-
     let mut invoice_id = [0; 32];
     hex::decode_to_slice(invoice_id_hex, &mut invoice_id).context(error::InvoiceId)?;
     Ok(invoice_id)

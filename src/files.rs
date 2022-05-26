@@ -213,70 +213,70 @@ impl Files {
 
     let value = invoice.value_msat();
     if invoice.is_settled() {
-        let path = self.vfs.file_path(&invoice.memo())?;
-        Self::serve_file(&path).await
+      let path = self.vfs.file_path(&invoice.memo())?;
+      Self::serve_file(&path).await
     } else {
-        let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash()));
-        let filename = invoice.memo();
-        Ok(html::wrap_body(
-          &format!("Invoice for {}", filename),
-          html! {
-            div class="invoice" {
-              div class="label" {
-                "Lightning Payment Request for " (value) " to access "
-                span class="filename" {
-                    (filename)
-                }
-
-                ":"
-              }
-              div class="payment-request"{
-                button class="clipboard-copy" onclick=(
-                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request())
-                ) {
-                  (Files::icon("clipboard"))
-                }
-                (invoice.payment_request())
-              }
-
-              div class="links" {
-                a class="payment-link" href={"lightning:" (invoice.payment_request())} {
-                  "Open invoice in wallet"
-                }
-                a class="reload-link" href=(request.uri()) {
-                  "Access file"
-                }
-              }
-              img
-                class="qr-code"
-                alt="Lightning Network Invoice QR Code"
-                src=(qr_code_url)
-                width="400"
-                height="400";
-            }
-            div class="instructions" {
-              "To access "
+      let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash()));
+      let filename = invoice.memo();
+      Ok(html::wrap_body(
+        &format!("Invoice for {}", filename),
+        html! {
+          div class="invoice" {
+            div class="label" {
+              "Lightning Payment Request for " (value) " to access "
               span class="filename" {
                   (filename)
               }
+
               ":"
-              ol {
-                li {
-                  "Pay the invoice for " (value) " above "
-                  "with your Lightning Network wallet by "
-                  "scanning the QR code, "
-                  "copying the payment request string, or "
-                  "clicking the \"Open invoice in wallet\" link."
-                }
-                li {
-                  "Click the \"Access file\" link or reload the page."
-                }
+            }
+            div class="payment-request"{
+              button class="clipboard-copy" onclick=(
+                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request())
+              ) {
+                (Files::icon("clipboard"))
+              }
+              (invoice.payment_request())
+            }
+
+            div class="links" {
+              a class="payment-link" href={"lightning:" (invoice.payment_request())} {
+                "Open invoice in wallet"
+              }
+              a class="reload-link" href=(request.uri()) {
+                "Access file"
               }
             }
-          },
-        ))
-      }
+            img
+              class="qr-code"
+              alt="Lightning Network Invoice QR Code"
+              src=(qr_code_url)
+              width="400"
+              height="400";
+          }
+          div class="instructions" {
+            "To access "
+            span class="filename" {
+                (filename)
+            }
+            ":"
+            ol {
+              li {
+                "Pay the invoice for " (value) " above "
+                "with your Lightning Network wallet by "
+                "scanning the QR code, "
+                "copying the payment request string, or "
+                "clicking the \"Open invoice in wallet\" link."
+              }
+              li {
+                "Click the \"Access file\" link or reload the page."
+              }
+            }
+          }
+        },
+      ))
     }
+  }
 
   pub(crate) async fn serve_invoice_qr_code(
     &mut self,

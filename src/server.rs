@@ -1,8 +1,4 @@
-use {
-  crate::common::*,
-  openssl::x509::X509,
-  tower::make::Shared,
-};
+use {crate::common::*, openssl::x509::X509, tower::make::Shared};
 
 pub(crate) struct Server {
   http_request_handler: Option<hyper::Server<AddrIncoming, Shared<RequestHandler>>>,
@@ -96,56 +92,51 @@ impl Server {
     environment: &mut Environment,
     arguments: &Arguments,
   ) -> Result<Option<Box<dyn agora_lnd_client::LightningNodeClient>>> {
-
     if let Some(lnd_rpc_authority) = &arguments.lnd_rpc_authority {
-	let client = Self::setup_lnd_client(
-	  lnd_rpc_authority.clone(),
-	  &arguments.lnd_rpc_cert_path,
-	  &arguments.lnd_rpc_macaroon_path,
-	).await?;
-        match client.ping().await.context(error::LndRpcStatus) {
-          Err(error) => {
-            writeln!(
-              environment.stderr,
-              "warning: Cannot connect to LND gRPC server at `{}`: {}",
-              lnd_rpc_authority, error,
-            )
-            .context(error::StderrWrite)?;
-          }
-          Ok(()) => {
-            writeln!(
-              environment.stderr,
-              "Connected to LND RPC server at {}",
-              lnd_rpc_authority
-            )
-            .context(error::StderrWrite)?;
-          }
+      let client = Self::setup_lnd_client(
+        lnd_rpc_authority.clone(),
+        &arguments.lnd_rpc_cert_path,
+        &arguments.lnd_rpc_macaroon_path,
+      )
+      .await?;
+      match client.ping().await.context(error::LndRpcStatus) {
+        Err(error) => {
+          writeln!(
+            environment.stderr,
+            "warning: Cannot connect to LND gRPC server at `{}`: {}",
+            lnd_rpc_authority, error,
+          )
+          .context(error::StderrWrite)?;
         }
-        Ok(Some(client))
+        Ok(()) => {
+          writeln!(
+            environment.stderr,
+            "Connected to LND RPC server at {}",
+            lnd_rpc_authority
+          )
+          .context(error::StderrWrite)?;
+        }
+      }
+      Ok(Some(client))
     } else if let Some(core_lightning_rpc_file_path) = &arguments.core_lightning_rpc_file_path {
-	let client = Self::setup_core_lightning_client(
-	  core_lightning_rpc_file_path.clone(),
-	).await?;
-        match client.ping().await.context(error::LndRpcStatus) {
-          Err(error) => {
-            writeln!(
-              environment.stderr,
-              "warning: Cannot connect to core-lightning server: {}",
-              error,
-            )
-            .context(error::StderrWrite)?;
-          }
-          Ok(()) => {
-            writeln!(
-              environment.stderr,
-              "Connected to core-lightning serve",
-            )
-            .context(error::StderrWrite)?;
-          }
+      let client = Self::setup_core_lightning_client(core_lightning_rpc_file_path.clone()).await?;
+      match client.ping().await.context(error::LndRpcStatus) {
+        Err(error) => {
+          writeln!(
+            environment.stderr,
+            "warning: Cannot connect to core-lightning server: {}",
+            error,
+          )
+          .context(error::StderrWrite)?;
         }
-        Ok(Some(client))
+        Ok(()) => {
+          writeln!(environment.stderr, "Connected to core-lightning serve",)
+            .context(error::StderrWrite)?;
+        }
+      }
+      Ok(Some(client))
     } else {
-	Ok(None)
+      Ok(None)
     }
   }
 
@@ -154,42 +145,43 @@ impl Server {
     lnd_rpc_cert_path: &Option<PathBuf>,
     lnd_rpc_macaroon_path: &Option<PathBuf>,
   ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
-        let lnd_rpc_cert = match &lnd_rpc_cert_path {
-          Some(path) => {
-            let pem = tokio::fs::read_to_string(&path)
-              .await
-              .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
-          }
-          None => None,
-        };
+    let lnd_rpc_cert = match &lnd_rpc_cert_path {
+      Some(path) => {
+        let pem = tokio::fs::read_to_string(&path)
+          .await
+          .context(error::FilesystemIo { path })?;
+        Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
+      }
+      None => None,
+    };
 
-        let lnd_rpc_macaroon = match &lnd_rpc_macaroon_path {
-          Some(path) => Some(
-            tokio::fs::read(&path)
-              .await
-              .context(error::FilesystemIo { path })?,
-          ),
-          None => None,
-        };
+    let lnd_rpc_macaroon = match &lnd_rpc_macaroon_path {
+      Some(path) => Some(
+        tokio::fs::read(&path)
+          .await
+          .context(error::FilesystemIo { path })?,
+      ),
+      None => None,
+    };
 
-        let client =
-          agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
-            .await
-            .context(error::LndRpcConnect)?;
+    let client =
+      agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+        .await
+        .context(error::LndRpcConnect)?;
 
-        Ok(Box::new(client))
+    Ok(Box::new(client))
   }
 
   async fn setup_core_lightning_client(
     core_lightning_rpc_file_path: PathBuf,
   ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
-      let my_str = core_lightning_rpc_file_path.into_os_string().into_string().unwrap();
-      let client =
-          agora_lnd_client::CoreLightningClient::new(my_str)
-            .await;
+    let my_str = core_lightning_rpc_file_path
+      .into_os_string()
+      .into_string()
+      .unwrap();
+    let client = agora_lnd_client::CoreLightningClient::new(my_str).await;
 
-        Ok(Box::new(client))
+    Ok(Box::new(client))
   }
 
   pub(crate) async fn run(self) -> Result<()> {

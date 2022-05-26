@@ -1,14 +1,13 @@
 use {
   crate::https_service::HttpsService,
   crate::millisatoshi::Millisatoshi,
+  crate::AddLightningInvoiceResponse,
   crate::LightningError,
   crate::LightningInvoice,
-  crate::AddLightningInvoiceResponse,
   crate::LightningNodeClient,
+  async_trait::async_trait,
   http::uri::Authority,
-  lnrpc::{
-    lightning_client::LightningClient, Invoice, ListInvoiceRequest, PaymentHash,
-  },
+  lnrpc::{lightning_client::LightningClient, Invoice, ListInvoiceRequest, PaymentHash},
   openssl::x509::X509,
   std::convert::TryInto,
   tonic::{
@@ -16,7 +15,6 @@ use {
     service::interceptor::{InterceptedService, Interceptor},
     Code, Request, Status,
   },
-  async_trait::async_trait,
 };
 
 #[cfg(test)]
@@ -24,8 +22,8 @@ use {lnd_test_context::LndTestContext, std::sync::Arc};
 
 pub mod lnrpc {
   use crate::millisatoshi::Millisatoshi;
-  use crate::LightningInvoice;
   use crate::AddLightningInvoiceResponse;
+  use crate::LightningInvoice;
   use std::convert::TryInto;
 
   tonic::include_proto!("lnrpc");
@@ -41,31 +39,27 @@ pub mod lnrpc {
     }
 
     fn is_settled(&self) -> bool {
-	self.state() == invoice::InvoiceState::Settled
+      self.state() == invoice::InvoiceState::Settled
     }
 
     fn memo(&self) -> &std::string::String {
-	&self.memo
+      &self.memo
     }
 
     fn payment_hash(&self) -> &Vec<u8> {
-        &self.r_hash
+      &self.r_hash
     }
 
     fn payment_request(&self) -> &std::string::String {
-	&self.payment_request
+      &self.payment_request
     }
-
   }
 
   impl AddLightningInvoiceResponse for AddInvoiceResponse {
-
     fn payment_hash(&self) -> &Vec<u8> {
-        &self.r_hash
+      &self.r_hash
     }
-
   }
-
 }
 
 #[derive(Clone)]
@@ -82,13 +76,11 @@ impl Interceptor for MacaroonInterceptor {
   }
 }
 
-
 impl From<Status> for LightningError {
-    fn from(_: Status) -> Self {
-        LightningError
-    }
+  fn from(_: Status) -> Self {
+    LightningError
+  }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct LndClient {
@@ -99,7 +91,6 @@ pub struct LndClient {
 
 #[async_trait]
 impl LightningNodeClient for LndClient {
-
   async fn ping(&self) -> Result<(), LightningError> {
     let request = tonic::Request::new(ListInvoiceRequest {
       index_offset: 0,
@@ -128,10 +119,15 @@ impl LightningNodeClient for LndClient {
       })?,
       ..Invoice::default()
     });
-    Ok(Box::new(self.clone().inner.add_invoice(request).await?.into_inner()))
+    Ok(Box::new(
+      self.clone().inner.add_invoice(request).await?.into_inner(),
+    ))
   }
 
-  async fn lookup_invoice(&self, r_hash: [u8; 32]) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+  async fn lookup_invoice(
+    &self,
+    r_hash: [u8; 32],
+  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
     let request = tonic::Request::new(PaymentHash {
       r_hash: r_hash.to_vec(),
       ..PaymentHash::default()
@@ -150,7 +146,6 @@ impl LightningNodeClient for LndClient {
       }
     }
   }
-
 }
 
 impl LndClient {
