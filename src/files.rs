@@ -219,7 +219,7 @@ impl Files {
       Self::serve_file(&path).await
     } else {
       let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash()));
-      let filename = invoice.memo();
+      let filename = request_tail;
       Ok(html::wrap_body(
         &format!("Invoice for {}", filename),
         html! {
