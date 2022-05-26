@@ -4,6 +4,8 @@ use {
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
 };
 
+use uuid::Uuid;
+
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   vfs: Vfs,
@@ -160,8 +162,9 @@ impl Files {
       }
       .build()
     })?;
+    let file_path_with_uuid = format!("{}_{}!", file_path, Uuid::new_v4());
     let invoice = lightning_client
-      .add_invoice(&file_path, base_price)
+      .add_invoice(&file_path_with_uuid, base_price)
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
@@ -200,7 +203,7 @@ impl Files {
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
 
     let request_tail = request_tail.join("");
-    if request_tail != *invoice.memo() {
+    if !(invoice.memo().starts_with(&request_tail)) {
       return Err(
         error::InvoicePathMismatch {
           invoice_tail: invoice.memo(),
@@ -213,7 +216,7 @@ impl Files {
 
     let value = invoice.value_msat();
     if invoice.is_settled() {
-      let path = self.vfs.file_path(&invoice.memo())?;
+      let path = self.vfs.file_path(&request_tail)?;
       Self::serve_file(&path).await
     } else {
       let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash()));

@@ -129,6 +129,7 @@ dependencies = [
  "tower",
  "unindent",
  "usvg",
+ "uuid",
 ]
 
 [[package]]
@@ -4301,6 +4302,28 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
+
+[[package]]
+name = "uuid"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93bbc61e655a4833cf400d0d15bf3649313422fa7572886ad6dab16d79886365"
+dependencies = [
+ "getrandom 0.2.3",
+ "rand 0.8.4",
+ "uuid-macro-internal",
+]
+
+[[package]]
+name = "uuid-macro-internal"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07c04e8a2c50c314223b6af8a0e41f44ef48e0097ecea233c9d123dbc0c151e4"
+dependencies = [
+ "proc-macro2 1.0.33",
+ "quote 1.0.10",
+ "syn 1.0.94",
+]
 
 [[package]]
 name = "value-bag"
