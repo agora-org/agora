@@ -2,9 +2,8 @@ use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
+  uuid::Uuid,
 };
-
-use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
