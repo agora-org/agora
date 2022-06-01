@@ -14,6 +14,9 @@ use {
   std::str,
 };
 
+#[cfg(test)]
+use {lnd_test_context::LndTestContext, std::sync::Arc};
+
 #[derive(Debug, Clone)]
 pub struct CoreLightningInvoice {
   pub value_msat: Millisatoshi,

@@ -30,6 +30,14 @@ pub trait AddLightningInvoiceResponse {
   fn payment_hash(&self) -> &Vec<u8>;
 }
 
+impl Debug for dyn AddLightningInvoiceResponse + Send {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    f.debug_struct("AddLightningInvoiceResponse")
+      .field("payment_hash", &self.payment_hash())
+      .finish()
+  }
+}
+
 #[derive(Debug, Clone)]
 pub struct LightningError;
 

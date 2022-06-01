@@ -361,17 +361,17 @@ fn request_path_must_match_invoice_path() {
   });
   assert_contains(
     &stderr,
-    "Request path `also-exists` did not match invoice path `exists`",
+    "Request path `also-exists` did not match invoice path `exists",
   );
   assert_contains(
     &stderr,
-    "Request path `does-not-exist` did not match invoice path `exists`",
+    "Request path `does-not-exist` did not match invoice path `exists",
   );
 }
 
 #[test]
 fn payment_request_memo_decodes_percent() {
-  use lightning_invoice::{Description, Invoice, InvoiceDescription};
+  use lightning_invoice::{Invoice, InvoiceDescription};
 
   test_with_lnd(&LndTestContext::new_blocking(), |context| async move {
     context.write(".agora.yaml", "{paid: true, base-price: 1000 sat}");
@@ -380,10 +380,12 @@ fn payment_request_memo_decodes_percent() {
     guard_unwrap!(let &[payment_request] = css_select(&html, ".payment-request").as_slice());
     let payment_request = payment_request.text().collect::<String>();
     let invoice = payment_request.parse::<Invoice>().unwrap();
-    assert_eq!(
-      invoice.description(),
-      InvoiceDescription::Direct(&Description::new("file.with.dots".to_string()).unwrap())
-    );
+    let description = if let InvoiceDescription::Direct(d) = invoice.description() {
+      d
+    } else {
+      panic!("Not a direct invoice description.")
+    };
+    assert!(description.starts_with("file.with.dots"));
   });
 }
 
