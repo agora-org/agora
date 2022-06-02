@@ -29,6 +29,7 @@ jobs:
           rustflags: --deny warnings --codegen=target-feature=+crt-static
         - os: ubuntu-latest
           rustflags: --deny warnings
+      fail-fast: false
 
     runs-on: ${{ matrix.os }}
 
