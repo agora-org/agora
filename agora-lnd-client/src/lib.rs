@@ -50,7 +50,7 @@ impl fmt::Display for LightningError {
 impl Error for LightningError {
   fn description(&self) -> &str {
     // TODO: replace with actual description from error status.
-    &"failed lightning node request"
+    "failed lightning node request"
   }
 }
 
