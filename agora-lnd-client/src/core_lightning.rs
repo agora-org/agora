@@ -1,18 +1,16 @@
+use {
+  crate::millisatoshi::Millisatoshi, crate::AddLightningInvoiceResponse, crate::LightningError,
+  crate::LightningInvoice, crate::LightningNodeClient, async_trait::async_trait, std::path::Path,
+  std::str,
+};
+
 #[cfg(unix)]
 use {
-  crate::millisatoshi::Millisatoshi,
-  crate::AddLightningInvoiceResponse,
-  crate::LightningError,
-  crate::LightningInvoice,
-  crate::LightningNodeClient,
-  async_trait::async_trait,
   cln_rpc::primitives::{Amount, AmountOrAny},
   cln_rpc::{
     model::InvoiceRequest, model::InvoiceResponse, model::ListinvoicesInvoices,
     model::ListinvoicesInvoicesStatus, model::ListinvoicesRequest, ClnRpc, Request, Response,
   },
-  std::path::Path,
-  std::str,
 };
 
 #[cfg(test)]
@@ -54,6 +52,7 @@ impl LightningInvoice for CoreLightningInvoice {
   }
 }
 
+#[cfg(unix)]
 impl From<ListinvoicesInvoices> for CoreLightningInvoice {
   fn from(item: ListinvoicesInvoices) -> Self {
     CoreLightningInvoice {
@@ -72,6 +71,7 @@ impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
   }
 }
 
+#[cfg(unix)]
 impl From<InvoiceResponse> for CoreLightningAddInvoiceResult {
   fn from(item: InvoiceResponse) -> Self {
     CoreLightningAddInvoiceResult {
@@ -89,6 +89,7 @@ pub struct CoreLightningClient {
 
 #[async_trait]
 impl LightningNodeClient for CoreLightningClient {
+  #[cfg(unix)]
   async fn ping(&self) -> Result<(), LightningError> {
     let p = Path::new(&self.inner);
     let mut rpc = ClnRpc::new(p).await.map_err(|_| LightningError)?;
@@ -106,6 +107,12 @@ impl LightningNodeClient for CoreLightningClient {
     Ok(())
   }
 
+  #[cfg(not(unix))]
+  async fn ping(&self) -> Result<(), LightningError> {
+    Err(LightningError)
+  }
+
+  #[cfg(unix)]
   async fn add_invoice(
     &self,
     memo: &str,
@@ -140,6 +147,16 @@ impl LightningNodeClient for CoreLightningClient {
     }
   }
 
+  #[cfg(not(unix))]
+  async fn add_invoice(
+    &self,
+    memo: &str,
+    value_msat: Millisatoshi,
+  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+    Err(LightningError)
+  }
+
+  #[cfg(unix)]
   async fn lookup_invoice(
     &self,
     r_hash: [u8; 32],
@@ -170,6 +187,14 @@ impl LightningNodeClient for CoreLightningClient {
       }
       _ => Err(LightningError),
     }
+  }
+
+  #[cfg(not(unix))]
+  async fn lookup_invoice(
+    &self,
+    r_hash: [u8; 32],
+  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+    Err(LightningError)
   }
 }
 
