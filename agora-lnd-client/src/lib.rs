@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+
 mod core_lightning;
 mod https_service;
 mod lnd;
