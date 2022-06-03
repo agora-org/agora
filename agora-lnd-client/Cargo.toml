@@ -23,6 +23,8 @@ tonic = "0.5.2"
 tower = "0.4.8"
 async-trait = "0.1.53"
 dyn-clone = "1.0.5"
+
+[target.'cfg(unix)'.dependencies]
 cln-rpc = "0.1.0"
 
 [dependencies.openssl]

@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use {
   crate::millisatoshi::Millisatoshi,
   crate::AddLightningInvoiceResponse,
