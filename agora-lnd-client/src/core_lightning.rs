@@ -1,7 +1,6 @@
 use {
   crate::millisatoshi::Millisatoshi, crate::AddLightningInvoiceResponse, crate::LightningError,
-  crate::LightningInvoice, crate::LightningNodeClient, async_trait::async_trait, std::path::Path,
-  std::str,
+  crate::LightningInvoice, crate::LightningNodeClient, async_trait::async_trait, std::str,
 };
 
 #[cfg(unix)]
@@ -11,6 +10,7 @@ use {
     model::InvoiceRequest, model::InvoiceResponse, model::ListinvoicesInvoices,
     model::ListinvoicesInvoicesStatus, model::ListinvoicesRequest, ClnRpc, Request, Response,
   },
+  std::path::Path,
 };
 
 #[cfg(test)]
@@ -80,6 +80,7 @@ impl From<InvoiceResponse> for CoreLightningAddInvoiceResult {
   }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct CoreLightningClient {
   inner: String,
@@ -150,8 +151,8 @@ impl LightningNodeClient for CoreLightningClient {
   #[cfg(not(unix))]
   async fn add_invoice(
     &self,
-    memo: &str,
-    value_msat: Millisatoshi,
+    _memo: &str,
+    _value_msat: Millisatoshi,
   ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
     Err(LightningError)
   }
@@ -192,7 +193,7 @@ impl LightningNodeClient for CoreLightningClient {
   #[cfg(not(unix))]
   async fn lookup_invoice(
     &self,
-    r_hash: [u8; 32],
+    _r_hash: [u8; 32],
   ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
     Err(LightningError)
   }
