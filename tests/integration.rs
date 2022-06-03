@@ -166,8 +166,7 @@ fn listing_is_sorted_alphabetically() {
   let html = context.html("");
   let haystack: Vec<&str> = css_select(&html, ".listing a:not([download])")
     .into_iter()
-    .map(|x| x.text())
-    .flatten()
+    .flat_map(|x| x.text())
     .collect();
   assert_eq!(haystack, vec!["a", "b", "c"]);
 }

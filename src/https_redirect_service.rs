@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_to_owned)]
+
 use {crate::common::*, tower::make::Shared};
 
 #[derive(Clone)]
