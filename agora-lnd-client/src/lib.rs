@@ -1,20 +1,17 @@
 #![allow(clippy::all)]
 
-mod core_lightning;
-mod https_service;
-mod lnd;
-mod millisatoshi;
+use {
+  async_trait::async_trait, core::fmt::Debug, dyn_clone::DynClone, std::error::Error, std::fmt,
+};
 
 pub use core_lightning::CoreLightningClient;
 pub use lnd::LndClient;
 pub use millisatoshi::Millisatoshi;
 
-use async_trait::async_trait;
-use core::fmt::Debug;
-use std::error::Error;
-use std::fmt;
-
-use dyn_clone::DynClone;
+mod core_lightning;
+mod https_service;
+mod lnd;
+mod millisatoshi;
 
 #[derive(Debug, Clone)]
 pub struct LightningInvoice {
