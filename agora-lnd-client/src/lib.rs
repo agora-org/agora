@@ -16,28 +16,18 @@ use std::fmt;
 
 use dyn_clone::DynClone;
 
-pub trait LightningInvoice {
-  fn value_msat(&self) -> Millisatoshi;
-
-  fn is_settled(&self) -> bool;
-
-  fn memo(&self) -> &std::string::String;
-
-  fn payment_hash(&self) -> &Vec<u8>;
-
-  fn payment_request(&self) -> &std::string::String;
+#[derive(Debug, Clone)]
+pub struct LightningInvoice {
+  pub value_msat: Millisatoshi,
+  pub is_settled: bool,
+  pub memo: std::string::String,
+  pub payment_hash: Vec<u8>,
+  pub payment_request: std::string::String,
 }
 
-pub trait AddLightningInvoiceResponse {
-  fn payment_hash(&self) -> &Vec<u8>;
-}
-
-impl Debug for dyn AddLightningInvoiceResponse + Send {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    f.debug_struct("AddLightningInvoiceResponse")
-      .field("payment_hash", &self.payment_hash())
-      .finish()
-  }
+#[derive(Debug, Clone)]
+pub struct AddLightningInvoiceResponse {
+  pub payment_hash: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -64,12 +54,12 @@ pub trait LightningNodeClient: DynClone + Send + Sync + 'static {
     &self,
     memo: &str,
     value_msat: Millisatoshi,
-  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError>;
+  ) -> Result<AddLightningInvoiceResponse, LightningError>;
 
   async fn lookup_invoice(
     &self,
     r_hash: [u8; 32],
-  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError>;
+  ) -> Result<Option<LightningInvoice>, LightningError>;
 }
 
 dyn_clone::clone_trait_object!(LightningNodeClient);

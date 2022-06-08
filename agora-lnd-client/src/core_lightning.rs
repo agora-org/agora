@@ -16,46 +16,10 @@ use {
 #[cfg(test)]
 use {lnd_test_context::LndTestContext, std::sync::Arc};
 
-#[derive(Debug, Clone)]
-pub struct CoreLightningInvoice {
-  pub value_msat: Millisatoshi,
-  pub is_settled: bool,
-  pub memo: std::string::String,
-  pub payment_hash: Vec<u8>,
-  pub payment_request: std::string::String,
-}
-
-#[derive(Debug, Clone)]
-pub struct CoreLightningAddInvoiceResult {
-  pub payment_hash: Vec<u8>,
-}
-
-impl LightningInvoice for CoreLightningInvoice {
-  fn value_msat(&self) -> Millisatoshi {
-    self.value_msat
-  }
-
-  fn is_settled(&self) -> bool {
-    self.is_settled
-  }
-
-  fn memo(&self) -> &std::string::String {
-    &self.memo
-  }
-
-  fn payment_hash(&self) -> &Vec<u8> {
-    &self.payment_hash
-  }
-
-  fn payment_request(&self) -> &std::string::String {
-    &self.payment_request
-  }
-}
-
 #[cfg(unix)]
-impl From<ListinvoicesInvoices> for CoreLightningInvoice {
+impl From<ListinvoicesInvoices> for LightningInvoice {
   fn from(item: ListinvoicesInvoices) -> Self {
-    CoreLightningInvoice {
+    LightningInvoice {
       value_msat: Millisatoshi::new(item.amount_msat.unwrap().msat()),
       is_settled: matches!(item.status, ListinvoicesInvoicesStatus::PAID),
       memo: item.label,
@@ -65,16 +29,10 @@ impl From<ListinvoicesInvoices> for CoreLightningInvoice {
   }
 }
 
-impl AddLightningInvoiceResponse for CoreLightningAddInvoiceResult {
-  fn payment_hash(&self) -> &Vec<u8> {
-    &self.payment_hash
-  }
-}
-
 #[cfg(unix)]
-impl From<InvoiceResponse> for CoreLightningAddInvoiceResult {
+impl From<InvoiceResponse> for AddLightningInvoiceResponse {
   fn from(item: InvoiceResponse) -> Self {
-    CoreLightningAddInvoiceResult {
+    AddLightningInvoiceResponse {
       payment_hash: item.payment_hash.to_vec(),
     }
   }
@@ -118,7 +76,7 @@ impl LightningNodeClient for CoreLightningClient {
     &self,
     memo: &str,
     value_msat: Millisatoshi,
-  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+  ) -> Result<AddLightningInvoiceResponse, LightningError> {
     let value_msat_num = value_msat.value();
 
     let p = Path::new(&self.inner);
@@ -141,8 +99,8 @@ impl LightningNodeClient for CoreLightningClient {
 
     match response {
       Response::Invoice(r) => {
-        let cln_inv: CoreLightningAddInvoiceResult = r.into();
-        Ok(Box::new(cln_inv) as _)
+        let cln_inv: AddLightningInvoiceResponse = r.into();
+        Ok(cln_inv as _)
       }
       _ => Err(LightningError),
     }
@@ -153,7 +111,7 @@ impl LightningNodeClient for CoreLightningClient {
     &self,
     _memo: &str,
     _value_msat: Millisatoshi,
-  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+  ) -> Result<AddLightningInvoiceResponse, LightningError> {
     Err(LightningError)
   }
 
@@ -161,7 +119,7 @@ impl LightningNodeClient for CoreLightningClient {
   async fn lookup_invoice(
     &self,
     r_hash: [u8; 32],
-  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+  ) -> Result<Option<LightningInvoice>, LightningError> {
     let payment_hash_hex = hex::encode(&r_hash);
 
     let p = Path::new(&self.inner);
@@ -181,8 +139,8 @@ impl LightningNodeClient for CoreLightningClient {
       Response::ListInvoices(r) => {
         let maybe_invoice = r.invoices.get(0);
         let maybe_cln_inv = maybe_invoice.map(|inv| {
-          let cln_inv: CoreLightningInvoice = inv.clone().into();
-          Box::new(cln_inv) as _
+          let cln_inv: LightningInvoice = inv.clone().into();
+          cln_inv as _
         });
         Ok(maybe_cln_inv)
       }
@@ -194,7 +152,7 @@ impl LightningNodeClient for CoreLightningClient {
   async fn lookup_invoice(
     &self,
     _r_hash: [u8; 32],
-  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+  ) -> Result<Option<LightningInvoice>, LightningError> {
     Err(LightningError)
   }
 }

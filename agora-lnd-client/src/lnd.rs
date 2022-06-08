@@ -28,36 +28,30 @@ pub mod lnrpc {
 
   tonic::include_proto!("lnrpc");
 
-  impl LightningInvoice for Invoice {
-    fn value_msat(&self) -> Millisatoshi {
-      Millisatoshi::new(
-        self
-          .value_msat
-          .try_into()
-          .expect("value_msat is always positive"),
-      )
-    }
-
-    fn is_settled(&self) -> bool {
-      self.state() == invoice::InvoiceState::Settled
-    }
-
-    fn memo(&self) -> &std::string::String {
-      &self.memo
-    }
-
-    fn payment_hash(&self) -> &Vec<u8> {
-      &self.r_hash
-    }
-
-    fn payment_request(&self) -> &std::string::String {
-      &self.payment_request
+  #[cfg(unix)]
+  impl From<Invoice> for LightningInvoice {
+    fn from(item: Invoice) -> Self {
+      LightningInvoice {
+        value_msat: Millisatoshi::new(
+          item
+            .value_msat
+            .try_into()
+            .expect("value_msat is always positive"),
+        ),
+        is_settled: item.state() == invoice::InvoiceState::Settled,
+        memo: item.memo,
+        payment_hash: item.r_hash,
+        payment_request: item.payment_request,
+      }
     }
   }
 
-  impl AddLightningInvoiceResponse for AddInvoiceResponse {
-    fn payment_hash(&self) -> &Vec<u8> {
-      &self.r_hash
+  #[cfg(unix)]
+  impl From<AddInvoiceResponse> for AddLightningInvoiceResponse {
+    fn from(item: AddInvoiceResponse) -> Self {
+      AddLightningInvoiceResponse {
+        payment_hash: item.r_hash,
+      }
     }
   }
 }
@@ -108,7 +102,7 @@ impl LightningNodeClient for LndClient {
     &self,
     memo: &str,
     value_msat: Millisatoshi,
-  ) -> Result<Box<dyn AddLightningInvoiceResponse + Send>, LightningError> {
+  ) -> Result<AddLightningInvoiceResponse, LightningError> {
     let request = tonic::Request::new(Invoice {
       memo: memo.to_owned(),
       value_msat: value_msat.value().try_into().map_err(|source| {
@@ -119,21 +113,27 @@ impl LightningNodeClient for LndClient {
       })?,
       ..Invoice::default()
     });
-    Ok(Box::new(
-      self.clone().inner.add_invoice(request).await?.into_inner(),
-    ))
+    Ok(
+      self
+        .clone()
+        .inner
+        .add_invoice(request)
+        .await?
+        .into_inner()
+        .into(),
+    )
   }
 
   async fn lookup_invoice(
     &self,
     r_hash: [u8; 32],
-  ) -> Result<Option<Box<dyn LightningInvoice + Send>>, LightningError> {
+  ) -> Result<Option<LightningInvoice>, LightningError> {
     let request = tonic::Request::new(PaymentHash {
       r_hash: r_hash.to_vec(),
       ..PaymentHash::default()
     });
     match self.clone().inner.lookup_invoice(request).await {
-      Ok(response) => Ok(Some(Box::new(response.into_inner()))),
+      Ok(response) => Ok(Some(response.into_inner().into())),
       Err(status) => {
         if status.code() == Code::Unknown
           && (status.message() == "there are no existing invoices"
