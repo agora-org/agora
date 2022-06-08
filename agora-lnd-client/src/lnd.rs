@@ -253,7 +253,7 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .await
       .unwrap();
     assert!(
-      !response.payment_hash().is_empty(),
+      !response.payment_hash.is_empty(),
       "Bad response: {:?}",
       response
     );
@@ -266,15 +266,15 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .add_invoice("test-memo", Millisatoshi::new(42_000))
       .await
       .unwrap()
-      .payment_hash()
+      .payment_hash
       .to_vec();
     let invoice = client
       .lookup_invoice(r_hash.clone().try_into().unwrap())
       .await
       .unwrap()
       .unwrap();
-    assert!(invoice.memo().starts_with("test-memo"));
-    assert_eq!(invoice.value_msat().value(), 42000);
+    assert!(invoice.memo.starts_with("test-memo"));
+    assert_eq!(invoice.value_msat.value(), 42000);
   }
 
   #[tokio::test]
@@ -293,26 +293,26 @@ jlZBq5hr8Nv2qStFfw9qzw==
       .await
       .unwrap();
     let retrieved = client
-      .lookup_invoice(created.payment_hash().as_slice().try_into().unwrap())
+      .lookup_invoice(created.payment_hash.as_slice().try_into().unwrap())
       .await
       .unwrap()
       .unwrap();
     assert_eq!(
       (
         // created.add_index,
-        created.payment_hash(),
+        created.payment_hash,
         // created.payment_request,
         // created.payment_addr
       ),
       (
         // retrieved.add_index,
-        retrieved.payment_hash(),
+        retrieved.payment_hash,
         // retrieved.payment_request,
         // retrieved.payment_addr
       )
     );
-    assert_eq!(retrieved.memo(), "bar");
-    assert_eq!(retrieved.value_msat().value(), 2000);
+    assert_eq!(retrieved.memo, "bar");
+    assert_eq!(retrieved.value_msat.value(), 2000);
   }
 
   #[tokio::test]
