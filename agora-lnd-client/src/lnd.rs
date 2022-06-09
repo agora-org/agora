@@ -7,7 +7,10 @@ use {
   crate::LightningNodeClient,
   async_trait::async_trait,
   http::uri::Authority,
-  lnrpc::{lightning_client::LightningClient, Invoice, ListInvoiceRequest, PaymentHash},
+  lnrpc::invoice,
+  lnrpc::{
+    lightning_client::LightningClient, AddInvoiceResponse, Invoice, ListInvoiceRequest, PaymentHash,
+  },
   openssl::x509::X509,
   std::convert::TryInto,
   tonic::{
@@ -21,37 +24,32 @@ use {
 use {lnd_test_context::LndTestContext, std::sync::Arc};
 
 pub mod lnrpc {
-  use crate::millisatoshi::Millisatoshi;
-  use crate::AddLightningInvoiceResponse;
-  use crate::LightningInvoice;
-  use std::convert::TryInto;
-
   tonic::include_proto!("lnrpc");
+}
 
-  #[cfg(unix)]
-  impl From<Invoice> for LightningInvoice {
-    fn from(item: Invoice) -> Self {
-      LightningInvoice {
-        value_msat: Millisatoshi::new(
-          item
-            .value_msat
-            .try_into()
-            .expect("value_msat is always positive"),
-        ),
-        is_settled: item.state() == invoice::InvoiceState::Settled,
-        memo: item.memo,
-        payment_hash: item.r_hash,
-        payment_request: item.payment_request,
-      }
+#[cfg(unix)]
+impl From<Invoice> for LightningInvoice {
+  fn from(item: Invoice) -> Self {
+    LightningInvoice {
+      value_msat: Millisatoshi::new(
+        item
+          .value_msat
+          .try_into()
+          .expect("value_msat is always positive"),
+      ),
+      is_settled: item.state() == invoice::InvoiceState::Settled,
+      memo: item.memo,
+      payment_hash: item.r_hash,
+      payment_request: item.payment_request,
     }
   }
+}
 
-  #[cfg(unix)]
-  impl From<AddInvoiceResponse> for AddLightningInvoiceResponse {
-    fn from(item: AddInvoiceResponse) -> Self {
-      AddLightningInvoiceResponse {
-        payment_hash: item.r_hash,
-      }
+#[cfg(unix)]
+impl From<AddInvoiceResponse> for AddLightningInvoiceResponse {
+  fn from(item: AddInvoiceResponse) -> Self {
+    AddLightningInvoiceResponse {
+      payment_hash: item.r_hash,
     }
   }
 }
