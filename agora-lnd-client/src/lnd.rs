@@ -27,7 +27,6 @@ pub mod lnrpc {
   tonic::include_proto!("lnrpc");
 }
 
-#[cfg(unix)]
 impl From<Invoice> for LightningInvoice {
   fn from(item: Invoice) -> Self {
     LightningInvoice {
@@ -45,7 +44,6 @@ impl From<Invoice> for LightningInvoice {
   }
 }
 
-#[cfg(unix)]
 impl From<AddInvoiceResponse> for AddLightningInvoiceResponse {
   fn from(item: AddInvoiceResponse) -> Self {
     AddLightningInvoiceResponse {
