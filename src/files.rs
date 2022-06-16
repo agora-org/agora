@@ -1,24 +1,24 @@
 use {
   crate::{common::*, file_stream::FileStream, vfs::Vfs},
-  agora_lnd_client::lnrpc::invoice::InvoiceState,
   maud::html,
   percent_encoding::{AsciiSet, NON_ALPHANUMERIC},
+  uuid::Uuid,
 };
 
 #[derive(Clone, Debug)]
 pub(crate) struct Files {
   vfs: Vfs,
-  lnd_client: Option<agora_lnd_client::Client>,
+  lightning_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
 }
 
 impl Files {
   pub(crate) fn new(
     base_directory: InputPath,
-    lnd_client: Option<agora_lnd_client::Client>,
+    lightning_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
   ) -> Self {
     Self {
       vfs: Vfs::new(base_directory),
-      lnd_client,
+      lightning_client,
     }
   }
 
@@ -147,7 +147,7 @@ impl Files {
       return Self::serve_file(path).await;
     }
 
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredPaidFileRequest {
         path: path.display_path().to_owned(),
       }
@@ -161,14 +161,15 @@ impl Files {
       }
       .build()
     })?;
-    let invoice = lnd_client
-      .add_invoice(&file_path, base_price)
+    let file_path_with_uuid = format!("{}_{}!", file_path, Uuid::new_v4());
+    let invoice = lightning_client
+      .add_invoice(&file_path_with_uuid, base_price)
       .await
       .context(error::LndRpcStatus)?;
     redirect(format!(
       "{}?invoice={}",
       request.uri().path(),
-      hex::encode(invoice.r_hash),
+      hex::encode(invoice.payment_hash),
     ))
   }
 
@@ -188,20 +189,20 @@ impl Files {
     request_tail: &[&str],
     r_hash: [u8; 32],
   ) -> Result<Response<Body>> {
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredInvoiceRequest {
         uri_path: request.uri().path().to_owned(),
       }
       .build()
     })?;
-    let invoice = lnd_client
+    let invoice = lightning_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?
       .ok_or_else(|| error::InvoiceNotFound { r_hash }.build())?;
 
     let request_tail = request_tail.join("");
-    if request_tail != invoice.memo {
+    if !(invoice.memo.starts_with(&request_tail)) {
       return Err(
         error::InvoicePathMismatch {
           invoice_tail: invoice.memo,
@@ -212,73 +213,70 @@ impl Files {
       );
     }
 
-    let value = invoice.value_msat();
-    match invoice.state() {
-      InvoiceState::Settled => {
-        let path = self.vfs.file_path(&invoice.memo)?;
-        Self::serve_file(&path).await
-      }
-      _ => {
-        let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.r_hash));
-        let filename = invoice.memo;
-        Ok(html::wrap_body(
-          &format!("Invoice for {}", filename),
-          html! {
-            div class="invoice" {
-              div class="label" {
-                "Lightning Payment Request for " (value) " to access "
-                span class="filename" {
-                    (filename)
-                }
-
-                ":"
-              }
-              div class="payment-request"{
-                button class="clipboard-copy" onclick=(
-                  format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
-                ) {
-                  (Files::icon("clipboard"))
-                }
-                (invoice.payment_request)
-              }
-
-              div class="links" {
-                a class="payment-link" href={"lightning:" (invoice.payment_request)} {
-                  "Open invoice in wallet"
-                }
-                a class="reload-link" href=(request.uri()) {
-                  "Access file"
-                }
-              }
-              img
-                class="qr-code"
-                alt="Lightning Network Invoice QR Code"
-                src=(qr_code_url)
-                width="400"
-                height="400";
-            }
-            div class="instructions" {
-              "To access "
+    let value = invoice.value_msat;
+    if invoice.is_settled {
+      let path = self.vfs.file_path(&request_tail)?;
+      Self::serve_file(&path).await
+    } else {
+      let qr_code_url = format!("/invoice/{}.svg", hex::encode(invoice.payment_hash));
+      let filename = request_tail;
+      Ok(html::wrap_body(
+        &format!("Invoice for {}", filename),
+        html! {
+          div class="invoice" {
+            div class="label" {
+              "Lightning Payment Request for " (value) " to access "
               span class="filename" {
                   (filename)
               }
+
               ":"
-              ol {
-                li {
-                  "Pay the invoice for " (value) " above "
-                  "with your Lightning Network wallet by "
-                  "scanning the QR code, "
-                  "copying the payment request string, or "
-                  "clicking the \"Open invoice in wallet\" link."
-                }
-                li {
-                  "Click the \"Access file\" link or reload the page."
-                }
+            }
+            div class="payment-request"{
+              button class="clipboard-copy" onclick=(
+                format!("navigator.clipboard.writeText(\"{}\")", invoice.payment_request)
+              ) {
+                (Files::icon("clipboard"))
+              }
+              (invoice.payment_request)
+            }
+
+            div class="links" {
+              a class="payment-link" href={"lightning:" (invoice.payment_request)} {
+                "Open invoice in wallet"
+              }
+              a class="reload-link" href=(request.uri()) {
+                "Access file"
               }
             }
-          },
-        ))
-      }
+            img
+              class="qr-code"
+              alt="Lightning Network Invoice QR Code"
+              src=(qr_code_url)
+              width="400"
+              height="400";
+          }
+          div class="instructions" {
+            "To access "
+            span class="filename" {
+                (filename)
+            }
+            ":"
+            ol {
+              li {
+                "Pay the invoice for " (value) " above "
+                "with your Lightning Network wallet by "
+                "scanning the QR code, "
+                "copying the payment request string, or "
+                "clicking the \"Open invoice in wallet\" link."
+              }
+              li {
+                "Click the \"Access file\" link or reload the page."
+              }
+            }
+          }
+        },
+      ))
     }
   }
 
@@ -289,13 +287,13 @@ impl Files {
   ) -> Result<Response<Body>> {
     use qrcodegen::{QrCode, QrCodeEcc};
 
-    let lnd_client = self.lnd_client.as_mut().ok_or_else(|| {
+    let lightning_client = self.lightning_client.as_mut().ok_or_else(|| {
       error::LndNotConfiguredInvoiceRequest {
         uri_path: request.uri().path().to_owned(),
       }
       .build()
     })?;
-    let invoice = lnd_client
+    let invoice = lightning_client
       .lookup_invoice(r_hash)
       .await
       .context(error::LndRpcStatus)?

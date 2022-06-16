@@ -10,11 +10,14 @@ impl RequestHandler {
   pub(crate) fn new(
     environment: &Environment,
     base_directory: &Path,
-    lnd_client: Option<agora_lnd_client::Client>,
+    lightning_client: Option<Box<dyn agora_lnd_client::LightningNodeClient>>,
   ) -> Self {
     Self {
       stderr: environment.stderr.clone(),
-      files: Files::new(InputPath::new(environment, base_directory), lnd_client),
+      files: Files::new(
+        InputPath::new(environment, base_directory),
+        lightning_client,
+      ),
     }
   }
 

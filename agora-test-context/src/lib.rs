@@ -194,13 +194,15 @@ impl Builder {
       .trim_end_matches('`')
       .split(':')
       .last()
-      .expect(&format!(
-        "first line to stderr does not contain `:` and port: {}",
-        first_line
-      ));
+      .unwrap_or_else(|| {
+        panic!(
+          "first line to stderr does not contain `:` and port: {}",
+          first_line
+        )
+      });
     let port: u16 = port_string
       .parse()
-      .expect(&format!("port should be an integer: {}", port_string));
+      .unwrap_or_else(|_| panic!("port should be an integer: {}", port_string));
 
     let base_url = Url::parse(&format!("http://localhost:{}", port)).unwrap();
 

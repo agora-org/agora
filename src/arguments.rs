@@ -63,6 +63,12 @@ pub(crate) struct Arguments {
     requires = "lnd-rpc-authority"
   )]
   pub(crate) lnd_rpc_macaroon_path: Option<PathBuf>,
+  #[structopt(
+    long,
+    help = "Connect to core-lightning using the RPC file path <core-lightning-rpc-file-path>. By default core-lightning writes its RPC file to to `~/.lightning/lightning-rpc`.",
+    requires = "core-lightning-rpc-file-path"
+  )]
+  pub(crate) core_lightning_rpc_file_path: Option<PathBuf>,
 }
 
 #[cfg(test)]

@@ -79,7 +79,7 @@ docker run \
   agora:latest
 ```
 
-To run `agora` with a Lightning instance connected (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `~/.lnd`).
+To run `agora` with a `LND` node (assuming that LND RPC is running on `localhost` and port `10009` and the data dir is located in `~/.lnd`).
 ```bash
 docker run \
   --network="host" \
@@ -90,6 +90,18 @@ docker run \
   -e INVOICES_MACAROON_PATH=/.lnd/data/chain/bitcoin/testnet/invoice.macaroon \
   -v ~/my-files:/files \
   -v ~/.lnd:/.lnd \
+  agora:latest
+```
+
+To run `agora` with a `core-lightning` node connected (assuming that the core-lightning RPC file is located at `~/.lightning/lightning-rpc`).
+```bash
+docker run \
+  --network="host" \
+  -e FILES_DIR=/files \
+  -e AGORA_PORT=8080 \
+  -e CORE_LIGHTNING_RPC_PATH=/.lightning/lightning-rpc \
+  -v ~/my-files:/files \
+  -v ~/.lightning:/.lightning \
   agora:latest
 ```
 

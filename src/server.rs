@@ -30,13 +30,13 @@ impl Server {
           .acme_cache_directory
           .as_ref()
           .expect("<https-port> requires <acme-cache-directory>");
-        let lnd_client = Self::setup_lnd_client(environment, &arguments).await?;
+        let lightning_client = Self::setup_lightning_node_client(environment, &arguments).await?;
         let https_request_handler = HttpsRequestHandler::new(
           environment,
           &arguments,
           acme_cache_directory,
           https_port,
-          lnd_client,
+          lightning_client,
         )
         .await?;
         let https_redirect_server =
@@ -60,7 +60,7 @@ impl Server {
     arguments: &Arguments,
     http_port: u16,
   ) -> Result<hyper::Server<AddrIncoming, Shared<RequestHandler>>> {
-    let lnd_client = Self::setup_lnd_client(environment, arguments).await?;
+    let lightning_client = Self::setup_lightning_node_client(environment, arguments).await?;
 
     let socket_addr = (arguments.address.as_str(), http_port)
       .to_socket_addrs()
@@ -76,7 +76,7 @@ impl Server {
       })?;
 
     let request_handler = hyper::Server::bind(&socket_addr).serve(Shared::new(
-      RequestHandler::new(environment, &arguments.directory, lnd_client),
+      RequestHandler::new(environment, &arguments.directory, lightning_client),
     ));
 
     writeln!(
@@ -88,59 +88,100 @@ impl Server {
     Ok(request_handler)
   }
 
-  async fn setup_lnd_client(
+  async fn setup_lightning_node_client(
     environment: &mut Environment,
     arguments: &Arguments,
-  ) -> Result<Option<agora_lnd_client::Client>> {
-    match &arguments.lnd_rpc_authority {
-      Some(lnd_rpc_authority) => {
-        let lnd_rpc_cert = match &arguments.lnd_rpc_cert_path {
-          Some(path) => {
-            let pem = tokio::fs::read_to_string(&path)
-              .await
-              .context(error::FilesystemIo { path })?;
-            Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
-          }
-          None => None,
-        };
-
-        let lnd_rpc_macaroon = match &arguments.lnd_rpc_macaroon_path {
-          Some(path) => Some(
-            tokio::fs::read(&path)
-              .await
-              .context(error::FilesystemIo { path })?,
-          ),
-          None => None,
-        };
-
-        let mut client =
-          agora_lnd_client::Client::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
-            .await
-            .context(error::LndRpcConnect)?;
-
-        match client.ping().await.context(error::LndRpcStatus) {
-          Err(error) => {
-            writeln!(
-              environment.stderr,
-              "warning: Cannot connect to LND gRPC server at `{}`: {}",
-              lnd_rpc_authority, error,
-            )
-            .context(error::StderrWrite)?;
-          }
-          Ok(()) => {
-            writeln!(
-              environment.stderr,
-              "Connected to LND RPC server at {}",
-              lnd_rpc_authority
-            )
-            .context(error::StderrWrite)?;
-          }
+  ) -> Result<Option<Box<dyn agora_lnd_client::LightningNodeClient>>> {
+    if let Some(lnd_rpc_authority) = &arguments.lnd_rpc_authority {
+      let client = Self::setup_lnd_client(
+        lnd_rpc_authority.clone(),
+        &arguments.lnd_rpc_cert_path,
+        &arguments.lnd_rpc_macaroon_path,
+      )
+      .await?;
+      match client.ping().await.context(error::LndRpcStatus) {
+        Err(error) => {
+          writeln!(
+            environment.stderr,
+            "warning: Cannot connect to LND gRPC server at `{}`: {}",
+            lnd_rpc_authority, error,
+          )
+          .context(error::StderrWrite)?;
         }
-
-        Ok(Some(client))
+        Ok(()) => {
+          writeln!(
+            environment.stderr,
+            "Connected to LND RPC server at {}",
+            lnd_rpc_authority
+          )
+          .context(error::StderrWrite)?;
+        }
       }
-      None => Ok(None),
+      Ok(Some(client))
+    } else if let Some(core_lightning_rpc_file_path) = &arguments.core_lightning_rpc_file_path {
+      let client = Self::setup_core_lightning_client(core_lightning_rpc_file_path.clone()).await?;
+      match client.ping().await.context(error::LndRpcStatus) {
+        Err(error) => {
+          writeln!(
+            environment.stderr,
+            "warning: Cannot connect to core-lightning server: {}",
+            error,
+          )
+          .context(error::StderrWrite)?;
+        }
+        Ok(()) => {
+          writeln!(environment.stderr, "Connected to core-lightning serve",)
+            .context(error::StderrWrite)?;
+        }
+      }
+      Ok(Some(client))
+    } else {
+      Ok(None)
     }
+  }
+
+  async fn setup_lnd_client(
+    lnd_rpc_authority: Authority,
+    lnd_rpc_cert_path: &Option<PathBuf>,
+    lnd_rpc_macaroon_path: &Option<PathBuf>,
+  ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
+    let lnd_rpc_cert = match &lnd_rpc_cert_path {
+      Some(path) => {
+        let pem = tokio::fs::read_to_string(&path)
+          .await
+          .context(error::FilesystemIo { path })?;
+        Some(X509::from_pem(pem.as_bytes()).context(error::LndRpcCertificateParse)?)
+      }
+      None => None,
+    };
+
+    let lnd_rpc_macaroon = match &lnd_rpc_macaroon_path {
+      Some(path) => Some(
+        tokio::fs::read(&path)
+          .await
+          .context(error::FilesystemIo { path })?,
+      ),
+      None => None,
+    };
+
+    let client =
+      agora_lnd_client::LndClient::new(lnd_rpc_authority.clone(), lnd_rpc_cert, lnd_rpc_macaroon)
+        .await
+        .context(error::LndRpcConnect)?;
+
+    Ok(Box::new(client))
+  }
+
+  async fn setup_core_lightning_client(
+    core_lightning_rpc_file_path: PathBuf,
+  ) -> Result<Box<dyn agora_lnd_client::LightningNodeClient>> {
+    let my_str = core_lightning_rpc_file_path
+      .into_os_string()
+      .into_string()
+      .unwrap();
+    let client = agora_lnd_client::CoreLightningClient::new(my_str).await;
+
+    Ok(Box::new(client))
   }
 
   pub(crate) async fn run(self) -> Result<()> {

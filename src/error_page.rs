@@ -8,7 +8,7 @@ pub(crate) fn map_error(
     error.print_backtrace(&mut stderr);
     writeln!(stderr, "{}", error).ok();
     let mut response = html::wrap_body(
-      &error.status().canonical_reason().unwrap_or("Error"),
+      error.status().canonical_reason().unwrap_or("Error"),
       html! {
         h1 {
           (error.status())
