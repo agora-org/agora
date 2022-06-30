@@ -965,3 +965,37 @@ fn errors_printed_in_red_and_bold() {
 
   assert_contains(stderr, "\u{1b}[31merror\u{1b}[0m\u{1b}[1m: ");
 }
+
+#[test]
+fn serves_https_requests_with_cert_from_cache_directory() {
+  let context = AgoraTestContext::builder().https(true).build();
+
+  context.write("file", "encrypted content");
+
+  let client = context.client();
+}
+
+#[test]
+fn serves_https_requests_with_cert_from_cache_directory() {
+  let (certificate_cache, root_certificate) = set_up_test_certificate();
+
+  test_with_arguments(
+    &[
+      "--acme-cache-directory",
+      certificate_cache.path().to_str().unwrap(),
+      "--https-port=0",
+      "--acme-domain=localhost",
+    ],
+    |context| async move {
+      context.write("file", "encrypted content");
+      let client = https_client(&context, root_certificate).await;
+      let response = client
+        .get(context.https_files_url().join("file").unwrap())
+        .send()
+        .await
+        .unwrap();
+      let body = response.text().await.unwrap();
+      assert_eq!(body, "encrypted content");
+    },
+  );
+}
